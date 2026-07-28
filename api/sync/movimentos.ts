@@ -8,8 +8,12 @@ import { upsertMovimentos, logStart, logFinish, setMetadata } from '../../lib/su
 export const config = { maxDuration: 60 };
 
 // Quantas páginas processar por chamada. Cada página tem até 500 registros.
-// Ajustado conservadoramente: 10 páginas ≈ 30s (baixa + upsert)
-const PAGINAS_POR_CHAMADA = 10;
+// Otimizado para caber em 60s da Vercel Hobby:
+//   Enricher paralelo:       ~5s
+//   Baixa 3 páginas do Omie: ~9s
+//   Transformer + upsert:    ~10s
+//   Total: ~24s (bem folgado)
+const PAGINAS_POR_CHAMADA = 3;
 
 function requireEnv(name: string): string {
   const v = process.env[name];
@@ -17,12 +21,17 @@ function requireEnv(name: string): string {
   return v;
 }
 
+/**
+ * Carrega o Enricher em PARALELO das 4 tabelas de cadastro.
+ * Ganho: ~15s → ~5s.
+ */
 async function carregarEnricher(): Promise<Enricher> {
   const sb = getSupabase();
-  const enr = new Enricher();
-  const carregar = async <T extends { codigo: string }>(
-    tabela: string, mapFn: (r: any) => T, destino: Map<string, T>
-  ) => {
+
+  async function carregarTabela<T>(
+    tabela: string,
+    mapFn: (r: any) => T
+  ): Promise<Array<{ codigo: string; item: T }>> {
     const linhas: any[] = [];
     const PAGE = 1000;
     let offset = 0;
@@ -34,27 +43,33 @@ async function carregarEnricher(): Promise<Enricher> {
       if (data.length < PAGE) break;
       offset += PAGE;
     }
-    for (const l of linhas) {
-      const item = mapFn(l);
-      if (item.codigo) destino.set(item.codigo, item);
-    }
-  };
-  await carregar('cadastro_contas_correntes', (r): ContaCorrente => ({
-    codigo: r.codigo, descricao: r.descricao, tipo: r.tipo,
-    saldoInicial: Number(r.saldo_inicial || 0), codigoBanco: r.codigo_banco, ativo: r.ativo,
-  }), enr.contas);
-  await carregar('cadastro_categorias', (r): Categoria => ({
-    codigo: r.codigo, descricao: r.descricao, tipoCategoria: r.tipo_categoria,
-    natureza: r.natureza, contaDre: r.conta_dre, ativo: r.ativo,
-  }), enr.categorias);
-  await carregar('cadastro_clientes', (r): Cliente => ({
-    codigo: r.codigo, nomeFantasia: r.nome_fantasia, razaoSocial: r.razao_social,
-    cnpjCpf: r.cnpj_cpf, email: r.email, telefone: r.telefone,
-    ehCliente: r.eh_cliente, ehFornecedor: r.eh_fornecedor, ativo: r.ativo,
-  }), enr.clientes);
-  await carregar('cadastro_departamentos', (r): Departamento => ({
-    codigo: r.codigo, descricao: r.descricao, ativo: r.ativo,
-  }), enr.departamentos);
+    return linhas.map((l) => ({ codigo: String((mapFn(l) as any).codigo), item: mapFn(l) }));
+  }
+
+  const [contas, categorias, clientes, departamentos] = await Promise.all([
+    carregarTabela<ContaCorrente>('cadastro_contas_correntes', (r) => ({
+      codigo: r.codigo, descricao: r.descricao, tipo: r.tipo,
+      saldoInicial: Number(r.saldo_inicial || 0), codigoBanco: r.codigo_banco, ativo: r.ativo,
+    })),
+    carregarTabela<Categoria>('cadastro_categorias', (r) => ({
+      codigo: r.codigo, descricao: r.descricao, tipoCategoria: r.tipo_categoria,
+      natureza: r.natureza, contaDre: r.conta_dre, ativo: r.ativo,
+    })),
+    carregarTabela<Cliente>('cadastro_clientes', (r) => ({
+      codigo: r.codigo, nomeFantasia: r.nome_fantasia, razaoSocial: r.razao_social,
+      cnpjCpf: r.cnpj_cpf, email: r.email, telefone: r.telefone,
+      ehCliente: r.eh_cliente, ehFornecedor: r.eh_fornecedor, ativo: r.ativo,
+    })),
+    carregarTabela<Departamento>('cadastro_departamentos', (r) => ({
+      codigo: r.codigo, descricao: r.descricao, ativo: r.ativo,
+    })),
+  ]);
+
+  const enr = new Enricher();
+  for (const { codigo, item } of contas) if (codigo) enr.contas.set(codigo, item);
+  for (const { codigo, item } of categorias) if (codigo) enr.categorias.set(codigo, item);
+  for (const { codigo, item } of clientes) if (codigo) enr.clientes.set(codigo, item);
+  for (const { codigo, item } of departamentos) if (codigo) enr.departamentos.set(codigo, item);
   return enr;
 }
 
@@ -70,14 +85,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const cli = new OmieClient(requireEnv('OMIE_APP_KEY'), requireEnv('OMIE_APP_SECRET'));
-    const enricher = await carregarEnricher();
 
-    const { registros: brutos, totalPaginas, paginaFinal } = await cli.listarRange(
-      ENDPOINTS.movimentos,
-      paginaInicio,
-      paginaFim
-    );
+    // Enricher e download em paralelo — economiza ~15s
+    const [enricher, resultRange] = await Promise.all([
+      carregarEnricher(),
+      cli.listarRange(ENDPOINTS.movimentos, paginaInicio, paginaFim),
+    ]);
 
+    const { registros: brutos, totalPaginas, paginaFinal } = resultRange;
     const movimentos = brutos.map((b) => transformarMovimento(b, enricher));
     const n = await upsertMovimentos(movimentos);
 
