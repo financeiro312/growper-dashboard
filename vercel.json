@@ -4,6 +4,10 @@
   "outputDirectory": "public",
   "functions": {
     "api/sync/full.ts": { "maxDuration": 60 },
-    "api/sync/incremental.ts": { "maxDuration": 60 }
+    "api/sync/incremental.ts": { "maxDuration": 60 },
+    "api/sync/cadastros.ts": { "maxDuration": 60 },
+    "api/sync/movimentos.ts": { "maxDuration": 60 },
+    "api/sync/titulos-pagar.ts": { "maxDuration": 60 },
+    "api/sync/titulos-receber.ts": { "maxDuration": 60 }
   }
 }
