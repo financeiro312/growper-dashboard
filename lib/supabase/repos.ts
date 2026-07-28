@@ -129,8 +129,15 @@ export async function upsertMovimentos(itens: Lancamento[]): Promise<number> {
       observacao: m.observacao,
       atualizado_em: new Date().toISOString(),
     }));
-  await upsertBatch(sb, 'movimentos_financeiros', linhas, 'id_movimento');
-  return linhas.length;
+
+  // Deduplica dentro do lote: se vier a mesma PK 2x, mantém a última.
+  // Postgres não aceita ON CONFLICT com PKs duplicadas no mesmo comando.
+  const unicas = new Map<string, any>();
+  for (const l of linhas) unicas.set(l.id_movimento, l);
+  const linhasUnicas = Array.from(unicas.values());
+
+  await upsertBatch(sb, 'movimentos_financeiros', linhasUnicas, 'id_movimento');
+  return linhasUnicas.length;
 }
 
 // ============================================================================
@@ -168,8 +175,14 @@ export async function upsertTitulos(itens: Lancamento[]): Promise<number> {
       data_alteracao_omie: t.dataAlteracaoOmie,
       atualizado_em: new Date().toISOString(),
     }));
-  await upsertBatch(sb, 'titulos', linhas, 'id_titulo');
-  return linhas.length;
+
+  // Deduplica dentro do lote (safety net contra PKs duplicadas do Omie)
+  const unicas = new Map<string, any>();
+  for (const l of linhas) unicas.set(l.id_titulo, l);
+  const linhasUnicas = Array.from(unicas.values());
+
+  await upsertBatch(sb, 'titulos', linhasUnicas, 'id_titulo');
+  return linhasUnicas.length;
 }
 
 // ============================================================================
