@@ -5860,8 +5860,8 @@ async function omieBootstrap() {
     });
 
     // Chamar hooks do dashboard já existente pra re-renderizar
-    try { if (typeof mergePrepop === 'function') mergePrepop(); }
-    catch (e) { console.warn('mergePrepop:', e); }
+    try { if (typeof loadRecebiveis === 'function') loadRecebiveis(); }
+    catch (e) { console.warn('loadRecebiveis:', e); }
     try { if (typeof refreshCurrent === 'function') refreshCurrent(); }
     catch (e) { console.warn('refreshCurrent:', e); }
     try {
