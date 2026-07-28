@@ -190,10 +190,27 @@ export function transformarMovimento(bruto: any, enricher: Enricher): Lancamento
     String(getFirst(d, 'cStatus', 'status') ?? '')
   );
 
+  // ID do movimento: precisa ser único por lançamento.
+  // Preferência: nCodTitRepet (único por parcela/repetição). Fallback: composta.
+  const nCodTit = String(getFirst(d, 'nCodTitulo', 'codigo') ?? '');
+  const nCodRepet = String(getFirst(d, 'nCodTitRepet') ?? '');
+  const numParc = String(getFirst(d, 'cNumParcela') ?? '');
+  const dtPag = String(getFirst(d, 'dDtPagamento', 'data_pagamento') ?? '');
+  let idMov: string;
+  if (nCodRepet && nCodRepet !== nCodTit) {
+    idMov = `${nCodTit}_${nCodRepet}`;
+  } else if (numParc) {
+    idMov = `${nCodTit}_${numParc.replace('/', 'de')}`;
+  } else if (dtPag) {
+    idMov = `${nCodTit}_${dtPag.replace(/\//g, '')}`;
+  } else {
+    idMov = nCodTit;
+  }
+
   return {
-    idMovimento: String(getFirst(d, 'nCodTitulo', 'codigo') ?? ''),
+    idMovimento: idMov,
     idTitulo: String(
-      getFirst(d, 'nCodTitReceber', 'nCodTitPagar', 'codigo_lancamento_omie') ?? ''
+      getFirst(d, 'nCodTitReceber', 'nCodTitPagar', 'codigo_lancamento_omie') ?? nCodTit
     ),
     origem: 'MF',
     tipo,
