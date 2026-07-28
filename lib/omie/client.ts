@@ -211,6 +211,59 @@ export class OmieClient {
     }
     return resultado;
   }
+
+  /**
+   * Listagem paginada com controle de intervalo de páginas.
+   * Usado quando o processamento total não cabe no timeout (Vercel Hobby = 60s).
+   *
+   * Retorna:
+   *   - registros: array com dados das páginas processadas
+   *   - totalPaginas: total de páginas disponível no endpoint
+   *   - paginaFinal: última página que foi processada
+   */
+  async listarRange(
+    endpoint: OmieEndpoint,
+    paginaInicio: number,
+    paginaFim: number,
+    paramsExtra: Record<string, unknown> = {}
+  ): Promise<{ registros: any[]; totalPaginas: number; paginaFinal: number }> {
+    const registros: any[] = [];
+    let totalPaginas = 1;
+    const paramsBase = { ...endpoint.paramsBase, ...paramsExtra };
+    let pagina = paginaInicio;
+
+    while (pagina <= paginaFim) {
+      const params = {
+        ...paramsBase,
+        [endpoint.campoPagina]: pagina,
+        [endpoint.campoRegistrosPorPagina]: REG_POR_PAGINA,
+      };
+
+      const resposta = await this.call(endpoint, params);
+
+      const t = resposta?.[endpoint.campoTotalPaginas];
+      if (typeof t === 'number' && t > 0) totalPaginas = t;
+
+      const lista = resposta?.[endpoint.campoListaResposta];
+      if (Array.isArray(lista)) {
+        for (const registro of lista) {
+          registros.push(registro);
+        }
+      }
+
+      // Se ultrapassou o total, para
+      if (pagina >= totalPaginas) {
+        return { registros, totalPaginas, paginaFinal: pagina };
+      }
+
+      pagina += 1;
+      if (pagina <= paginaFim && pagina <= totalPaginas) {
+        await sleep(PAUSA_ENTRE_CHAMADAS_MS);
+      }
+    }
+
+    return { registros, totalPaginas, paginaFinal: paginaFim };
+  }
 }
 
 function sleep(ms: number): Promise<void> {
