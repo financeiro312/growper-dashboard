@@ -4962,7 +4962,9 @@ document.addEventListener('click', e => {
   }
 });
 
-window.addEventListener('DOMContentLoaded', renderMain);
+// NOTA: renderMain() é disparado pelo omieBootstrap (via refreshCurrent) após
+// os dados chegarem da API. Não renderizamos aqui pra evitar renderização
+// inicial com arrays vazios.
 
 // =====================================================================================
 // SELEÇÃO DE EMPRESA — Tela inicial (sem refatoração da lógica financeira)
