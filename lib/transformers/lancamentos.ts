@@ -279,6 +279,17 @@ export function transformarContaPagar(bruto: any, enricher: Enricher): Lancament
     String(getFirst(bruto, 'status_titulo') ?? '')
   );
 
+  // IMPORTANTE — Regra do dashboard, alinhada com a Omie:
+  // - Em Contas a Pagar a "Data de Registro" que o dashboard antigo usava
+  //   corresponde ao campo `data_entrada` da API (ListarContasPagar NÃO
+  //   devolve o nome `data_registro`; o equivalente é `data_entrada`).
+  // - As datas e valores de pagamento (baixa) NÃO vêm nesse endpoint.
+  //   O Caixa é montado a partir de movimentos_financeiros, portanto aqui
+  //   deixamos dataPagto=null e valorPago=0 — isso é intencional.
+  const dataRegistro = parseDataOmie(
+    getFirst(bruto, 'data_entrada', 'data_registro')
+  );
+
   return {
     idMovimento: '',
     idTitulo: String(getFirst(bruto, 'codigo_lancamento_omie', 'codigo') ?? ''),
@@ -287,11 +298,11 @@ export function transformarContaPagar(bruto: any, enricher: Enricher): Lancament
     status,
     cancelado,
     dataPagto: null,
-    dataRegistro: parseDataOmie(getFirst(bruto, 'data_registro')),
+    dataRegistro,
     dataPrevisao: parseDataOmie(getFirst(bruto, 'data_previsao')),
     dataVencimento: parseDataOmie(getFirst(bruto, 'data_vencimento')),
     valorDocumento: parseDecimal(getFirst(bruto, 'valor_documento', 'nValor')),
-    valorPago: parseDecimal(getFirst(bruto, 'valor_pago') ?? 0),
+    valorPago: 0,
     contaCodigo: contaCod,
     contaNome: enricher.nomeConta(contaCod),
     categoriaCodigo: catNorm,
@@ -342,6 +353,13 @@ export function transformarContaReceber(bruto: any, enricher: Enricher): Lancame
     String(getFirst(bruto, 'status_titulo') ?? '')
   );
 
+  // IMPORTANTE — Regra do dashboard, alinhada com a Omie:
+  // - Em Contas a Receber a "Data de Registro" corresponde ao campo
+  //   `data_registro` (o mesmo nome usado no dashboard antigo).
+  // - As datas e valores de recebimento (baixa) NÃO vêm nesse endpoint.
+  //   O Caixa é montado a partir de movimentos_financeiros, portanto aqui
+  //   deixamos dataPagto=null e valorPago=0 — isso é intencional.
+
   return {
     idMovimento: '',
     idTitulo: String(getFirst(bruto, 'codigo_lancamento_omie', 'codigo') ?? ''),
@@ -354,7 +372,7 @@ export function transformarContaReceber(bruto: any, enricher: Enricher): Lancame
     dataPrevisao: parseDataOmie(getFirst(bruto, 'data_previsao')),
     dataVencimento: parseDataOmie(getFirst(bruto, 'data_vencimento')),
     valorDocumento: parseDecimal(getFirst(bruto, 'valor_documento', 'nValor')),
-    valorPago: parseDecimal(getFirst(bruto, 'valor_pago') ?? 0),
+    valorPago: 0,
     contaCodigo: contaCod,
     contaNome: enricher.nomeConta(contaCod),
     categoriaCodigo: catNorm,
