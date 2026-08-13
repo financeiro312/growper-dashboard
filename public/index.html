@@ -5918,10 +5918,18 @@ if (document.readyState === 'loading') {
 
   // Escolhe qual array usar baseado na seção/view
   function _getDataForSection(section) {
-    if (section === 'main' || section === 'card' || section === 'recebiveis') {
+    // Menu Principal → respeita botão Caixa/Competência
+    if (section === 'main') {
+      if (typeof currentView !== 'undefined' && currentView === 'competencia') {
+        return { data: RAW_DATA_COMP, mesKey: 'mesRegistro', valKey: 'valorPago' };
+      }
       return { data: RAW_DATA_CAIXA, mesKey: 'mesPagto', valKey: 'valorPago' };
     }
-    // dre, margem, pjs, ticket → competência
+    // Cartão de Crédito e Recebíveis → sempre caixa (é o que faz sentido)
+    if (section === 'card' || section === 'recebiveis') {
+      return { data: RAW_DATA_CAIXA, mesKey: 'mesPagto', valKey: 'valorPago' };
+    }
+    // DRE, Margem, Ticket, PJs → sempre competência
     return { data: RAW_DATA_COMP, mesKey: 'mesRegistro', valKey: 'valorPago' };
   }
 
