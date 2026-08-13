@@ -5895,5 +5895,454 @@ if (document.readyState === 'loading') {
 }
 </script>
 
+
+<script>
+// =====================================================================================
+// OVERRIDE — Renderers dinâmicos que trabalham direto com os dados da Omie
+// Objetivo: fazer os números aparecerem AGORA, sem depender da STRUCTURE hardcoded.
+// Categorias e departamentos aparecem exatamente como estão no cadastro Omie.
+// =====================================================================================
+
+(function() {
+  // Helpers locais
+  function _fmt(v) {
+    if (!v || v === 0) return '—';
+    return 'R$ ' + Math.abs(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+  }
+  function _fmtSigned(v) {
+    if (!v || v === 0) return '—';
+    const s = 'R$ ' + Math.abs(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+    return v >= 0 ? s : '- ' + s;
+  }
+  function _cls(v) { if (!v || v === 0) return 'value-zero'; return v > 0 ? 'value-pos' : 'value-neg'; }
+
+  // Escolhe qual array usar baseado na seção/view
+  function _getDataForSection(section) {
+    if (section === 'main' || section === 'card' || section === 'recebiveis') {
+      return { data: RAW_DATA_CAIXA, mesKey: 'mesPagto', valKey: 'valorPago' };
+    }
+    // dre, margem, pjs, ticket → competência
+    return { data: RAW_DATA_COMP, mesKey: 'mesRegistro', valKey: 'valorPago' };
+  }
+
+  function _applyFilters(rows) {
+    return rows.filter(r => {
+      if (typeof currentConta !== 'undefined' && currentConta !== 'all' && r.conta !== currentConta) return false;
+      if (typeof currentConciliado !== 'undefined' && currentConciliado !== 'all' && r.conciliado !== currentConciliado) return false;
+      return true;
+    });
+  }
+
+  // =====================================================================================
+  // Menu Principal — agrupa por categoria (receitas vs despesas)
+  // =====================================================================================
+  window.renderMain = function() {
+    const { data, mesKey, valKey } = _getDataForSection('main');
+    const rows = _applyFilters(data);
+
+    const receitas = new Map();  // categoria -> { byMonth: {}, total: 0 }
+    const despesas = new Map();
+    const totRecMes = {}; MONTHS.forEach(m => totRecMes[m] = 0);
+    const totDespMes = {}; MONTHS.forEach(m => totDespMes[m] = 0);
+
+    rows.forEach(r => {
+      const mes = r[mesKey];
+      if (!MONTHS.includes(mes)) return;
+      const val = Math.abs(r[valKey] || 0);
+      if (val === 0) return;
+      const cat = r.categoria || '(sem categoria)';
+
+      if (r.tipo === '1. Contas a Receber') {
+        if (!receitas.has(cat)) receitas.set(cat, { byMonth: {}, total: 0 });
+        const g = receitas.get(cat);
+        g.byMonth[mes] = (g.byMonth[mes] || 0) + val;
+        g.total += val;
+        totRecMes[mes] += val;
+      } else if (r.tipo === '2. Contas a Pagar') {
+        if (!despesas.has(cat)) despesas.set(cat, { byMonth: {}, total: 0 });
+        const g = despesas.get(cat);
+        g.byMonth[mes] = (g.byMonth[mes] || 0) + val;
+        g.total += val;
+        totDespMes[mes] += val;
+      }
+    });
+
+    // Construir HTML
+    const thead = document.getElementById('tableHead');
+    let theadHtml = '<tr><th style="text-align:left;padding:10px 14px">Descrição</th>';
+    MONTH_LABELS.forEach(m => theadHtml += `<th style="text-align:right;padding:10px 8px">${m.toUpperCase()}</th>`);
+    theadHtml += '<th style="text-align:right;padding:10px 12px">Total</th></tr>';
+    thead.innerHTML = theadHtml;
+
+    let html = '';
+
+    function renderGrupo(titulo, mapa, isReceita, totalMes) {
+      const cls = isReceita ? 'value-pos' : 'value-neg';
+      const bg = isReceita ? '#f0fdf4' : '#fef2f2';
+      const color = isReceita ? '#166534' : '#991b1b';
+
+      html += `<tr class="section-header" style="background:${bg}"><td style="font-weight:800;color:${color};padding:12px 14px">${titulo}</td>${MONTHS.map(()=>'<td></td>').join('')}<td></td></tr>`;
+
+      const entries = Array.from(mapa.entries()).sort((a,b) => b[1].total - a[1].total);
+      entries.forEach(([cat, g]) => {
+        let cells = `<td style="padding:8px 14px;padding-left:28px;font-size:12.5px">${cat}</td>`;
+        MONTHS.forEach(m => {
+          const v = g.byMonth[m] || 0;
+          cells += `<td style="text-align:right;padding:8px;font-size:11.5px" class="${v === 0 ? 'value-zero' : cls}">${v === 0 ? '—' : _fmt(v)}</td>`;
+        });
+        cells += `<td style="text-align:right;padding:8px 12px;font-weight:700" class="${cls}">${_fmt(g.total)}</td>`;
+        html += `<tr class="cat-row">${cells}</tr>`;
+      });
+
+      // Total do grupo
+      let totCells = `<td style="padding:10px 14px;padding-left:28px;font-weight:800;color:${color}">TOTAL ${titulo}</td>`;
+      let totGeral = 0;
+      MONTHS.forEach(m => {
+        const v = totalMes[m] || 0;
+        totGeral += v;
+        totCells += `<td style="text-align:right;padding:10px 8px;font-weight:800;color:${color}">${v === 0 ? '—' : _fmt(v)}</td>`;
+      });
+      totCells += `<td style="text-align:right;padding:10px 12px;font-weight:800;color:${color}">${_fmt(totGeral)}</td>`;
+      html += `<tr class="total-row" style="background:${bg}">${totCells}</tr>`;
+      html += `<tr class="spacer"><td colspan="${MONTHS.length + 2}" style="height:8px"></td></tr>`;
+    }
+
+    if (receitas.size > 0) renderGrupo('📥 RECEITAS', receitas, true, totRecMes);
+    if (despesas.size > 0) renderGrupo('📤 DESPESAS', despesas, false, totDespMes);
+
+    // Resultado
+    let rcells = '<td style="padding:14px;font-weight:800;font-size:14px;color:#0f172a">💰 RESULTADO</td>';
+    let totalResult = 0;
+    MONTHS.forEach(m => {
+      const v = (totRecMes[m] || 0) - (totDespMes[m] || 0);
+      totalResult += v;
+      rcells += `<td style="text-align:right;padding:14px 8px;font-weight:800" class="${_cls(v)}">${v === 0 ? '—' : _fmtSigned(v)}</td>`;
+    });
+    rcells += `<td style="text-align:right;padding:14px 12px;font-weight:800;font-size:14px" class="${_cls(totalResult)}">${_fmtSigned(totalResult)}</td>`;
+    html += `<tr class="result-row" style="background:#eff6ff;border-top:2px solid #1e40af;border-bottom:2px solid #1e40af">${rcells}</tr>`;
+
+    document.getElementById('tableBody').innerHTML = html;
+
+    // Summary
+    const totalRec = MONTHS.reduce((a,m) => a + (totRecMes[m] || 0), 0);
+    const totalDesp = MONTHS.reduce((a,m) => a + (totDespMes[m] || 0), 0);
+    const margem = totalRec > 0 ? ((totalRec - totalDesp) / totalRec * 100).toFixed(1) : 0;
+
+    let summaryHtml = '';
+    summaryHtml += `<div class="summary-item"><div class="summary-label">Receitas</div><div class="summary-value" style="color:var(--primary)">${_fmt(totalRec)}</div><div class="summary-sub">${currentYear}</div></div>`;
+    summaryHtml += `<div class="summary-item"><div class="summary-label">Despesas</div><div class="summary-value" style="color:var(--secondary)">${_fmt(totalDesp)}</div><div class="summary-sub">${currentYear}</div></div>`;
+    summaryHtml += `<div class="summary-item"><div class="summary-label">Resultado</div><div class="summary-value" style="color:${totalResult >= 0 ? 'var(--primary)' : 'var(--secondary)'}">${_fmtSigned(totalResult)}</div><div class="summary-sub">Margem: ${margem}%</div></div>`;
+    const sc = document.getElementById('summaryContainer');
+    if (sc) sc.innerHTML = summaryHtml;
+
+    // Remover barra de projetado (não faz sentido nessa versão simplificada)
+    const eb = document.getElementById('projetadoBar');
+    if (eb) eb.remove();
+  };
+
+  // =====================================================================================
+  // DRE — Receita total, despesa total, resultado por competência
+  // =====================================================================================
+  window.renderDRE = function() {
+    const rows = _applyFilters(RAW_DATA_COMP);
+    const recMes = {}; const despMes = {};
+    MONTHS.forEach(m => { recMes[m] = 0; despMes[m] = 0; });
+    rows.forEach(r => {
+      const mes = r.mesRegistro;
+      if (!MONTHS.includes(mes)) return;
+      const val = Math.abs(r.valorPago || 0);
+      if (r.tipo === '1. Contas a Receber') recMes[mes] += val;
+      else if (r.tipo === '2. Contas a Pagar') despMes[mes] += val;
+    });
+
+    let html = '<div class="table-container"><table>';
+    html += '<thead><tr><th>Item</th>' + MONTH_LABELS.map(m => `<th style="text-align:right">${m}</th>`).join('') + '<th style="text-align:right">Total</th></tr></thead><tbody>';
+
+    function addRow(label, byMonth, cls, isTotal) {
+      const style = isTotal ? 'font-weight:800;background:#f3f4f6' : '';
+      let cells = `<td style="padding:10px 14px;${style}">${label}</td>`;
+      let tot = 0;
+      MONTHS.forEach(m => {
+        const v = byMonth[m] || 0;
+        tot += v;
+        cells += `<td style="text-align:right;padding:10px 8px;${style}" class="${cls}">${v === 0 ? '—' : _fmt(v)}</td>`;
+      });
+      cells += `<td style="text-align:right;padding:10px 12px;font-weight:700;${style}" class="${cls}">${_fmt(tot)}</td>`;
+      html += `<tr>${cells}</tr>`;
+      return tot;
+    }
+
+    const totRec = addRow('📥 Receita Bruta', recMes, 'value-pos', true);
+    const totDesp = addRow('📤 Despesas Totais', despMes, 'value-neg', true);
+
+    const result = {}; MONTHS.forEach(m => result[m] = (recMes[m] || 0) - (despMes[m] || 0));
+    addRow('💰 RESULTADO LÍQUIDO', result, _cls(totRec - totDesp), true);
+    html += '</tbody></table></div>';
+
+    const margem = totRec > 0 ? ((totRec - totDesp) / totRec * 100).toFixed(1) : 0;
+    html += `<div class="summary-container">
+      <div class="summary-item"><div class="summary-label">Receita</div><div class="summary-value" style="color:var(--primary)">${_fmt(totRec)}</div></div>
+      <div class="summary-item"><div class="summary-label">Despesas</div><div class="summary-value" style="color:var(--secondary)">${_fmt(totDesp)}</div></div>
+      <div class="summary-item"><div class="summary-label">Resultado</div><div class="summary-value" style="color:${totRec>=totDesp?'var(--primary)':'var(--secondary)'}">${_fmtSigned(totRec - totDesp)}</div><div class="summary-sub">Margem: ${margem}%</div></div>
+    </div>`;
+    document.getElementById('dreContent').innerHTML = html;
+  };
+
+  // =====================================================================================
+  // Margem — % mês a mês
+  // =====================================================================================
+  window.renderMargem = function() {
+    const rows = _applyFilters(RAW_DATA_COMP);
+    const recMes = {}; const despMes = {};
+    MONTHS.forEach(m => { recMes[m] = 0; despMes[m] = 0; });
+    rows.forEach(r => {
+      const mes = r.mesRegistro;
+      if (!MONTHS.includes(mes)) return;
+      const val = Math.abs(r.valorPago || 0);
+      if (r.tipo === '1. Contas a Receber') recMes[mes] += val;
+      else if (r.tipo === '2. Contas a Pagar') despMes[mes] += val;
+    });
+
+    const totRec = MONTHS.reduce((a,m) => a + recMes[m], 0);
+    const totDesp = MONTHS.reduce((a,m) => a + despMes[m], 0);
+    const margemAnual = totRec > 0 ? ((totRec - totDesp) / totRec * 100) : 0;
+
+    let cardsHtml = `<div class="margin-card" style="background:linear-gradient(135deg,#f0fdf4,white);border:1px solid var(--primary)">
+      <div class="margin-card-title">Margem Anual</div>
+      <div class="margin-card-value" style="color:${margemAnual >= 0 ? 'var(--primary)' : 'var(--secondary)'}">${margemAnual.toFixed(1)}%</div>
+      <div class="summary-sub">Receita ${_fmt(totRec)} • Despesa ${_fmt(totDesp)}</div>
+    </div>`;
+    const mc = document.getElementById('marginCards');
+    if (mc) mc.innerHTML = cardsHtml;
+
+    let html = '<div class="table-container"><table>';
+    html += '<thead><tr><th>Mês</th><th style="text-align:right">Receita</th><th style="text-align:right">Despesa</th><th style="text-align:right">Resultado</th><th style="text-align:right">Margem %</th></tr></thead><tbody>';
+    MONTHS.forEach((m, i) => {
+      const r = recMes[m] || 0;
+      const d = despMes[m] || 0;
+      const res = r - d;
+      const marg = r > 0 ? ((res / r) * 100) : 0;
+      html += `<tr class="cat-row">
+        <td style="padding:10px 14px">${MONTH_NAMES[i]}</td>
+        <td style="text-align:right;padding:10px 8px" class="value-pos">${r === 0 ? '—' : _fmt(r)}</td>
+        <td style="text-align:right;padding:10px 8px" class="value-neg">${d === 0 ? '—' : _fmt(d)}</td>
+        <td style="text-align:right;padding:10px 8px" class="${_cls(res)}">${res === 0 ? '—' : _fmtSigned(res)}</td>
+        <td style="text-align:right;padding:10px 12px;font-weight:700" class="${_cls(res)}">${r > 0 ? marg.toFixed(1)+'%' : '—'}</td>
+      </tr>`;
+    });
+    html += '</tbody></table></div>';
+    document.getElementById('margemTableContent').innerHTML = html;
+  };
+
+  // =====================================================================================
+  // Ticket Médio — Receita / clientes únicos por mês
+  // =====================================================================================
+  window.renderTicket = function() {
+    const rows = _applyFilters(RAW_DATA_COMP).filter(r => r.tipo === '1. Contas a Receber');
+    const recMes = {}; const clientesMes = {};
+    MONTHS.forEach(m => { recMes[m] = 0; clientesMes[m] = new Set(); });
+    rows.forEach(r => {
+      const mes = r.mesRegistro;
+      if (!MONTHS.includes(mes)) return;
+      const val = Math.abs(r.valorPago || 0);
+      recMes[mes] += val;
+      if (r.fornecedor) clientesMes[mes].add(r.fornecedor);
+    });
+
+    const validos = MONTHS.filter(m => recMes[m] > 0);
+    if (validos.length === 0) {
+      document.getElementById('ticketContent').innerHTML = '<div class="empty-state"><div class="title">Sem dados de receita</div></div>';
+      return;
+    }
+
+    const totRec = validos.reduce((a,m) => a + recMes[m], 0);
+    const totClientes = validos.reduce((a,m) => a + clientesMes[m].size, 0);
+    const ticketMedio = totClientes > 0 ? totRec / totClientes : 0;
+
+    let html = `<div class="summary-container">
+      <div class="summary-item"><div class="summary-label">Ticket Médio</div><div class="summary-value" style="color:var(--primary)">${_fmt(ticketMedio)}</div><div class="summary-sub">por cliente/mês</div></div>
+      <div class="summary-item"><div class="summary-label">Receita Total</div><div class="summary-value">${_fmt(totRec)}</div></div>
+      <div class="summary-item"><div class="summary-label">Meses com Receita</div><div class="summary-value">${validos.length}</div></div>
+    </div>`;
+
+    html += '<div class="table-container"><table>';
+    html += '<thead><tr><th>Mês</th><th style="text-align:right">Receita</th><th style="text-align:right">Clientes</th><th style="text-align:right">Ticket Médio</th></tr></thead><tbody>';
+    MONTHS.forEach((m, i) => {
+      const r = recMes[m] || 0;
+      const n = clientesMes[m].size;
+      const t = n > 0 ? r / n : 0;
+      html += `<tr class="cat-row">
+        <td style="padding:10px 14px">${MONTH_NAMES[i]}</td>
+        <td style="text-align:right;padding:10px 8px" class="value-pos">${r === 0 ? '—' : _fmt(r)}</td>
+        <td style="text-align:right;padding:10px 8px">${n || '—'}</td>
+        <td style="text-align:right;padding:10px 12px;font-weight:700">${t === 0 ? '—' : _fmt(t)}</td>
+      </tr>`;
+    });
+    html += '</tbody></table></div>';
+    document.getElementById('ticketContent').innerHTML = html;
+  };
+
+  // =====================================================================================
+  // PJs — despesas agrupadas por departamento
+  // =====================================================================================
+  window.renderPJs = function() {
+    const rows = _applyFilters(RAW_DATA_COMP).filter(r => r.tipo === '2. Contas a Pagar');
+    const porDept = new Map();
+    rows.forEach(r => {
+      const mes = r.mesRegistro;
+      if (!MONTHS.includes(mes)) return;
+      const val = Math.abs(r.valorPago || 0);
+      if (val === 0) return;
+      const dept = r.departamento || '(sem departamento)';
+      if (!porDept.has(dept)) porDept.set(dept, { byMonth: {}, total: 0, fornec: new Map() });
+      const g = porDept.get(dept);
+      g.byMonth[mes] = (g.byMonth[mes] || 0) + val;
+      g.total += val;
+      const f = r.fornecedor || '(sem fornecedor)';
+      if (!g.fornec.has(f)) g.fornec.set(f, { byMonth: {}, total: 0 });
+      const fg = g.fornec.get(f);
+      fg.byMonth[mes] = (fg.byMonth[mes] || 0) + val;
+      fg.total += val;
+    });
+
+    if (porDept.size === 0) {
+      document.getElementById('pjsContent').innerHTML = '<div class="empty-state"><div class="title">Sem despesas</div></div>';
+      return;
+    }
+
+    let html = '<div class="table-container"><table>';
+    html += '<thead><tr><th>Departamento / Fornecedor</th>' + MONTH_LABELS.map(m => `<th style="text-align:right">${m}</th>`).join('') + '<th style="text-align:right">Total</th></tr></thead><tbody>';
+
+    const depts = Array.from(porDept.entries()).sort((a,b) => b[1].total - a[1].total);
+    let grandTotal = 0;
+    const grandByMonth = {}; MONTHS.forEach(m => grandByMonth[m] = 0);
+
+    depts.forEach(([dept, g]) => {
+      let cells = `<td style="padding:10px 14px;font-weight:700">🏢 ${dept}</td>`;
+      MONTHS.forEach(m => {
+        const v = g.byMonth[m] || 0;
+        grandByMonth[m] += v;
+        cells += `<td style="text-align:right;padding:10px 8px;font-weight:600" class="value-neg">${v === 0 ? '—' : _fmt(v)}</td>`;
+      });
+      cells += `<td style="text-align:right;padding:10px 12px;font-weight:800" class="value-neg">${_fmt(g.total)}</td>`;
+      html += `<tr class="section-header">${cells}</tr>`;
+      grandTotal += g.total;
+
+      const fornecs = Array.from(g.fornec.entries()).sort((a,b) => b[1].total - a[1].total);
+      fornecs.forEach(([f, fg]) => {
+        let fCells = `<td style="padding:8px 14px;padding-left:36px;font-size:12px;color:var(--text-secondary)">👤 ${f}</td>`;
+        MONTHS.forEach(m => {
+          const v = fg.byMonth[m] || 0;
+          fCells += `<td style="text-align:right;padding:8px;font-size:11px" class="${v === 0 ? 'value-zero' : 'value-neg'}">${v === 0 ? '—' : _fmt(v)}</td>`;
+        });
+        fCells += `<td style="text-align:right;padding:8px 12px;font-size:11px;font-weight:600" class="value-neg">${_fmt(fg.total)}</td>`;
+        html += `<tr>${fCells}</tr>`;
+      });
+    });
+
+    let totCells = '<td style="padding:14px;font-weight:800">TOTAL GERAL</td>';
+    MONTHS.forEach(m => {
+      totCells += `<td style="text-align:right;padding:14px 8px;font-weight:800" class="value-neg">${grandByMonth[m] === 0 ? '—' : _fmt(grandByMonth[m])}</td>`;
+    });
+    totCells += `<td style="text-align:right;padding:14px 12px;font-weight:800" class="value-neg">${_fmt(grandTotal)}</td>`;
+    html += `<tr class="result-row">${totCells}</tr>`;
+    html += '</tbody></table></div>';
+    document.getElementById('pjsContent').innerHTML = html;
+  };
+
+  // =====================================================================================
+  // Cartão — versão simplificada: mostra tudo com conta = 'Cartão 2130'
+  // =====================================================================================
+  window.renderCard = function() {
+    const rows = _applyFilters(RAW_DATA_COMP).filter(r => r.conta === 'Cartão 2130');
+    if (rows.length === 0) {
+      document.getElementById('cardContent').innerHTML = '<div class="empty-state"><div class="title">Sem lançamentos no Cartão 2130</div></div>';
+      return;
+    }
+
+    const porCat = new Map();
+    const totalMes = {}; MONTHS.forEach(m => totalMes[m] = 0);
+    let grand = 0;
+    rows.forEach(r => {
+      const mes = r.mesRegistro;
+      if (!MONTHS.includes(mes)) return;
+      const val = Math.abs(r.valorPago || 0);
+      if (val === 0) return;
+      const cat = r.categoria || '(sem categoria)';
+      if (!porCat.has(cat)) porCat.set(cat, { byMonth: {}, total: 0 });
+      const g = porCat.get(cat);
+      g.byMonth[mes] = (g.byMonth[mes] || 0) + val;
+      g.total += val;
+      totalMes[mes] += val;
+      grand += val;
+    });
+
+    let html = '<div class="table-container"><table>';
+    html += '<thead><tr><th>Categoria</th>' + MONTH_LABELS.map(m => `<th style="text-align:right">${m}</th>`).join('') + '<th style="text-align:right">Total</th></tr></thead><tbody>';
+    Array.from(porCat.entries()).sort((a,b) => b[1].total - a[1].total).forEach(([cat, g]) => {
+      let cells = `<td style="padding:10px 14px">${cat}</td>`;
+      MONTHS.forEach(m => {
+        const v = g.byMonth[m] || 0;
+        cells += `<td style="text-align:right;padding:10px 8px" class="${v === 0 ? 'value-zero' : 'value-neg'}">${v === 0 ? '—' : _fmt(v)}</td>`;
+      });
+      cells += `<td style="text-align:right;padding:10px 12px;font-weight:700" class="value-neg">${_fmt(g.total)}</td>`;
+      html += `<tr class="cat-row">${cells}</tr>`;
+    });
+    let totCells = '<td style="padding:14px;font-weight:800">TOTAL FATURA</td>';
+    MONTHS.forEach(m => totCells += `<td style="text-align:right;padding:14px 8px;font-weight:800" class="value-neg">${totalMes[m] === 0 ? '—' : _fmt(totalMes[m])}</td>`);
+    totCells += `<td style="text-align:right;padding:14px 12px;font-weight:800" class="value-neg">${_fmt(grand)}</td>`;
+    html += `<tr class="result-row">${totCells}</tr></tbody></table></div>`;
+    document.getElementById('cardContent').innerHTML = html;
+  };
+
+  // =====================================================================================
+  // Recebíveis — todos os clientes de Contas a Receber (sem filtro de prefixo)
+  // =====================================================================================
+  window.renderRecebiveis = function() {
+    const rows = _applyFilters(RAW_DATA_COMP).filter(r => r.tipo === '1. Contas a Receber');
+    if (rows.length === 0) {
+      document.getElementById('recebiveisContent').innerHTML = '<div class="empty-state"><div class="title">Sem recebíveis</div></div>';
+      return;
+    }
+
+    const porCli = new Map();
+    const totalMes = {}; MONTHS.forEach(m => totalMes[m] = 0);
+    let grand = 0;
+    rows.forEach(r => {
+      const mes = r.mesRegistro;
+      if (!MONTHS.includes(mes)) return;
+      const val = Math.abs(r.valorPago || 0);
+      if (val === 0) return;
+      const cli = r.fornecedor || '(sem cliente)';
+      if (!porCli.has(cli)) porCli.set(cli, { byMonth: {}, total: 0 });
+      const g = porCli.get(cli);
+      g.byMonth[mes] = (g.byMonth[mes] || 0) + val;
+      g.total += val;
+      totalMes[mes] += val;
+      grand += val;
+    });
+
+    let html = '<div class="table-container"><table>';
+    html += '<thead><tr><th>Cliente</th>' + MONTH_LABELS.map(m => `<th style="text-align:right">${m}</th>`).join('') + '<th style="text-align:right">Total</th></tr></thead><tbody>';
+    Array.from(porCli.entries()).sort((a,b) => b[1].total - a[1].total).forEach(([cli, g]) => {
+      let cells = `<td style="padding:10px 14px;font-weight:600">${cli}</td>`;
+      MONTHS.forEach(m => {
+        const v = g.byMonth[m] || 0;
+        cells += `<td style="text-align:right;padding:10px 8px" class="${v === 0 ? 'value-zero' : 'value-pos'}">${v === 0 ? '—' : _fmt(v)}</td>`;
+      });
+      cells += `<td style="text-align:right;padding:10px 12px;font-weight:700" class="value-pos">${_fmt(g.total)}</td>`;
+      html += `<tr class="cat-row">${cells}</tr>`;
+    });
+    let totCells = '<td style="padding:14px;font-weight:800">TOTAL RECEBÍVEIS</td>';
+    MONTHS.forEach(m => totCells += `<td style="text-align:right;padding:14px 8px;font-weight:800" class="value-pos">${totalMes[m] === 0 ? '—' : _fmt(totalMes[m])}</td>`);
+    totCells += `<td style="text-align:right;padding:14px 12px;font-weight:800" class="value-pos">${_fmt(grand)}</td>`;
+    html += `<tr class="result-row">${totCells}</tr></tbody></table></div>`;
+    document.getElementById('recebiveisContent').innerHTML = html;
+  };
+
+  console.log('[OVERRIDE] Renderers dinâmicos ativados');
+})();
+</script>
+
 </body>
 </html>
