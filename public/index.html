@@ -6114,6 +6114,107 @@ if (document.readyState === 'loading') {
   // =====================================================================================
   // MENU PRINCIPAL — hierárquico: Receitas > Categoria > (drill) + Despesas > Categoria + Cartão + Ajustes
   // =====================================================================================
+  // =====================================================================================
+  // CLASSIFICAÇÃO GERENCIAL — mapa fixo categoria (após _limparCategoria) -> grupo
+  // Uma categoria pertence a exatamente um grupo. Categorias não mapeadas vão pra "Outras".
+  // Regra especial: qualquer categoria com departamento contendo "Scalia" vai pro grupo SCALIA
+  // =====================================================================================
+  const _GRUPO_RECEITAS = 'RECEITAS';
+  const _GRUPO_AJUSTE_ENTRADA = 'AJUSTE_ENTRADA';
+  const _GRUPO_AJUSTE_SAIDA = 'AJUSTE_SAIDA';
+  const _GRUPO_OUTRAS = 'OUTRAS';
+  const _GRUPO_SCALIA = 'SCALIA';
+
+  const _CLASSIFICACAO = {
+    // ==== RECEITAS ====
+    'Receita de Prestação de Serviços (Mensalidades Clientes)': _GRUPO_RECEITAS,
+    'Receita de Projetos e Consultorias': _GRUPO_RECEITAS,
+    'Receita de Vendas Tik Tok': _GRUPO_RECEITAS,
+    'Bonificações de Plataformas': _GRUPO_RECEITAS,
+
+    // ==== AJUSTES FINANCEIROS — ENTRADAS ====
+    'Adiantamento de Clientes': _GRUPO_AJUSTE_ENTRADA,
+    'Outras Receitas Operacionais': _GRUPO_AJUSTE_ENTRADA,
+    'Rendimentos de Aplicações': _GRUPO_AJUSTE_ENTRADA,
+    'Empréstimo Bancário': _GRUPO_AJUSTE_ENTRADA,
+    'Transferência entre Contas Bancárias': _GRUPO_AJUSTE_ENTRADA,
+    'Empréstimo de Sócio (Aporte Temporário)': _GRUPO_AJUSTE_ENTRADA,
+
+    // ==== AJUSTES FINANCEIROS — SAÍDAS ====
+    'Devolução de Empréstimo Bancário': _GRUPO_AJUSTE_SAIDA,
+    'Créditos TikTok': _GRUPO_AJUSTE_SAIDA,
+    'Devolução de Empréstimo de Sócio': _GRUPO_AJUSTE_SAIDA,
+
+    // ==== DESPESAS — OPERAÇÃO ====
+    'Remuneração Operacional PJ': 'OPERAÇÃO',
+
+    // ==== DESPESAS — FORNECEDORES ====
+    'Influenciadores / Talentos': 'FORNECEDORES',
+    'Editores de Vídeo': 'FORNECEDORES',
+    'Prestadores de Serviços - Pontual': 'FORNECEDORES',
+    'Aluguel de Equipamentos Operacionais': 'FORNECEDORES',
+    'Aluguel': 'FORNECEDORES',
+    'Serviços Administrativos': 'FORNECEDORES',
+    'Advogados': 'FORNECEDORES',
+
+    // ==== DESPESAS — VARIÁVEIS ====
+    'Despesas Eventuais': 'VARIÁVEIS',
+    'Bônus e Premiações': 'VARIÁVEIS',
+    'Eventos e Networking': 'VARIÁVEIS',
+    'Incentivos e Bônus Prestadores': 'VARIÁVEIS',
+    'Voucher Aniversário / Datas Comemorativas': 'VARIÁVEIS',
+    'Brindes Internos (Equipe)': 'VARIÁVEIS',
+    'Devolução de Adiantamento de Cliente': 'VARIÁVEIS',
+    'Devolução de Receita de Serviços': 'VARIÁVEIS',
+    'Softwares Operacionais': 'VARIÁVEIS',
+    'Telefone': 'VARIÁVEIS',
+    'Premiação e Incentivos para Clientes': 'VARIÁVEIS',
+    'Brindes para Clientes': 'VARIÁVEIS',
+    'Serviços de Terceiros': 'VARIÁVEIS',
+
+    // ==== DESPESAS — INVESTIMENTOS ====
+    'Créditos Meta': 'INVESTIMENTOS',
+    'Gasto com Tráfego Pago Clientes': 'INVESTIMENTOS',
+
+    // ==== DESPESAS — IMPOSTOS ====
+    'Simples Nacional': 'IMPOSTOS',
+    'INSS': 'IMPOSTOS',
+    'IRPJ': 'IMPOSTOS',
+    'Tarifas Bancárias': 'IMPOSTOS',
+    'Taxas Municipais': 'IMPOSTOS',
+    'IOF': 'IMPOSTOS',
+
+    // ==== DESPESAS — DISTRIBUIÇÃO DOS SÓCIOS ====
+    'Distribuição de Lucros / Dividendos': 'DISTRIBUIÇÃO DOS SÓCIOS',
+  };
+
+  // Ordem visual dos grupos de despesa
+  const _ORDEM_GRUPOS_DESPESA = [
+    'OPERAÇÃO',
+    'FORNECEDORES',
+    'VARIÁVEIS',
+    'INVESTIMENTOS',
+    'IMPOSTOS',
+    'DISTRIBUIÇÃO DOS SÓCIOS',
+    'SCALIA',
+    _GRUPO_OUTRAS,
+  ];
+
+  function _classificar(catLimpa, departamento) {
+    // Regra Scalia por departamento tem prioridade sobre mapa fixo
+    // (exceto receitas — receitas continuam receitas mesmo se vierem do dept Scalia)
+    const dep = String(departamento || '').toLowerCase();
+    const isReceita = _CLASSIFICACAO[catLimpa] === _GRUPO_RECEITAS;
+    if (dep.includes('scalia') && !isReceita) return _GRUPO_SCALIA;
+
+    const g = _CLASSIFICACAO[catLimpa];
+    if (g) return g;
+    return _GRUPO_OUTRAS;
+  }
+
+  // =====================================================================================
+  // renderMain com estrutura gerencial hierárquica
+  // =====================================================================================
   window.renderMain = function() {
     const MONTHS = _getMonths();
     const MONTH_LABELS = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
@@ -6123,30 +6224,33 @@ if (document.readyState === 'loading') {
     const rows = _applyFilters(data);
 
     // Estruturas
-    const receitas = new Map();       // categoria -> { byMonth, total, items[] }
-    const despesas = new Map();       // categoria (exceto cartão e ajustes) -> ...
-    const cartao   = { byMonth: {}, total: 0, items: [] };  // conta === 'Cartão 2130'
-    // Ajustes financeiros: heurística — categorias que começam com 04.xx (empréstimos/aportes),
-    //                     11.xx (aplicações), 13.xx (devoluções) OU transferências entre contas
-    const CATS_AJUSTE_PREFIXOS = ['04.', '11.', '13.'];
-    const CATS_TRANSFERENCIA = ['Saída de Transferência','Entrada de Transferência'];
-    const ajustes  = new Map();       // categoria -> { byMonth, total, items[] }
+    const receitas = new Map();                  // categoria -> { byMonth, total, items }
+    const cartao   = { byMonth: {}, total: 0, items: [] };
+    const ajustesEntrada = new Map();
+    const ajustesSaida = new Map();
+    const despesasPorGrupo = new Map();          // grupo -> Map(categoria -> { byMonth, total, items })
 
-    const totRecMes = {};   MONTHS.forEach(m => totRecMes[m] = 0);
-    const totDespMes = {};  MONTHS.forEach(m => totDespMes[m] = 0);
+    _ORDEM_GRUPOS_DESPESA.forEach(g => despesasPorGrupo.set(g, new Map()));
+
+    const totRecMes = {};    MONTHS.forEach(m => totRecMes[m] = 0);
+    const totDespMes = {};   MONTHS.forEach(m => totDespMes[m] = 0);
     const totCartaoMes = {}; MONTHS.forEach(m => totCartaoMes[m] = 0);
-    const totAjustMes = {}; MONTHS.forEach(m => totAjustMes[m] = 0);
+    const totAjustMes = {};  MONTHS.forEach(m => totAjustMes[m] = 0);       // signed
+    // Totais por grupo de despesa
+    const totGrupoMes = {};
+    _ORDEM_GRUPOS_DESPESA.forEach(g => { totGrupoMes[g] = {}; MONTHS.forEach(m => totGrupoMes[g][m] = 0); });
 
-    function _catCurta(cat) {
-      // Extrai o código curto (ex: "01.01") do início se existir, senão usa a categoria toda
-      const m = String(cat || '').match(/^([\d]+\.[\d]+)/);
-      return m ? m[1] : '';
-    }
-    function _ehAjuste(cat) {
-      const s = String(cat || '');
-      if (CATS_TRANSFERENCIA.includes(s)) return true;
-      const curta = _catCurta(s);
-      return CATS_AJUSTE_PREFIXOS.some(p => curta.startsWith(p) || s.startsWith(p));
+    function _addItem(map, cat, mes, val, r) {
+      if (!map.has(cat)) map.set(cat, { byMonth: {}, total: 0, items: [] });
+      const g = map.get(cat);
+      g.byMonth[mes] = (g.byMonth[mes] || 0) + val;
+      g.total += val;
+      g.items.push({
+        mes, fornecedor: r.fornecedor || '', valor: val,
+        tipo: r.tipo, categoria: r.categoria, conta: r.conta,
+        conciliado: r.conciliado, data: r.dataPagto || '',
+        departamento: r.departamento || '',
+      });
     }
 
     rows.forEach(r => {
@@ -6154,184 +6258,217 @@ if (document.readyState === 'loading') {
       if (!MONTHS.includes(mes)) return;
       const val = Math.abs(r[valKey] || 0);
       if (val === 0) return;
-      const cat = r.categoria || '(sem categoria)';
-      const item = { ...r, val, mes };
+      const catLimpa = _limparCategoria(r.categoria || '');
 
-      // Cartão de Crédito: qualquer despesa cuja conta seja Cartão 2130
+      // Cartão de crédito (bloco separado)
       if (r.tipo === '2. Contas a Pagar' && r.conta === 'Cartão 2130') {
         cartao.byMonth[mes] = (cartao.byMonth[mes] || 0) + val;
         cartao.total += val;
-        cartao.items.push(item);
+        cartao.items.push({
+          mes, fornecedor: r.fornecedor || '', valor: val,
+          tipo: r.tipo, categoria: r.categoria, conta: r.conta,
+          conciliado: r.conciliado, data: r.dataPagto || '',
+          departamento: r.departamento || '',
+        });
         totCartaoMes[mes] += val;
         return;
       }
 
-      // Ajustes financeiros (empréstimos, aplicações, devoluções, transferências)
-      if (_ehAjuste(cat)) {
-        if (!ajustes.has(cat)) ajustes.set(cat, { byMonth: {}, total: 0, items: [] });
-        const g = ajustes.get(cat);
-        g.byMonth[mes] = (g.byMonth[mes] || 0) + val;
-        g.total += val;
-        g.items.push(item);
-        // ajustes contribuem com sinal (receita = +, despesa = -)
-        totAjustMes[mes] += (r.tipo === '1. Contas a Receber') ? val : -val;
+      const grupo = _classificar(catLimpa, r.departamento);
+
+      // Receitas
+      if (grupo === _GRUPO_RECEITAS) {
+        _addItem(receitas, catLimpa, mes, val, r);
+        totRecMes[mes] += val;
         return;
       }
-
-      // Receita normal
+      // Ajustes entrada (aumenta caixa) e saída (diminui caixa)
+      if (grupo === _GRUPO_AJUSTE_ENTRADA) {
+        _addItem(ajustesEntrada, catLimpa, mes, val, r);
+        totAjustMes[mes] += val;
+        return;
+      }
+      if (grupo === _GRUPO_AJUSTE_SAIDA) {
+        _addItem(ajustesSaida, catLimpa, mes, val, r);
+        totAjustMes[mes] -= val;
+        return;
+      }
+      // Se veio um "Receber" que não é Receita nem Ajuste_Entrada:
+      // tratamos como ajuste entrada por segurança (não somar como despesa)
       if (r.tipo === '1. Contas a Receber') {
-        if (!receitas.has(cat)) receitas.set(cat, { byMonth: {}, total: 0, items: [] });
-        const g = receitas.get(cat);
-        g.byMonth[mes] = (g.byMonth[mes] || 0) + val;
-        g.total += val;
-        g.items.push(item);
-        totRecMes[mes] += val;
+        _addItem(ajustesEntrada, catLimpa, mes, val, r);
+        totAjustMes[mes] += val;
+        return;
       }
-      // Despesa normal
-      else if (r.tipo === '2. Contas a Pagar') {
-        if (!despesas.has(cat)) despesas.set(cat, { byMonth: {}, total: 0, items: [] });
-        const g = despesas.get(cat);
-        g.byMonth[mes] = (g.byMonth[mes] || 0) + val;
-        g.total += val;
-        g.items.push(item);
-        totDespMes[mes] += val;
-      }
+      // Despesa dentro do grupo apropriado
+      const grpMap = despesasPorGrupo.get(grupo) || despesasPorGrupo.get(_GRUPO_OUTRAS);
+      _addItem(grpMap, catLimpa, mes, val, r);
+      totDespMes[mes] += val;
+      totGrupoMes[grupo][mes] = (totGrupoMes[grupo][mes] || 0) + val;
     });
 
-    // ============ HTML ============
+    // Construir HTML
     const thead = document.getElementById('tableHead');
-    let theadHtml = '<tr><th style="text-align:left;padding:10px 14px;min-width:280px">Descrição</th>';
+    let theadHtml = '<tr><th style="text-align:left;padding:10px 14px">Descrição</th>';
     MONTH_LABELS.forEach(m => theadHtml += `<th style="text-align:right;padding:10px 8px">${m.toUpperCase()}</th>`);
     theadHtml += '<th style="text-align:right;padding:10px 12px">Total</th></tr>';
     thead.innerHTML = theadHtml;
 
     let html = '';
 
-    function _linhaGrupo(titulo, mapa, isReceita, totalMes, sectionKey, bg, color) {
-      const secExpKey = 'sec|' + sectionKey;
-      const secOpen = _expanded.has(secExpKey);
-
-      // Linha do grupo (Receitas / Despesas / Ajustes)
-      let secCells = `<td style="padding:12px 14px;background:${bg};color:${color};font-weight:800;cursor:pointer" onclick="_toggleExpand('${secExpKey}')">
-        <span style="display:inline-block;width:16px">${secOpen ? '▼' : '▶'}</span> ${titulo}
-      </td>`;
-      let grandTot = 0;
+    function _cellsMes(byMonth, categoriaNome, prefixKey, isNeg) {
+      let cells = '';
       MONTHS.forEach(m => {
-        const v = totalMes[m] || 0;
-        grandTot += v;
-        secCells += `<td style="text-align:right;padding:12px 8px;background:${bg};color:${color};font-weight:800">${v === 0 ? '—' : _fmt(v)}</td>`;
-      });
-      secCells += `<td style="text-align:right;padding:12px 12px;background:${bg};color:${color};font-weight:800">${_fmt(grandTot)}</td>`;
-      html += `<tr class="section-header">${secCells}</tr>`;
-
-      if (!secOpen) return grandTot;
-
-      // Sub-linhas: categorias ordenadas por total desc
-      const entries = Array.from(mapa.entries()).sort((a,b) => b[1].total - a[1].total);
-      entries.forEach(([cat, g], idx) => {
-        const catExpKey = 'cat|' + sectionKey + '|' + idx;
-        const catOpen = _expanded.has(catExpKey);
-
-        let cells = `<td style="padding:8px 14px;padding-left:36px;font-size:12.5px;cursor:pointer" onclick="_toggleExpand('${catExpKey}')">
-          <span style="display:inline-block;width:14px;color:var(--primary);font-weight:700">${catOpen ? '▼' : '▶'}</span> ${_esc(_limparCategoria(cat))}
-        </td>`;
-        MONTHS.forEach(m => {
-          const v = g.byMonth[m] || 0;
-          if (v > 0) {
-            const cacheKey = 'main_' + sectionKey + '_' + idx + '_' + m;
-            const monthItems = g.items.filter(it => it.mes === m);
-            _drillCache[cacheKey] = {
-              titulo: cat,
-              subtitulo: MONTH_NAMES[MONTHS.indexOf(m)] + ' • ' + currentYear,
-              items: monthItems
-            };
-            const clsSigned = isReceita ? 'value-pos' : 'value-neg';
-            cells += `<td onclick="_showLancamentos('${cacheKey}')" style="text-align:right;padding:8px;font-size:11.5px;cursor:pointer" class="${clsSigned}">${_fmt(v)}</td>`;
-          } else {
-            cells += `<td style="text-align:right;padding:8px;font-size:11.5px" class="value-zero">—</td>`;
-          }
-        });
-        const cls = isReceita ? 'value-pos' : 'value-neg';
-        cells += `<td style="text-align:right;padding:8px 12px;font-weight:700" class="${cls}">${_fmt(g.total)}</td>`;
-        html += `<tr class="cat-row">${cells}</tr>`;
-
-        // Nível 3: fornecedores (se categoria expandida)
-        if (catOpen) {
-          const porFornec = new Map();
-          g.items.forEach(it => {
-            const f = it.fornecedor || '(sem identificação)';
-            if (!porFornec.has(f)) porFornec.set(f, { byMonth: {}, total: 0, items: [] });
-            const fg = porFornec.get(f);
-            fg.byMonth[it.mes] = (fg.byMonth[it.mes] || 0) + it.val;
-            fg.total += it.val;
-            fg.items.push(it);
-          });
-
-          Array.from(porFornec.entries()).sort((a,b) => b[1].total - a[1].total).forEach(([f, fg], idxF) => {
-            let fCells = `<td style="padding:6px 14px;padding-left:64px;font-size:11px;color:var(--text-secondary);background:#fafbfc">${_esc(f)}</td>`;
-            MONTHS.forEach(m => {
-              const v = fg.byMonth[m] || 0;
-              if (v > 0) {
-                const cacheKeyF = 'main_' + sectionKey + '_' + idx + '_f' + idxF + '_' + m;
-                _drillCache[cacheKeyF] = {
-                  titulo: f + ' — ' + cat,
-                  subtitulo: MONTH_NAMES[MONTHS.indexOf(m)] + ' • ' + currentYear,
-                  items: fg.items.filter(it => it.mes === m)
-                };
-                const clsF = isReceita ? 'value-pos' : 'value-neg';
-                fCells += `<td onclick="_showLancamentos('${cacheKeyF}')" style="text-align:right;padding:6px;font-size:10.5px;cursor:pointer;background:#fafbfc" class="${clsF}">${_fmt(v)}</td>`;
-              } else {
-                fCells += `<td style="text-align:right;padding:6px;font-size:10.5px;background:#fafbfc" class="value-zero">—</td>`;
-              }
-            });
-            fCells += `<td style="text-align:right;padding:6px 12px;font-size:10.5px;font-weight:600;background:#fafbfc" class="${isReceita ? 'value-pos' : 'value-neg'}">${_fmt(fg.total)}</td>`;
-            html += `<tr>${fCells}</tr>`;
-          });
+        const v = byMonth[m] || 0;
+        if (v > 0) {
+          const ck = prefixKey + '_' + m;
+          _drillCache[ck] = { titulo: categoriaNome, subtitulo: MONTH_NAMES[MONTHS.indexOf(m)], items: null, _lazyGroup: prefixKey, _lazyMonth: m };
+          const cls = isNeg ? 'value-neg' : 'value-pos';
+          cells += `<td onclick="_showLancamentos('${ck}')" style="text-align:right;padding:8px;cursor:pointer;font-size:11.5px" class="${cls}">${_fmt(v)}</td>`;
+        } else {
+          cells += `<td style="text-align:right;padding:8px;font-size:11.5px" class="value-zero">—</td>`;
         }
       });
-
-      // Espaço
-      html += `<tr class="spacer"><td colspan="${MONTHS.length + 2}" style="height:6px"></td></tr>`;
-      return grandTot;
+      return cells;
     }
 
-    // === RECEITAS ===
-    if (receitas.size > 0) _linhaGrupo('📥 RECEITAS', receitas, true, totRecMes, 'rec', '#f0fdf4', '#166534');
+    // ============================================================
+    // RECEITAS
+    // ============================================================
+    if (receitas.size > 0 || Object.values(totRecMes).some(v => v > 0)) {
+      const rExpKey = 'sec|receitas';
+      const rOpen = _expanded.has(rExpKey);
+      let recGrandTot = 0; MONTHS.forEach(m => { recGrandTot += totRecMes[m] || 0; });
 
-    // === DESPESAS OPERACIONAIS ===
-    if (despesas.size > 0) _linhaGrupo('📤 DESPESAS OPERACIONAIS', despesas, false, totDespMes, 'desp', '#fef2f2', '#991b1b');
-
-    // === CARTÃO DE CRÉDITO === (linha única, expansível para mostrar categorias dentro)
-    if (cartao.total > 0) {
-      const cartaoExpKey = 'sec|cartao';
-      const cartaoOpen = _expanded.has(cartaoExpKey);
-      let ccells = `<td style="padding:12px 14px;background:#fef3c7;color:#92400e;font-weight:800;cursor:pointer" onclick="_toggleExpand('${cartaoExpKey}')">
-        <span style="display:inline-block;width:16px">${cartaoOpen ? '▼' : '▶'}</span> 💳 CARTÃO DE CRÉDITO
+      let hCells = `<td style="padding:12px 14px;background:#f0fdf4;color:#166534;font-weight:800;cursor:pointer" onclick="_toggleExpand('${rExpKey}')">
+        <span style="display:inline-block;width:16px">${rOpen ? '▼' : '▶'}</span> 📥 RECEITAS
       </td>`;
       MONTHS.forEach(m => {
-        const v = cartao.byMonth[m] || 0;
-        ccells += `<td style="text-align:right;padding:12px 8px;background:#fef3c7;color:#92400e;font-weight:800">${v === 0 ? '—' : _fmt(v)}</td>`;
+        const v = totRecMes[m] || 0;
+        hCells += `<td style="text-align:right;padding:12px 8px;background:#f0fdf4;color:#166534;font-weight:800" class="value-pos">${v === 0 ? '—' : _fmt(v)}</td>`;
       });
-      ccells += `<td style="text-align:right;padding:12px 12px;background:#fef3c7;color:#92400e;font-weight:800">${_fmt(cartao.total)}</td>`;
-      html += `<tr class="section-header">${ccells}</tr>`;
+      hCells += `<td style="text-align:right;padding:12px 12px;background:#f0fdf4;color:#166534;font-weight:800" class="value-pos">${_fmt(recGrandTot)}</td>`;
+      html += `<tr class="section-header">${hCells}</tr>`;
 
-      if (cartaoOpen) {
-        // Agrupar cartão por categoria
-        const cartaoPorCat = new Map();
-        cartao.items.forEach(it => {
-          const c = it.categoria || '(sem categoria)';
-          if (!cartaoPorCat.has(c)) cartaoPorCat.set(c, { byMonth: {}, total: 0, items: [] });
-          const g = cartaoPorCat.get(c);
-          g.byMonth[it.mes] = (g.byMonth[it.mes] || 0) + it.val;
-          g.total += it.val;
-          g.items.push(it);
-        });
-        Array.from(cartaoPorCat.entries()).sort((a,b) => b[1].total - a[1].total).forEach(([c, g], idx) => {
-          let cells = `<td style="padding:8px 14px;padding-left:36px;font-size:12.5px">${_esc(c)}</td>`;
+      if (rOpen) {
+        Array.from(receitas.entries()).sort((a,b) => b[1].total - a[1].total).forEach(([cat, g], idx) => {
+          const key = 'rec_' + idx;
+          _drillCache[key + '_items'] = g.items;
+          let cells = `<td style="padding:8px 14px;padding-left:36px;font-size:12.5px">${_esc(cat)}</td>`;
           MONTHS.forEach(m => {
             const v = g.byMonth[m] || 0;
             if (v > 0) {
-              const ck = 'cartao_' + idx + '_' + m;
+              const ck = key + '_' + m;
+              _drillCache[ck] = { titulo: cat, subtitulo: MONTH_NAMES[MONTHS.indexOf(m)], items: g.items.filter(it => it.mes === m) };
+              cells += `<td onclick="_showLancamentos('${ck}')" style="text-align:right;padding:8px;cursor:pointer;font-size:11.5px" class="value-pos">${_fmt(v)}</td>`;
+            } else {
+              cells += `<td style="text-align:right;padding:8px;font-size:11.5px" class="value-zero">—</td>`;
+            }
+          });
+          cells += `<td style="text-align:right;padding:8px 12px;font-weight:700" class="value-pos">${_fmt(g.total)}</td>`;
+          html += `<tr class="cat-row">${cells}</tr>`;
+        });
+      }
+
+      // Linha Total Receitas
+      let tCells = '<td style="padding:10px 14px;padding-left:36px;font-weight:800;color:#166534">Total Receitas</td>';
+      MONTHS.forEach(m => {
+        const v = totRecMes[m] || 0;
+        tCells += `<td style="text-align:right;padding:10px 8px;font-weight:800;color:#166534" class="value-pos">${v === 0 ? '—' : _fmt(v)}</td>`;
+      });
+      tCells += `<td style="text-align:right;padding:10px 12px;font-weight:800;color:#166534" class="value-pos">${_fmt(recGrandTot)}</td>`;
+      html += `<tr class="total-row" style="background:#f0fdf4">${tCells}</tr>`;
+      html += `<tr class="spacer"><td colspan="${MONTHS.length + 2}" style="height:6px"></td></tr>`;
+    }
+
+    // ============================================================
+    // DESPESAS (com sub-grupos)
+    // ============================================================
+    // Cabeçalho DESPESAS
+    let despHeadTot = 0; MONTHS.forEach(m => { despHeadTot += totDespMes[m] || 0; });
+    let dhCells = `<td style="padding:12px 14px;background:#fef2f2;color:#991b1b;font-weight:800">
+        📤 DESPESAS
+      </td>`;
+    MONTHS.forEach(m => {
+      const v = totDespMes[m] || 0;
+      dhCells += `<td style="text-align:right;padding:12px 8px;background:#fef2f2;color:#991b1b;font-weight:800" class="value-neg">${v === 0 ? '—' : _fmt(v)}</td>`;
+    });
+    dhCells += `<td style="text-align:right;padding:12px 12px;background:#fef2f2;color:#991b1b;font-weight:800" class="value-neg">${_fmt(despHeadTot)}</td>`;
+    html += `<tr class="section-header">${dhCells}</tr>`;
+
+    // Cada grupo de despesa
+    _ORDEM_GRUPOS_DESPESA.forEach(grupo => {
+      const catsMap = despesasPorGrupo.get(grupo);
+      if (!catsMap || catsMap.size === 0) return;
+
+      const gExpKey = 'grupo|' + grupo;
+      const gOpen = _expanded.has(gExpKey);
+      let grpTot = 0; MONTHS.forEach(m => { grpTot += totGrupoMes[grupo][m] || 0; });
+
+      // Cabeçalho do sub-grupo (recuado, cor mais sóbria)
+      let sgCells = `<td style="padding:10px 14px;padding-left:20px;background:#fef7f7;color:#7f1d1d;font-weight:700;cursor:pointer" onclick="_toggleExpand('${gExpKey}')">
+        <span style="display:inline-block;width:16px">${gOpen ? '▼' : '▶'}</span> ${grupo}
+      </td>`;
+      MONTHS.forEach(m => {
+        const v = totGrupoMes[grupo][m] || 0;
+        sgCells += `<td style="text-align:right;padding:10px 8px;background:#fef7f7;color:#7f1d1d;font-weight:700" class="value-neg">${v === 0 ? '—' : _fmt(v)}</td>`;
+      });
+      sgCells += `<td style="text-align:right;padding:10px 12px;background:#fef7f7;color:#7f1d1d;font-weight:700" class="value-neg">${_fmt(grpTot)}</td>`;
+      html += `<tr>${sgCells}</tr>`;
+
+      // Categorias dentro do sub-grupo
+      if (gOpen) {
+        Array.from(catsMap.entries()).sort((a,b) => b[1].total - a[1].total).forEach(([cat, g], idx) => {
+          const key = 'grp_' + grupo.replace(/[^A-Za-z0-9]/g,'') + '_' + idx;
+          let cells = `<td style="padding:8px 14px;padding-left:52px;font-size:12.5px">${_esc(cat)}</td>`;
+          MONTHS.forEach(m => {
+            const v = g.byMonth[m] || 0;
+            if (v > 0) {
+              const ck = key + '_' + m;
+              _drillCache[ck] = { titulo: cat, subtitulo: MONTH_NAMES[MONTHS.indexOf(m)] + ' • ' + grupo, items: g.items.filter(it => it.mes === m) };
+              cells += `<td onclick="_showLancamentos('${ck}')" style="text-align:right;padding:8px;cursor:pointer;font-size:11.5px" class="value-neg">${_fmt(v)}</td>`;
+            } else {
+              cells += `<td style="text-align:right;padding:8px;font-size:11.5px" class="value-zero">—</td>`;
+            }
+          });
+          cells += `<td style="text-align:right;padding:8px 12px;font-weight:700" class="value-neg">${_fmt(g.total)}</td>`;
+          html += `<tr class="cat-row">${cells}</tr>`;
+        });
+      }
+    });
+
+    // Cartão de crédito como grupo separado dentro de DESPESAS
+    if (cartao.total > 0) {
+      const cExpKey = 'sec|cartao';
+      const cOpen = _expanded.has(cExpKey);
+      let cCells = `<td style="padding:10px 14px;padding-left:20px;background:#fef7f7;color:#7f1d1d;font-weight:700;cursor:pointer" onclick="_toggleExpand('${cExpKey}')">
+        <span style="display:inline-block;width:16px">${cOpen ? '▼' : '▶'}</span> 💳 CARTÃO DE CRÉDITO
+      </td>`;
+      MONTHS.forEach(m => {
+        const v = totCartaoMes[m] || 0;
+        cCells += `<td style="text-align:right;padding:10px 8px;background:#fef7f7;color:#7f1d1d;font-weight:700" class="value-neg">${v === 0 ? '—' : _fmt(v)}</td>`;
+      });
+      cCells += `<td style="text-align:right;padding:10px 12px;background:#fef7f7;color:#7f1d1d;font-weight:700" class="value-neg">${_fmt(cartao.total)}</td>`;
+      html += `<tr>${cCells}</tr>`;
+
+      if (cOpen) {
+        // Agrupar cartão por categoria
+        const cardCats = new Map();
+        cartao.items.forEach(it => {
+          const c = _limparCategoria(it.categoria || '') || '(sem categoria)';
+          if (!cardCats.has(c)) cardCats.set(c, { byMonth: {}, total: 0, items: [] });
+          const g = cardCats.get(c);
+          g.byMonth[it.mes] = (g.byMonth[it.mes] || 0) + it.valor;
+          g.total += it.valor;
+          g.items.push(it);
+        });
+        Array.from(cardCats.entries()).sort((a,b) => b[1].total - a[1].total).forEach(([c, g], idx) => {
+          const key = 'card_' + idx;
+          let cells = `<td style="padding:8px 14px;padding-left:52px;font-size:12.5px">${_esc(c)}</td>`;
+          MONTHS.forEach(m => {
+            const v = g.byMonth[m] || 0;
+            if (v > 0) {
+              const ck = key + '_' + m;
               _drillCache[ck] = { titulo: c, subtitulo: MONTH_NAMES[MONTHS.indexOf(m)] + ' • Cartão 2130', items: g.items.filter(it => it.mes === m) };
               cells += `<td onclick="_showLancamentos('${ck}')" style="text-align:right;padding:8px;cursor:pointer;font-size:11.5px" class="value-neg">${_fmt(v)}</td>`;
             } else {
@@ -6342,127 +6479,175 @@ if (document.readyState === 'loading') {
           html += `<tr class="cat-row">${cells}</tr>`;
         });
       }
-      html += `<tr class="spacer"><td colspan="${MONTHS.length + 2}" style="height:6px"></td></tr>`;
     }
 
-    // === AJUSTES FINANCEIROS ===
-    if (ajustes.size > 0) {
-      const ajExpKey = 'sec|ajustes';
-      const ajOpen = _expanded.has(ajExpKey);
-      let ajGrandTot = 0;
-      MONTHS.forEach(m => { ajGrandTot += totAjustMes[m] || 0; });
+    // Total DESPESAS
+    const totDespComCartao = {}; MONTHS.forEach(m => totDespComCartao[m] = (totDespMes[m] || 0) + (totCartaoMes[m] || 0));
+    let despGrand = 0; MONTHS.forEach(m => { despGrand += totDespComCartao[m]; });
+    let tdCells = '<td style="padding:10px 14px;padding-left:20px;font-weight:800;color:#991b1b">Total Despesas</td>';
+    MONTHS.forEach(m => {
+      const v = totDespComCartao[m] || 0;
+      tdCells += `<td style="text-align:right;padding:10px 8px;font-weight:800;color:#991b1b" class="value-neg">${v === 0 ? '—' : _fmt(v)}</td>`;
+    });
+    tdCells += `<td style="text-align:right;padding:10px 12px;font-weight:800;color:#991b1b" class="value-neg">${_fmt(despGrand)}</td>`;
+    html += `<tr class="total-row" style="background:#fef2f2">${tdCells}</tr>`;
+    html += `<tr class="spacer"><td colspan="${MONTHS.length + 2}" style="height:6px"></td></tr>`;
 
-      let acells = `<td style="padding:12px 14px;background:#e0e7ff;color:#3730a3;font-weight:800;cursor:pointer" onclick="_toggleExpand('${ajExpKey}')">
-        <span style="display:inline-block;width:16px">${ajOpen ? '▼' : '▶'}</span> ⚖️ AJUSTES FINANCEIROS
-      </td>`;
-      MONTHS.forEach(m => {
-        const v = totAjustMes[m] || 0;
-        acells += `<td style="text-align:right;padding:12px 8px;background:#e0e7ff;color:#3730a3;font-weight:800" class="${_cls(v)}">${v === 0 ? '—' : _fmtSigned(v)}</td>`;
-      });
-      acells += `<td style="text-align:right;padding:12px 12px;background:#e0e7ff;color:#3730a3;font-weight:800" class="${_cls(ajGrandTot)}">${_fmtSigned(ajGrandTot)}</td>`;
-      html += `<tr class="section-header">${acells}</tr>`;
-
-      if (ajOpen) {
-        Array.from(ajustes.entries()).sort((a,b) => b[1].total - a[1].total).forEach(([cat, g], idx) => {
-          const isRec = g.items.some(it => it.tipo === '1. Contas a Receber');
-          let cells = `<td style="padding:8px 14px;padding-left:36px;font-size:12.5px">${_esc(_limparCategoria(cat))}</td>`;
-          MONTHS.forEach(m => {
-            const v = g.byMonth[m] || 0;
-            const vSigned = isRec ? v : -v;
-            if (v > 0) {
-              const ck = 'aj_' + idx + '_' + m;
-              _drillCache[ck] = { titulo: cat, subtitulo: MONTH_NAMES[MONTHS.indexOf(m)], items: g.items.filter(it => it.mes === m) };
-              cells += `<td onclick="_showLancamentos('${ck}')" style="text-align:right;padding:8px;cursor:pointer;font-size:11.5px" class="${_cls(vSigned)}">${_fmtSigned(vSigned)}</td>`;
-            } else {
-              cells += `<td style="text-align:right;padding:8px;font-size:11.5px" class="value-zero">—</td>`;
-            }
-          });
-          const totalSigned = isRec ? g.total : -g.total;
-          cells += `<td style="text-align:right;padding:8px 12px;font-weight:700" class="${_cls(totalSigned)}">${_fmtSigned(totalSigned)}</td>`;
-          html += `<tr class="cat-row">${cells}</tr>`;
-        });
-      }
-      html += `<tr class="spacer"><td colspan="${MONTHS.length + 2}" style="height:6px"></td></tr>`;
-    }
-
-    // === RESULTADO OPERACIONAL === (receitas - despesas - cartão, sem ajustes)
+    // ============================================================
+    // RESULTADO OPERACIONAL (Receitas - Despesas - Cartão)
+    // ============================================================
     let rCells = '<td style="padding:14px;font-weight:800;font-size:14px;color:#0f172a;background:#eff6ff">💰 RESULTADO OPERACIONAL</td>';
     let totalResult = 0;
     MONTHS.forEach(m => {
-      const v = (totRecMes[m] || 0) - (totDespMes[m] || 0) - (totCartaoMes[m] || 0);
+      const v = (totRecMes[m] || 0) - (totDespComCartao[m] || 0);
       totalResult += v;
       rCells += `<td style="text-align:right;padding:14px 8px;font-weight:800;background:#eff6ff" class="${_cls(v)}">${v === 0 ? '—' : _fmtSigned(v)}</td>`;
     });
     rCells += `<td style="text-align:right;padding:14px 12px;font-weight:800;font-size:14px;background:#eff6ff" class="${_cls(totalResult)}">${_fmtSigned(totalResult)}</td>`;
     html += `<tr class="result-row" style="border-top:2px solid #1e40af;border-bottom:2px solid #1e40af">${rCells}</tr>`;
 
-    // === CONTROLE DE CAIXA === (saldo bancário acumulado)
-    // Saldo inicial (armazenado em localStorage)
+    // ============================================================
+    // AJUSTES FINANCEIROS (entradas + saídas separados)
+    // ============================================================
+    const hasAjustes = ajustesEntrada.size > 0 || ajustesSaida.size > 0;
+    if (hasAjustes) {
+      html += `<tr class="spacer"><td colspan="${MONTHS.length + 2}" style="height:12px"></td></tr>`;
+      const ajExpKey = 'sec|ajustes';
+      const ajOpen = _expanded.has(ajExpKey);
+      let ajGrandTot = 0; MONTHS.forEach(m => { ajGrandTot += totAjustMes[m] || 0; });
+
+      let ahCells = `<td style="padding:12px 14px;background:#e0e7ff;color:#3730a3;font-weight:800;cursor:pointer" onclick="_toggleExpand('${ajExpKey}')">
+        <span style="display:inline-block;width:16px">${ajOpen ? '▼' : '▶'}</span> ⚖️ AJUSTES FINANCEIROS / CONTROLE DE CAIXA
+      </td>`;
+      MONTHS.forEach(m => {
+        const v = totAjustMes[m] || 0;
+        ahCells += `<td style="text-align:right;padding:12px 8px;background:#e0e7ff;color:#3730a3;font-weight:800" class="${_cls(v)}">${v === 0 ? '—' : _fmtSigned(v)}</td>`;
+      });
+      ahCells += `<td style="text-align:right;padding:12px 12px;background:#e0e7ff;color:#3730a3;font-weight:800" class="${_cls(ajGrandTot)}">${_fmtSigned(ajGrandTot)}</td>`;
+      html += `<tr class="section-header">${ahCells}</tr>`;
+
+      if (ajOpen) {
+        // Entradas
+        if (ajustesEntrada.size > 0) {
+          let ecells = '<td style="padding:8px 14px;padding-left:36px;font-size:12px;font-weight:700;color:#1e40af">Entradas</td>';
+          MONTHS.forEach(() => ecells += '<td></td>');
+          ecells += '<td></td>';
+          html += `<tr>${ecells}</tr>`;
+          Array.from(ajustesEntrada.entries()).sort((a,b) => b[1].total - a[1].total).forEach(([cat, g], idx) => {
+            const key = 'ajE_' + idx;
+            let cells = `<td style="padding:8px 14px;padding-left:52px;font-size:12.5px">${_esc(cat)}</td>`;
+            MONTHS.forEach(m => {
+              const v = g.byMonth[m] || 0;
+              if (v > 0) {
+                const ck = key + '_' + m;
+                _drillCache[ck] = { titulo: cat, subtitulo: MONTH_NAMES[MONTHS.indexOf(m)] + ' • Ajuste (Entrada)', items: g.items.filter(it => it.mes === m) };
+                cells += `<td onclick="_showLancamentos('${ck}')" style="text-align:right;padding:8px;cursor:pointer;font-size:11.5px" class="value-pos">${_fmt(v)}</td>`;
+              } else {
+                cells += `<td style="text-align:right;padding:8px;font-size:11.5px" class="value-zero">—</td>`;
+              }
+            });
+            cells += `<td style="text-align:right;padding:8px 12px;font-weight:700" class="value-pos">${_fmt(g.total)}</td>`;
+            html += `<tr class="cat-row">${cells}</tr>`;
+          });
+        }
+        // Saídas
+        if (ajustesSaida.size > 0) {
+          let scells = '<td style="padding:8px 14px;padding-left:36px;font-size:12px;font-weight:700;color:#9f1239">Saídas</td>';
+          MONTHS.forEach(() => scells += '<td></td>');
+          scells += '<td></td>';
+          html += `<tr>${scells}</tr>`;
+          Array.from(ajustesSaida.entries()).sort((a,b) => b[1].total - a[1].total).forEach(([cat, g], idx) => {
+            const key = 'ajS_' + idx;
+            let cells = `<td style="padding:8px 14px;padding-left:52px;font-size:12.5px">${_esc(cat)}</td>`;
+            MONTHS.forEach(m => {
+              const v = g.byMonth[m] || 0;
+              if (v > 0) {
+                const ck = key + '_' + m;
+                _drillCache[ck] = { titulo: cat, subtitulo: MONTH_NAMES[MONTHS.indexOf(m)] + ' • Ajuste (Saída)', items: g.items.filter(it => it.mes === m) };
+                cells += `<td onclick="_showLancamentos('${ck}')" style="text-align:right;padding:8px;cursor:pointer;font-size:11.5px" class="value-neg">${_fmt(-v)}</td>`;
+              } else {
+                cells += `<td style="text-align:right;padding:8px;font-size:11.5px" class="value-zero">—</td>`;
+              }
+            });
+            cells += `<td style="text-align:right;padding:8px 12px;font-weight:700" class="value-neg">${_fmt(-g.total)}</td>`;
+            html += `<tr class="cat-row">${cells}</tr>`;
+          });
+        }
+      }
+    }
+
+    // ============================================================
+    // CONTROLE DE CAIXA — saldo bancário acumulado
+    // ============================================================
     let saldoInicial = 0;
     try { saldoInicial = parseFloat(localStorage.getItem('caixaSaldoInicial_v1') || '0'); } catch(e) {}
 
     html += `<tr class="spacer"><td colspan="${MONTHS.length + 2}" style="height:12px"></td></tr>`;
     html += `<tr class="section-header"><td colspan="${MONTHS.length + 2}" style="background:#dbeafe;color:#1e40af;padding:14px;font-weight:800">🏦 CONTROLE DE CAIXA</td></tr>`;
 
-    // Linha: (+) Resultado Operacional
+    // (+) Resultado Operacional
     let roCells = '<td style="padding:8px 14px;padding-left:36px;font-size:12.5px;color:var(--text-secondary)">(+) Resultado Operacional</td>';
     MONTHS.forEach(m => {
-      const v = (totRecMes[m] || 0) - (totDespMes[m] || 0) - (totCartaoMes[m] || 0);
+      const v = (totRecMes[m] || 0) - (totDespComCartao[m] || 0);
       roCells += `<td style="text-align:right;padding:8px;font-size:11.5px" class="${_cls(v)}">${v === 0 ? '—' : _fmtSigned(v)}</td>`;
     });
     roCells += `<td></td>`;
     html += `<tr>${roCells}</tr>`;
 
-    // Linha: (+/-) Ajustes Financeiros
-    let ajCells = '<td style="padding:8px 14px;padding-left:36px;font-size:12.5px;color:var(--text-secondary)">(+/−) Ajustes Financeiros</td>';
-    MONTHS.forEach(m => {
-      const v = totAjustMes[m] || 0;
-      ajCells += `<td style="text-align:right;padding:8px;font-size:11.5px" class="${_cls(v)}">${v === 0 ? '—' : _fmtSigned(v)}</td>`;
-    });
-    ajCells += `<td></td>`;
-    html += `<tr>${ajCells}</tr>`;
+    // (+/-) Ajustes Financeiros
+    if (hasAjustes) {
+      let aCells = '<td style="padding:8px 14px;padding-left:36px;font-size:12.5px;color:var(--text-secondary)">(±) Ajustes Financeiros</td>';
+      MONTHS.forEach(m => {
+        const v = totAjustMes[m] || 0;
+        aCells += `<td style="text-align:right;padding:8px;font-size:11.5px" class="${_cls(v)}">${v === 0 ? '—' : _fmtSigned(v)}</td>`;
+      });
+      aCells += `<td></td>`;
+      html += `<tr>${aCells}</tr>`;
+    }
 
-    // Linha: = Movimento do Mês
-    let mmCells = '<td style="padding:10px 14px;padding-left:24px;font-weight:700;color:#1e40af">= Movimento do Mês</td>';
+    // (=) Movimentação líquida do mês
+    let sfCells = '<td style="padding:10px 14px;padding-left:36px;font-weight:700;color:#065f46">(=) Movimentação líquida do mês</td>';
+    let acumMov = 0;
+    const movMes = {};
     MONTHS.forEach(m => {
-      const v = (totRecMes[m] || 0) - (totDespMes[m] || 0) - (totCartaoMes[m] || 0) + (totAjustMes[m] || 0);
-      mmCells += `<td style="text-align:right;padding:10px 8px;font-weight:700;background:#dbeafe" class="${_cls(v)}">${v === 0 ? '—' : _fmtSigned(v)}</td>`;
+      const v = (totRecMes[m] || 0) - (totDespComCartao[m] || 0) + (totAjustMes[m] || 0);
+      movMes[m] = v;
+      acumMov += v;
+      sfCells += `<td style="text-align:right;padding:10px 8px;font-weight:700" class="${_cls(v)}">${v === 0 ? '—' : _fmtSigned(v)}</td>`;
     });
-    mmCells += `<td></td>`;
-    html += `<tr>${mmCells}</tr>`;
+    sfCells += `<td style="text-align:right;padding:10px 12px;font-weight:800" class="${_cls(acumMov)}">${_fmtSigned(acumMov)}</td>`;
+    html += `<tr style="background:#ecfdf5">${sfCells}</tr>`;
 
-    // Linha: Saldo Bancário Acumulado (cascata)
-    let saldoAcum = saldoInicial;
-    let sbCells = `<td style="padding:12px 14px;font-weight:800;color:#065f46">🏦 Saldo Bancário Acumulado <input type="number" step="0.01" value="${saldoInicial}" onchange="try{localStorage.setItem('caixaSaldoInicial_v1', this.value);}catch(e){} renderMain();" style="margin-left:8px;width:110px;padding:4px 6px;border:1px solid #6ee7b7;border-radius:4px;font-family:Poppins;font-size:11px;text-align:right;background:white" title="Saldo inicial (edite aqui)"/></td>`;
+    // Saldo Bancário Acumulado
+    let sbCells = `<td style="padding:12px 14px;font-weight:800;color:#065f46">🏦 Saldo Bancário Acumulado
+      <input type="number" step="0.01" value="${saldoInicial}" onchange="try{localStorage.setItem('caixaSaldoInicial_v1', this.value);}catch(e){} renderMain();"
+        style="margin-left:8px;width:110px;padding:4px 6px;border:1px solid #6ee7b7;border-radius:4px;font-family:Poppins;font-size:11px;text-align:right;background:white"
+        title="Saldo inicial (edite aqui)"/></td>`;
+    let saldo = saldoInicial;
     MONTHS.forEach(m => {
-      const v = (totRecMes[m] || 0) - (totDespMes[m] || 0) - (totCartaoMes[m] || 0) + (totAjustMes[m] || 0);
-      saldoAcum += v;
-      sbCells += `<td style="text-align:right;padding:12px 8px;font-weight:800;background:#d1fae5" class="${_cls(saldoAcum)}">${saldoAcum === 0 ? '—' : _fmtSigned(saldoAcum)}</td>`;
+      saldo += movMes[m] || 0;
+      sbCells += `<td style="text-align:right;padding:12px 8px;font-weight:800" class="${_cls(saldo)}">${_fmtSigned(saldo)}</td>`;
     });
-    sbCells += `<td></td>`;
-    html += `<tr style="border-top:1px solid #6ee7b7">${sbCells}</tr>`;
+    sbCells += `<td style="text-align:right;padding:12px 12px;font-weight:800" class="${_cls(saldo)}">${_fmtSigned(saldo)}</td>`;
+    html += `<tr style="background:#d1fae5">${sbCells}</tr>`;
 
     document.getElementById('tableBody').innerHTML = html;
 
     // Summary
-    const totRec = MONTHS.reduce((a,m) => a + (totRecMes[m] || 0), 0);
-    const totDesp = MONTHS.reduce((a,m) => a + (totDespMes[m] || 0), 0);
-    const totCart = MONTHS.reduce((a,m) => a + (totCartaoMes[m] || 0), 0);
-    const margem = totRec > 0 ? ((totRec - totDesp - totCart) / totRec * 100).toFixed(1) : 0;
-    let sumHtml = '';
-    sumHtml += `<div class="summary-item"><div class="summary-label">Receitas</div><div class="summary-value" style="color:var(--primary)">${_fmt(totRec)}</div><div class="summary-sub">${currentYear}</div></div>`;
-    sumHtml += `<div class="summary-item"><div class="summary-label">Despesas</div><div class="summary-value" style="color:var(--secondary)">${_fmt(totDesp + totCart)}</div><div class="summary-sub">Op ${_fmt(totDesp)} + Cartão ${_fmt(totCart)}</div></div>`;
-    sumHtml += `<div class="summary-item"><div class="summary-label">Resultado</div><div class="summary-value" style="color:${totalResult >= 0 ? 'var(--primary)' : 'var(--secondary)'}">${_fmtSigned(totalResult)}</div><div class="summary-sub">Margem: ${margem}%</div></div>`;
+    const totalRec = MONTHS.reduce((a,m) => a + (totRecMes[m] || 0), 0);
+    const totalDesp = MONTHS.reduce((a,m) => a + (totDespComCartao[m] || 0), 0);
+    const margem = totalRec > 0 ? ((totalRec - totalDesp) / totalRec * 100).toFixed(1) : 0;
+    let summaryHtml = '';
+    summaryHtml += `<div class="summary-item"><div class="summary-label">Receitas</div><div class="summary-value" style="color:var(--primary)">${_fmt(totalRec)}</div><div class="summary-sub">${(typeof currentYear !== 'undefined') ? currentYear : ''}</div></div>`;
+    summaryHtml += `<div class="summary-item"><div class="summary-label">Despesas</div><div class="summary-value" style="color:var(--secondary)">${_fmt(totalDesp)}</div><div class="summary-sub">${(typeof currentYear !== 'undefined') ? currentYear : ''}</div></div>`;
+    summaryHtml += `<div class="summary-item"><div class="summary-label">Resultado Operacional</div><div class="summary-value" style="color:${totalRec >= totalDesp ? 'var(--primary)' : 'var(--secondary)'}">${_fmtSigned(totalRec - totalDesp)}</div><div class="summary-sub">Margem: ${margem}%</div></div>`;
     const sc = document.getElementById('summaryContainer');
-    if (sc) sc.innerHTML = sumHtml;
+    if (sc) sc.innerHTML = summaryHtml;
 
     const eb = document.getElementById('projetadoBar');
     if (eb) eb.remove();
   };
 
-  // =====================================================================================
-  // DRE — Receita total, despesa total, resultado por competência
-  // =====================================================================================
   window.renderDRE = function() {
     const MONTHS = _getMonths();
     const MONTH_LABELS = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
@@ -6840,28 +7025,26 @@ if (document.readyState === 'loading') {
     const { data, mesKey, valKey } = _getDataForSection('main');
     const rows = _applyFilters(data);
 
-    // Repete lógica de agrupamento do renderMain
+    // Reproduz agrupamento gerencial do renderMain
     const receitas = new Map();
-    const despesas = new Map();
     const cartao = { byMonth: {}, total: 0 };
-    const ajustes = new Map();
-    const CATS_AJUSTE_PREFIXOS = ['04.', '11.', '13.'];
-    const CATS_TRANSFERENCIA = ['Saída de Transferência','Entrada de Transferência'];
+    const ajustesEntrada = new Map();
+    const ajustesSaida = new Map();
+    const despesasPorGrupo = new Map();
+    _ORDEM_GRUPOS_DESPESA.forEach(g => despesasPorGrupo.set(g, new Map()));
 
-    const totRecMes = {};   MONTHS.forEach(m => totRecMes[m] = 0);
-    const totDespMes = {};  MONTHS.forEach(m => totDespMes[m] = 0);
+    const totRecMes = {};    MONTHS.forEach(m => totRecMes[m] = 0);
+    const totDespMes = {};   MONTHS.forEach(m => totDespMes[m] = 0);
     const totCartaoMes = {}; MONTHS.forEach(m => totCartaoMes[m] = 0);
-    const totAjustMes = {}; MONTHS.forEach(m => totAjustMes[m] = 0);
+    const totAjustMes = {};  MONTHS.forEach(m => totAjustMes[m] = 0);
+    const totGrupoMes = {};
+    _ORDEM_GRUPOS_DESPESA.forEach(g => { totGrupoMes[g] = {}; MONTHS.forEach(m => totGrupoMes[g][m] = 0); });
 
-    function _catCurta(cat) {
-      const m = String(cat || '').match(/^([\d]+\.[\d]+)/);
-      return m ? m[1] : '';
-    }
-    function _ehAjuste(cat) {
-      const s = String(cat || '');
-      if (CATS_TRANSFERENCIA.includes(s)) return true;
-      const curta = _catCurta(s);
-      return CATS_AJUSTE_PREFIXOS.some(p => curta.startsWith(p) || s.startsWith(p));
+    function _add(map, cat, mes, val) {
+      if (!map.has(cat)) map.set(cat, { byMonth: {}, total: 0 });
+      const g = map.get(cat);
+      g.byMonth[mes] = (g.byMonth[mes] || 0) + val;
+      g.total += val;
     }
 
     rows.forEach(r => {
@@ -6869,7 +7052,7 @@ if (document.readyState === 'loading') {
       if (!MONTHS.includes(mes)) return;
       const val = Math.abs(r[valKey] || 0);
       if (val === 0) return;
-      const cat = r.categoria || '(sem categoria)';
+      const catLimpa = _limparCategoria(r.categoria || '');
 
       if (r.tipo === '2. Contas a Pagar' && r.conta === 'Cartão 2130') {
         cartao.byMonth[mes] = (cartao.byMonth[mes] || 0) + val;
@@ -6877,49 +7060,52 @@ if (document.readyState === 'loading') {
         totCartaoMes[mes] += val;
         return;
       }
-      if (_ehAjuste(cat)) {
-        if (!ajustes.has(cat)) ajustes.set(cat, { byMonth: {}, total: 0 });
-        const g = ajustes.get(cat);
-        g.byMonth[mes] = (g.byMonth[mes] || 0) + val;
-        g.total += val;
-        totAjustMes[mes] += (r.tipo === '1. Contas a Receber') ? val : -val;
+      const grupo = _classificar(catLimpa, r.departamento);
+
+      if (grupo === _GRUPO_RECEITAS) {
+        _add(receitas, catLimpa, mes, val);
+        totRecMes[mes] += val;
+        return;
+      }
+      if (grupo === _GRUPO_AJUSTE_ENTRADA) {
+        _add(ajustesEntrada, catLimpa, mes, val);
+        totAjustMes[mes] += val;
+        return;
+      }
+      if (grupo === _GRUPO_AJUSTE_SAIDA) {
+        _add(ajustesSaida, catLimpa, mes, val);
+        totAjustMes[mes] -= val;
         return;
       }
       if (r.tipo === '1. Contas a Receber') {
-        if (!receitas.has(cat)) receitas.set(cat, { byMonth: {}, total: 0 });
-        const g = receitas.get(cat);
-        g.byMonth[mes] = (g.byMonth[mes] || 0) + val;
-        g.total += val;
-        totRecMes[mes] += val;
-      } else if (r.tipo === '2. Contas a Pagar') {
-        if (!despesas.has(cat)) despesas.set(cat, { byMonth: {}, total: 0 });
-        const g = despesas.get(cat);
-        g.byMonth[mes] = (g.byMonth[mes] || 0) + val;
-        g.total += val;
-        totDespMes[mes] += val;
+        _add(ajustesEntrada, catLimpa, mes, val);
+        totAjustMes[mes] += val;
+        return;
       }
+      const grpMap = despesasPorGrupo.get(grupo) || despesasPorGrupo.get(_GRUPO_OUTRAS);
+      _add(grpMap, catLimpa, mes, val);
+      totDespMes[mes] += val;
+      totGrupoMes[grupo][mes] += val;
     });
 
-    // Montar rows do sheet
+    // Metadados
     const year = (typeof currentYear !== 'undefined' && currentYear) ? currentYear : '2026';
     const view = (typeof currentView !== 'undefined') ? currentView : 'caixa';
     const conta = (typeof currentConta !== 'undefined') ? currentConta : 'all';
     const concil = (typeof currentConciliado !== 'undefined') ? currentConciliado : 'all';
 
     const sheet = [];
-    // Cabeçalho de contexto
     sheet.push(['Menu Principal — Growper Dashboard']);
     sheet.push(['Ano: ' + year, 'Visão: ' + (view === 'competencia' ? 'Competência' : 'Caixa'), 'Conta: ' + conta, 'Conciliado: ' + concil]);
     sheet.push(['Exportado em: ' + new Date().toLocaleString('pt-BR')]);
     sheet.push([]);
 
-    // Header da tabela
     const header = ['Descrição', ...MONTH_LABELS, 'Total'];
     sheet.push(header);
 
-    // Helper pra construir linha
-    function linhaCategoria(cat, group) {
-      const linha = [_limparCategoria(cat)];
+    function linhaCategoria(cat, group, indent) {
+      const prefixo = indent ? '    ' + indent + ' ' : '';
+      const linha = [prefixo + cat];
       let tot = 0;
       MONTHS.forEach(m => {
         const v = group.byMonth[m] || 0;
@@ -6929,11 +7115,11 @@ if (document.readyState === 'loading') {
       linha.push(tot || null);
       return linha;
     }
-    function linhaTotal(label, totalMes, sinal) {
+    function linhaAgregada(label, totalMes) {
       const linha = [label];
       let tot = 0;
       MONTHS.forEach(m => {
-        const v = (totalMes[m] || 0) * (sinal || 1);
+        const v = totalMes[m] || 0;
         tot += v;
         linha.push(v || null);
       });
@@ -6945,101 +7131,109 @@ if (document.readyState === 'loading') {
     if (receitas.size > 0) {
       sheet.push(['RECEITAS']);
       Array.from(receitas.entries()).sort((a,b) => b[1].total - a[1].total).forEach(([cat, g]) => {
-        sheet.push(linhaCategoria(cat, g));
+        sheet.push(linhaCategoria(cat, g, '▸'));
       });
-      sheet.push(linhaTotal('TOTAL RECEITAS', totRecMes));
+      sheet.push(linhaAgregada('Total Receitas', totRecMes));
       sheet.push([]);
     }
 
     // DESPESAS
-    if (despesas.size > 0) {
-      sheet.push(['DESPESAS']);
-      Array.from(despesas.entries()).sort((a,b) => b[1].total - a[1].total).forEach(([cat, g]) => {
-        sheet.push(linhaCategoria(cat, g));
+    sheet.push(['DESPESAS']);
+    _ORDEM_GRUPOS_DESPESA.forEach(grupo => {
+      const catsMap = despesasPorGrupo.get(grupo);
+      if (!catsMap || catsMap.size === 0) return;
+      sheet.push(['  ' + grupo]);
+      Array.from(catsMap.entries()).sort((a,b) => b[1].total - a[1].total).forEach(([cat, g]) => {
+        sheet.push(linhaCategoria(cat, g, '  ▸'));
       });
-      sheet.push(linhaTotal('TOTAL DESPESAS', totDespMes));
-      sheet.push([]);
-    }
-
-    // CARTÃO
+      sheet.push(linhaAgregada('    Total ' + grupo, totGrupoMes[grupo]));
+    });
     if (cartao.total > 0) {
-      sheet.push(['CARTÃO DE CRÉDITO']);
-      const linhaCartao = ['Cartão 2130 (fatura consolidada)'];
-      let totCart = 0;
-      MONTHS.forEach(m => {
-        const v = cartao.byMonth[m] || 0;
-        totCart += v;
-        linhaCartao.push(v || null);
-      });
-      linhaCartao.push(totCart || null);
-      sheet.push(linhaCartao);
-      sheet.push(linhaTotal('TOTAL CARTÃO', totCartaoMes));
-      sheet.push([]);
+      sheet.push(['  CARTÃO DE CRÉDITO']);
+      sheet.push(linhaCategoria('Cartão 2130 (fatura consolidada)', cartao, '  ▸'));
+      sheet.push(linhaAgregada('    Total Cartão', totCartaoMes));
     }
+    const totDespComCartao = {}; MONTHS.forEach(m => totDespComCartao[m] = (totDespMes[m] || 0) + (totCartaoMes[m] || 0));
+    sheet.push(linhaAgregada('Total Despesas', totDespComCartao));
+    sheet.push([]);
+
+    // RESULTADO OPERACIONAL
+    sheet.push(['RESULTADO OPERACIONAL']);
+    const resOp = {}; MONTHS.forEach(m => resOp[m] = (totRecMes[m] || 0) - (totDespComCartao[m] || 0));
+    sheet.push(linhaAgregada('Resultado Operacional (Receitas − Despesas)', resOp));
+    sheet.push([]);
 
     // AJUSTES
-    if (ajustes.size > 0) {
-      sheet.push(['AJUSTES FINANCEIROS']);
-      Array.from(ajustes.entries()).sort((a,b) => b[1].total - a[1].total).forEach(([cat, g]) => {
-        sheet.push(linhaCategoria(cat, g));
-      });
-      sheet.push(linhaTotal('TOTAL AJUSTES', totAjustMes));
+    if (ajustesEntrada.size > 0 || ajustesSaida.size > 0) {
+      sheet.push(['AJUSTES FINANCEIROS / CONTROLE DE CAIXA']);
+      if (ajustesEntrada.size > 0) {
+        sheet.push(['  Entradas']);
+        Array.from(ajustesEntrada.entries()).sort((a,b) => b[1].total - a[1].total).forEach(([cat, g]) => {
+          sheet.push(linhaCategoria(cat, g, '  ▸'));
+        });
+      }
+      if (ajustesSaida.size > 0) {
+        sheet.push(['  Saídas']);
+        Array.from(ajustesSaida.entries()).sort((a,b) => b[1].total - a[1].total).forEach(([cat, g]) => {
+          // valores como negativos
+          const gInvertido = { byMonth: {}, total: -g.total };
+          Object.keys(g.byMonth).forEach(m => gInvertido.byMonth[m] = -g.byMonth[m]);
+          sheet.push(linhaCategoria(cat, gInvertido, '  ▸'));
+        });
+      }
+      sheet.push(linhaAgregada('Total Ajustes (líquido)', totAjustMes));
       sheet.push([]);
     }
 
-    // RESULTADO
-    sheet.push(['RESULTADO']);
-    const linhaRes = ['Resultado (Receitas - Despesas - Cartão + Ajustes)'];
-    let totRes = 0;
-    MONTHS.forEach(m => {
-      const v = (totRecMes[m] || 0) - (totDespMes[m] || 0) - (totCartaoMes[m] || 0) + (totAjustMes[m] || 0);
-      totRes += v;
-      linhaRes.push(v || null);
-    });
-    linhaRes.push(totRes || null);
-    sheet.push(linhaRes);
+    // MOVIMENTAÇÃO LÍQUIDA
+    const movLiq = {};
+    MONTHS.forEach(m => movLiq[m] = (totRecMes[m] || 0) - (totDespComCartao[m] || 0) + (totAjustMes[m] || 0));
+    sheet.push(['MOVIMENTAÇÃO LÍQUIDA DO PERÍODO']);
+    sheet.push(linhaAgregada('Movimentação Líquida (Op. + Ajustes)', movLiq));
 
-    // ============ Segunda aba: Lançamentos detalhados ============
-    // Ordenado por Tipo → Categoria → Fornecedor → Data
+    // ============ Aba 2: Lançamentos detalhados ============
     const lancRaw = rows
       .filter(r => MONTHS.includes(r[mesKey]) && Math.abs(r[valKey] || 0) > 0)
-      .map(r => ({
-        data: r.dataPagto || '',
-        mes: r[mesKey],
-        tipo: r.tipo || '',
-        categoria: _limparCategoria(r.categoria || ''),
-        fornecedor: r.fornecedor || '',
-        departamento: r.departamento || '',
-        conta: r.conta || '',
-        conciliado: r.conciliado || '',
-        projeto: r.projeto || '',
-        vendedor: r.vendedor || '',
-        valor: r.tipo === '2. Contas a Pagar' ? -Math.abs(r[valKey] || 0) : Math.abs(r[valKey] || 0),
-      }));
+      .map(r => {
+        const catLimpa = _limparCategoria(r.categoria || '');
+        const grupo = _classificar(catLimpa, r.departamento);
+        const isCartao = r.tipo === '2. Contas a Pagar' && r.conta === 'Cartão 2130';
+        return {
+          data: r.dataPagto || '',
+          mes: r[mesKey],
+          tipo: r.tipo || '',
+          grupo: isCartao ? 'CARTÃO DE CRÉDITO' : grupo,
+          categoria: catLimpa,
+          fornecedor: r.fornecedor || '',
+          departamento: r.departamento || '',
+          conta: r.conta || '',
+          conciliado: r.conciliado || '',
+          projeto: r.projeto || '',
+          vendedor: r.vendedor || '',
+          valor: r.tipo === '2. Contas a Pagar' ? -Math.abs(r[valKey] || 0) : Math.abs(r[valKey] || 0),
+        };
+      });
 
     lancRaw.sort((a, b) => {
-      if (a.tipo !== b.tipo) return a.tipo.localeCompare(b.tipo);
+      if (a.grupo !== b.grupo) return a.grupo.localeCompare(b.grupo);
       if (a.categoria !== b.categoria) return a.categoria.localeCompare(b.categoria);
       if (a.fornecedor !== b.fornecedor) return a.fornecedor.localeCompare(b.fornecedor);
       return String(a.data).localeCompare(String(b.data));
     });
 
     const lancamentos = [];
-    lancamentos.push(['Data','Mês','Tipo','Categoria','Fornecedor/Cliente','Departamento','Conta','Conciliado','Projeto','Vendedor','Valor']);
+    lancamentos.push(['Data','Mês','Tipo','Grupo Gerencial','Categoria','Fornecedor/Cliente','Departamento','Conta','Conciliado','Projeto','Vendedor','Valor']);
     lancRaw.forEach(l => {
-      lancamentos.push([l.data, l.mes, l.tipo, l.categoria, l.fornecedor, l.departamento, l.conta, l.conciliado, l.projeto, l.vendedor, l.valor]);
+      lancamentos.push([l.data, l.mes, l.tipo, l.grupo, l.categoria, l.fornecedor, l.departamento, l.conta, l.conciliado, l.projeto, l.vendedor, l.valor]);
     });
 
     // Criar workbook
     const wb = XLSX.utils.book_new();
 
-    // Aba 1: Resumo
     const ws1 = XLSX.utils.aoa_to_sheet(sheet);
-    // Larguras
-    ws1['!cols'] = [{ wch: 55 }, ...MONTHS.map(() => ({ wch: 13 })), { wch: 15 }];
-    // Formato de moeda para células numéricas (colunas 1 até MONTHS.length+1)
+    ws1['!cols'] = [{ wch: 60 }, ...MONTHS.map(() => ({ wch: 13 })), { wch: 15 }];
     const nRows = sheet.length;
-    for (let r = 4; r < nRows; r++) { // pula cabeçalho
+    for (let r = 4; r < nRows; r++) {
       for (let c = 1; c <= MONTHS.length + 1; c++) {
         const addr = XLSX.utils.encode_cell({ r, c });
         if (ws1[addr] && typeof ws1[addr].v === 'number') {
@@ -7049,30 +7243,20 @@ if (document.readyState === 'loading') {
     }
     XLSX.utils.book_append_sheet(wb, ws1, 'Resumo');
 
-    // Aba 2: Lançamentos
     const ws2 = XLSX.utils.aoa_to_sheet(lancamentos);
     ws2['!cols'] = [
-      { wch: 12 }, // Data
-      { wch: 10 }, // Mês
-      { wch: 22 }, // Tipo
-      { wch: 55 }, // Categoria
-      { wch: 40 }, // Fornecedor
-      { wch: 30 }, // Departamento
-      { wch: 22 }, // Conta
-      { wch: 12 }, // Conciliado
-      { wch: 20 }, // Projeto
-      { wch: 20 }, // Vendedor
-      { wch: 15 }, // Valor
+      { wch: 12 }, { wch: 10 }, { wch: 22 }, { wch: 25 },
+      { wch: 55 }, { wch: 40 }, { wch: 30 }, { wch: 22 },
+      { wch: 12 }, { wch: 20 }, { wch: 20 }, { wch: 15 },
     ];
     for (let r = 1; r < lancamentos.length; r++) {
-      const addr = XLSX.utils.encode_cell({ r, c: 10 }); // coluna Valor agora é a 11ª (índice 10)
+      const addr = XLSX.utils.encode_cell({ r, c: 11 });
       if (ws2[addr] && typeof ws2[addr].v === 'number') {
         ws2[addr].z = 'R$ #,##0.00;[Red]-R$ #,##0.00';
       }
     }
     XLSX.utils.book_append_sheet(wb, ws2, 'Lançamentos');
 
-    // Baixar
     const filename = `menu-principal_${year}_${view}_${new Date().toISOString().slice(0,10)}.xlsx`;
     XLSX.writeFile(wb, filename);
   };
