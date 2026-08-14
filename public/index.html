@@ -6822,7 +6822,273 @@ if (document.readyState === 'loading') {
     document.getElementById('recebiveisContent').innerHTML = html;
   };
 
+
+  // =====================================================================================
+  // EXPORTAR MENU PRINCIPAL PRA EXCEL
+  // Gera XLSX com toda a estrutura hierárquica (Receitas + Despesas + Cartão + Ajustes)
+  // Respeita filtros ativos (ano, conta, conciliado, view)
+  // =====================================================================================
+  window.exportarMenuPrincipal = function() {
+    if (typeof XLSX === 'undefined') {
+      alert('Biblioteca de Excel não carregada. Tenta recarregar a página.');
+      return;
+    }
+
+    const MONTHS = _getMonths();
+    const MONTH_LABELS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+    const { data, mesKey, valKey } = _getDataForSection('main');
+    const rows = _applyFilters(data);
+
+    // Repete lógica de agrupamento do renderMain
+    const receitas = new Map();
+    const despesas = new Map();
+    const cartao = { byMonth: {}, total: 0 };
+    const ajustes = new Map();
+    const CATS_AJUSTE_PREFIXOS = ['04.', '11.', '13.'];
+    const CATS_TRANSFERENCIA = ['Saída de Transferência','Entrada de Transferência'];
+
+    const totRecMes = {};   MONTHS.forEach(m => totRecMes[m] = 0);
+    const totDespMes = {};  MONTHS.forEach(m => totDespMes[m] = 0);
+    const totCartaoMes = {}; MONTHS.forEach(m => totCartaoMes[m] = 0);
+    const totAjustMes = {}; MONTHS.forEach(m => totAjustMes[m] = 0);
+
+    function _catCurta(cat) {
+      const m = String(cat || '').match(/^([\d]+\.[\d]+)/);
+      return m ? m[1] : '';
+    }
+    function _ehAjuste(cat) {
+      const s = String(cat || '');
+      if (CATS_TRANSFERENCIA.includes(s)) return true;
+      const curta = _catCurta(s);
+      return CATS_AJUSTE_PREFIXOS.some(p => curta.startsWith(p) || s.startsWith(p));
+    }
+
+    rows.forEach(r => {
+      const mes = r[mesKey];
+      if (!MONTHS.includes(mes)) return;
+      const val = Math.abs(r[valKey] || 0);
+      if (val === 0) return;
+      const cat = r.categoria || '(sem categoria)';
+
+      if (r.tipo === '2. Contas a Pagar' && r.conta === 'Cartão 2130') {
+        cartao.byMonth[mes] = (cartao.byMonth[mes] || 0) + val;
+        cartao.total += val;
+        totCartaoMes[mes] += val;
+        return;
+      }
+      if (_ehAjuste(cat)) {
+        if (!ajustes.has(cat)) ajustes.set(cat, { byMonth: {}, total: 0 });
+        const g = ajustes.get(cat);
+        g.byMonth[mes] = (g.byMonth[mes] || 0) + val;
+        g.total += val;
+        totAjustMes[mes] += (r.tipo === '1. Contas a Receber') ? val : -val;
+        return;
+      }
+      if (r.tipo === '1. Contas a Receber') {
+        if (!receitas.has(cat)) receitas.set(cat, { byMonth: {}, total: 0 });
+        const g = receitas.get(cat);
+        g.byMonth[mes] = (g.byMonth[mes] || 0) + val;
+        g.total += val;
+        totRecMes[mes] += val;
+      } else if (r.tipo === '2. Contas a Pagar') {
+        if (!despesas.has(cat)) despesas.set(cat, { byMonth: {}, total: 0 });
+        const g = despesas.get(cat);
+        g.byMonth[mes] = (g.byMonth[mes] || 0) + val;
+        g.total += val;
+        totDespMes[mes] += val;
+      }
+    });
+
+    // Montar rows do sheet
+    const year = (typeof currentYear !== 'undefined' && currentYear) ? currentYear : '2026';
+    const view = (typeof currentView !== 'undefined') ? currentView : 'caixa';
+    const conta = (typeof currentConta !== 'undefined') ? currentConta : 'all';
+    const concil = (typeof currentConciliado !== 'undefined') ? currentConciliado : 'all';
+
+    const sheet = [];
+    // Cabeçalho de contexto
+    sheet.push(['Menu Principal — Growper Dashboard']);
+    sheet.push(['Ano: ' + year, 'Visão: ' + (view === 'competencia' ? 'Competência' : 'Caixa'), 'Conta: ' + conta, 'Conciliado: ' + concil]);
+    sheet.push(['Exportado em: ' + new Date().toLocaleString('pt-BR')]);
+    sheet.push([]);
+
+    // Header da tabela
+    const header = ['Descrição', ...MONTH_LABELS, 'Total'];
+    sheet.push(header);
+
+    // Helper pra construir linha
+    function linhaCategoria(cat, group) {
+      const linha = [_limparCategoria(cat)];
+      let tot = 0;
+      MONTHS.forEach(m => {
+        const v = group.byMonth[m] || 0;
+        tot += v;
+        linha.push(v || null);
+      });
+      linha.push(tot || null);
+      return linha;
+    }
+    function linhaTotal(label, totalMes, sinal) {
+      const linha = [label];
+      let tot = 0;
+      MONTHS.forEach(m => {
+        const v = (totalMes[m] || 0) * (sinal || 1);
+        tot += v;
+        linha.push(v || null);
+      });
+      linha.push(tot || null);
+      return linha;
+    }
+
+    // RECEITAS
+    if (receitas.size > 0) {
+      sheet.push(['RECEITAS']);
+      Array.from(receitas.entries()).sort((a,b) => b[1].total - a[1].total).forEach(([cat, g]) => {
+        sheet.push(linhaCategoria(cat, g));
+      });
+      sheet.push(linhaTotal('TOTAL RECEITAS', totRecMes));
+      sheet.push([]);
+    }
+
+    // DESPESAS
+    if (despesas.size > 0) {
+      sheet.push(['DESPESAS']);
+      Array.from(despesas.entries()).sort((a,b) => b[1].total - a[1].total).forEach(([cat, g]) => {
+        sheet.push(linhaCategoria(cat, g));
+      });
+      sheet.push(linhaTotal('TOTAL DESPESAS', totDespMes));
+      sheet.push([]);
+    }
+
+    // CARTÃO
+    if (cartao.total > 0) {
+      sheet.push(['CARTÃO DE CRÉDITO']);
+      const linhaCartao = ['Cartão 2130 (fatura consolidada)'];
+      let totCart = 0;
+      MONTHS.forEach(m => {
+        const v = cartao.byMonth[m] || 0;
+        totCart += v;
+        linhaCartao.push(v || null);
+      });
+      linhaCartao.push(totCart || null);
+      sheet.push(linhaCartao);
+      sheet.push(linhaTotal('TOTAL CARTÃO', totCartaoMes));
+      sheet.push([]);
+    }
+
+    // AJUSTES
+    if (ajustes.size > 0) {
+      sheet.push(['AJUSTES FINANCEIROS']);
+      Array.from(ajustes.entries()).sort((a,b) => b[1].total - a[1].total).forEach(([cat, g]) => {
+        sheet.push(linhaCategoria(cat, g));
+      });
+      sheet.push(linhaTotal('TOTAL AJUSTES', totAjustMes));
+      sheet.push([]);
+    }
+
+    // RESULTADO
+    sheet.push(['RESULTADO']);
+    const linhaRes = ['Resultado (Receitas - Despesas - Cartão + Ajustes)'];
+    let totRes = 0;
+    MONTHS.forEach(m => {
+      const v = (totRecMes[m] || 0) - (totDespMes[m] || 0) - (totCartaoMes[m] || 0) + (totAjustMes[m] || 0);
+      totRes += v;
+      linhaRes.push(v || null);
+    });
+    linhaRes.push(totRes || null);
+    sheet.push(linhaRes);
+
+    // ============ Segunda aba: Lançamentos detalhados ============
+    const lancamentos = [];
+    lancamentos.push(['Data', 'Mês', 'Tipo', 'Categoria', 'Fornecedor/Cliente', 'Conta', 'Conciliado', 'Valor']);
+    rows.forEach(r => {
+      const mes = r[mesKey];
+      if (!MONTHS.includes(mes)) return;
+      const val = Math.abs(r[valKey] || 0);
+      if (val === 0) return;
+      lancamentos.push([
+        r.dataPagto || '',
+        mes,
+        r.tipo || '',
+        _limparCategoria(r.categoria || ''),
+        r.fornecedor || '',
+        r.conta || '',
+        r.conciliado || '',
+        r.tipo === '2. Contas a Pagar' ? -val : val,
+      ]);
+    });
+
+    // Criar workbook
+    const wb = XLSX.utils.book_new();
+
+    // Aba 1: Resumo
+    const ws1 = XLSX.utils.aoa_to_sheet(sheet);
+    // Larguras
+    ws1['!cols'] = [{ wch: 55 }, ...MONTHS.map(() => ({ wch: 13 })), { wch: 15 }];
+    // Formato de moeda para células numéricas (colunas 1 até MONTHS.length+1)
+    const nRows = sheet.length;
+    for (let r = 4; r < nRows; r++) { // pula cabeçalho
+      for (let c = 1; c <= MONTHS.length + 1; c++) {
+        const addr = XLSX.utils.encode_cell({ r, c });
+        if (ws1[addr] && typeof ws1[addr].v === 'number') {
+          ws1[addr].z = 'R$ #,##0.00;[Red]-R$ #,##0.00';
+        }
+      }
+    }
+    XLSX.utils.book_append_sheet(wb, ws1, 'Resumo');
+
+    // Aba 2: Lançamentos
+    const ws2 = XLSX.utils.aoa_to_sheet(lancamentos);
+    ws2['!cols'] = [
+      { wch: 12 }, { wch: 10 }, { wch: 22 }, { wch: 55 },
+      { wch: 35 }, { wch: 22 }, { wch: 12 }, { wch: 15 },
+    ];
+    for (let r = 1; r < lancamentos.length; r++) {
+      const addr = XLSX.utils.encode_cell({ r, c: 7 });
+      if (ws2[addr] && typeof ws2[addr].v === 'number') {
+        ws2[addr].z = 'R$ #,##0.00;[Red]-R$ #,##0.00';
+      }
+    }
+    XLSX.utils.book_append_sheet(wb, ws2, 'Lançamentos');
+
+    // Baixar
+    const filename = `menu-principal_${year}_${view}_${new Date().toISOString().slice(0,10)}.xlsx`;
+    XLSX.writeFile(wb, filename);
+  };
+
+
   console.log('[OVERRIDE V2] Renderers ativados — hierarquia + drill + filtros + caixa + recebíveis');
+})();
+</script>
+
+
+<!-- Botão de exportar Excel (Menu Principal) -->
+<div id="btnExportExcel" style="display:none;position:fixed;bottom:20px;right:20px;z-index:100">
+  <button onclick="exportarMenuPrincipal()" style="background:#065f46;color:white;border:none;padding:12px 20px;border-radius:8px;font-family:Poppins,sans-serif;font-weight:600;font-size:13px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.15);display:flex;align-items:center;gap:8px" title="Exportar Menu Principal para Excel">
+    📊 Exportar Excel
+  </button>
+</div>
+<script>
+(function() {
+  // Mostra/oculta botão conforme seção
+  function _atualizarBotaoExport() {
+    const btn = document.getElementById('btnExportExcel');
+    if (!btn) return;
+    const secao = (typeof currentSection !== 'undefined') ? currentSection : '';
+    btn.style.display = (secao === 'main') ? 'block' : 'none';
+  }
+  // Wrappa showSection pra atualizar botão
+  if (typeof window.showSection === 'function') {
+    const _origShow = window.showSection;
+    window.showSection = function(s) {
+      const r = _origShow.apply(this, arguments);
+      setTimeout(_atualizarBotaoExport, 50);
+      return r;
+    };
+  }
+  // Estado inicial
+  setTimeout(_atualizarBotaoExport, 500);
 })();
 </script>
 
