@@ -5998,7 +5998,23 @@ if (document.readyState === 'loading') {
 
 (function() {
   // ============ Helpers ============
-  function _fmt(v) {
+  // Remove prefixo numérico das categorias na exibição:
+  //   "1.01.01 01.01 Nome"  -> "Nome"
+  //   "01.01 Nome"          -> "Nome"
+  //   "07.01.02 - Nome"     -> "Nome"
+  //   "1.01 Nome"           -> "Nome"
+  // Se não tiver prefixo, retorna igual.
+  function _limparCategoria(nome) {
+    if (!nome) return '';
+    let s = String(nome);
+    // Remove sequências de "N.N.N " ou "N.N " no início (potencialmente repetidas)
+    s = s.replace(/^(\d+(?:\.\d+)+\s+)+/g, '');
+    // Remove eventual traço/hífen residual
+    s = s.replace(/^-\s+/, '').trim();
+    return s || nome;
+  }
+
+    function _fmt(v) {
     if (!v || v === 0) return '—';
     return 'R$ ' + Math.abs(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
   }
@@ -6088,7 +6104,7 @@ if (document.readyState === 'loading') {
           <div style="font-weight:600;font-size:13px">${_esc(f)}</div>
           <div class="${_cls(g.total)}" style="font-weight:700">${_fmtSigned(g.total)}</div>
         </div>
-        <div style="font-size:10.5px;color:var(--text-light)">${g.lancs.length} lançamento${g.lancs.length > 1 ? 's' : ''} • ${_esc(g.lancs[0].categoria || '')}</div>
+        <div style="font-size:10.5px;color:var(--text-light)">${g.lancs.length} lançamento${g.lancs.length > 1 ? 's' : ''} • ${_esc(_limparCategoria(g.lancs[0].categoria || ''))}</div>
       </div>`;
     });
 
@@ -6217,7 +6233,7 @@ if (document.readyState === 'loading') {
         const catOpen = _expanded.has(catExpKey);
 
         let cells = `<td style="padding:8px 14px;padding-left:36px;font-size:12.5px;cursor:pointer" onclick="_toggleExpand('${catExpKey}')">
-          <span style="display:inline-block;width:14px;color:var(--primary);font-weight:700">${catOpen ? '▼' : '▶'}</span> ${_esc(cat)}
+          <span style="display:inline-block;width:14px;color:var(--primary);font-weight:700">${catOpen ? '▼' : '▶'}</span> ${_esc(_limparCategoria(cat))}
         </td>`;
         MONTHS.forEach(m => {
           const v = g.byMonth[m] || 0;
@@ -6349,7 +6365,7 @@ if (document.readyState === 'loading') {
       if (ajOpen) {
         Array.from(ajustes.entries()).sort((a,b) => b[1].total - a[1].total).forEach(([cat, g], idx) => {
           const isRec = g.items.some(it => it.tipo === '1. Contas a Receber');
-          let cells = `<td style="padding:8px 14px;padding-left:36px;font-size:12.5px">${_esc(cat)}</td>`;
+          let cells = `<td style="padding:8px 14px;padding-left:36px;font-size:12.5px">${_esc(_limparCategoria(cat))}</td>`;
           MONTHS.forEach(m => {
             const v = g.byMonth[m] || 0;
             const vSigned = isRec ? v : -v;
@@ -6664,7 +6680,7 @@ if (document.readyState === 'loading') {
     let html = '<div class="table-container"><table>';
     html += '<thead><tr><th>Categoria</th>' + MONTH_LABELS.map(m => `<th style="text-align:right">${m}</th>`).join('') + '<th style="text-align:right">Total</th></tr></thead><tbody>';
     Array.from(porCat.entries()).sort((a,b) => b[1].total - a[1].total).forEach(([cat, g], idx) => {
-      let cells = `<td style="padding:10px 14px">${_esc(cat)}</td>`;
+      let cells = `<td style="padding:10px 14px">${_esc(_limparCategoria(cat))}</td>`;
       MONTHS.forEach(m => {
         const v = g.byMonth[m] || 0;
         if (v > 0) {
