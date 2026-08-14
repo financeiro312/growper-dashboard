@@ -7000,23 +7000,34 @@ if (document.readyState === 'loading') {
     sheet.push(linhaRes);
 
     // ============ Segunda aba: Lançamentos detalhados ============
+    // Ordenado por Tipo → Categoria → Fornecedor → Data
+    const lancRaw = rows
+      .filter(r => MONTHS.includes(r[mesKey]) && Math.abs(r[valKey] || 0) > 0)
+      .map(r => ({
+        data: r.dataPagto || '',
+        mes: r[mesKey],
+        tipo: r.tipo || '',
+        categoria: _limparCategoria(r.categoria || ''),
+        fornecedor: r.fornecedor || '',
+        departamento: r.departamento || '',
+        conta: r.conta || '',
+        conciliado: r.conciliado || '',
+        projeto: r.projeto || '',
+        vendedor: r.vendedor || '',
+        valor: r.tipo === '2. Contas a Pagar' ? -Math.abs(r[valKey] || 0) : Math.abs(r[valKey] || 0),
+      }));
+
+    lancRaw.sort((a, b) => {
+      if (a.tipo !== b.tipo) return a.tipo.localeCompare(b.tipo);
+      if (a.categoria !== b.categoria) return a.categoria.localeCompare(b.categoria);
+      if (a.fornecedor !== b.fornecedor) return a.fornecedor.localeCompare(b.fornecedor);
+      return String(a.data).localeCompare(String(b.data));
+    });
+
     const lancamentos = [];
-    lancamentos.push(['Data', 'Mês', 'Tipo', 'Categoria', 'Fornecedor/Cliente', 'Conta', 'Conciliado', 'Valor']);
-    rows.forEach(r => {
-      const mes = r[mesKey];
-      if (!MONTHS.includes(mes)) return;
-      const val = Math.abs(r[valKey] || 0);
-      if (val === 0) return;
-      lancamentos.push([
-        r.dataPagto || '',
-        mes,
-        r.tipo || '',
-        _limparCategoria(r.categoria || ''),
-        r.fornecedor || '',
-        r.conta || '',
-        r.conciliado || '',
-        r.tipo === '2. Contas a Pagar' ? -val : val,
-      ]);
+    lancamentos.push(['Data','Mês','Tipo','Categoria','Fornecedor/Cliente','Departamento','Conta','Conciliado','Projeto','Vendedor','Valor']);
+    lancRaw.forEach(l => {
+      lancamentos.push([l.data, l.mes, l.tipo, l.categoria, l.fornecedor, l.departamento, l.conta, l.conciliado, l.projeto, l.vendedor, l.valor]);
     });
 
     // Criar workbook
@@ -7041,11 +7052,20 @@ if (document.readyState === 'loading') {
     // Aba 2: Lançamentos
     const ws2 = XLSX.utils.aoa_to_sheet(lancamentos);
     ws2['!cols'] = [
-      { wch: 12 }, { wch: 10 }, { wch: 22 }, { wch: 55 },
-      { wch: 35 }, { wch: 22 }, { wch: 12 }, { wch: 15 },
+      { wch: 12 }, // Data
+      { wch: 10 }, // Mês
+      { wch: 22 }, // Tipo
+      { wch: 55 }, // Categoria
+      { wch: 40 }, // Fornecedor
+      { wch: 30 }, // Departamento
+      { wch: 22 }, // Conta
+      { wch: 12 }, // Conciliado
+      { wch: 20 }, // Projeto
+      { wch: 20 }, // Vendedor
+      { wch: 15 }, // Valor
     ];
     for (let r = 1; r < lancamentos.length; r++) {
-      const addr = XLSX.utils.encode_cell({ r, c: 7 });
+      const addr = XLSX.utils.encode_cell({ r, c: 10 }); // coluna Valor agora é a 11ª (índice 10)
       if (ws2[addr] && typeof ws2[addr].v === 'number') {
         ws2[addr].z = 'R$ #,##0.00;[Red]-R$ #,##0.00';
       }
@@ -7064,7 +7084,7 @@ if (document.readyState === 'loading') {
 
 
 <!-- Botão de exportar Excel (Menu Principal) -->
-<div id="btnExportExcel" style="display:none;position:fixed;bottom:20px;right:20px;z-index:100">
+<div id="btnExportExcel" style="display:none;position:fixed;top:70px;right:20px;z-index:100">
   <button onclick="exportarMenuPrincipal()" style="background:#065f46;color:white;border:none;padding:12px 20px;border-radius:8px;font-family:Poppins,sans-serif;font-weight:600;font-size:13px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.15);display:flex;align-items:center;gap:8px" title="Exportar Menu Principal para Excel">
     📊 Exportar Excel
   </button>
