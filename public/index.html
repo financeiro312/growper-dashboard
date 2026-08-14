@@ -549,6 +549,94 @@ body.scalia-mode .company-badge {
 
 
 </style>
+
+<style>
+/* ============================================================================
+   OVERRIDE CSS — legibilidade tabelas do dashboard dinâmico
+   ============================================================================ */
+
+/* Força tabela a ter largura mínima maior que o container → habilita scroll */
+.table-container table {
+  min-width: 1600px;
+  table-layout: auto;
+}
+
+/* Coluna Descrição (primeira) — larga o suficiente pra ler nome de categoria/fornecedor */
+.table-container table th:first-child,
+.table-container table td:first-child {
+  min-width: 320px !important;
+  max-width: 380px;
+  white-space: normal;
+  word-break: break-word;
+  position: sticky;
+  left: 0;
+  background: var(--surface);
+  z-index: 5;
+  box-shadow: 2px 0 4px rgba(0,0,0,0.05);
+}
+
+/* Header da primeira coluna precisa ficar em cima de tudo (sticky top+left) */
+.table-container table thead th:first-child {
+  z-index: 25 !important;
+  background: #f9fafb !important;
+}
+
+/* Linhas com fundo colorido — mantém o fundo na coluna sticky */
+.table-container table .section-header td:first-child,
+.table-container table tr[style*="background"] td:first-child {
+  background: inherit !important;
+}
+
+/* Colunas de mês — largura fixa suficiente pra número */
+.table-container table th:not(:first-child):not(:last-child),
+.table-container table td:not(:first-child):not(:last-child) {
+  min-width: 100px !important;
+  white-space: nowrap;
+}
+
+/* Coluna TOTAL (última) — maior */
+.table-container table th:last-child,
+.table-container table td:last-child {
+  min-width: 130px !important;
+  white-space: nowrap;
+  position: sticky;
+  right: 0;
+  background: var(--surface);
+  z-index: 5;
+  box-shadow: -2px 0 4px rgba(0,0,0,0.05);
+  font-weight: 700;
+}
+.table-container table thead th:last-child {
+  z-index: 25 !important;
+  background: #f9fafb !important;
+}
+.table-container table .section-header td:last-child,
+.table-container table tr[style*="background"] td:last-child {
+  background: inherit !important;
+}
+
+/* Aumentar contraste dos valores */
+.value-pos { color: #059669 !important; font-weight: 600; }
+.value-neg { color: #dc2626 !important; font-weight: 600; }
+.value-zero { color: #cbd5e1 !important; }
+
+/* Nome de categoria/cliente com quebra e ellipsis se muito longo */
+.cat-row td:first-child {
+  font-size: 12.5px !important;
+  line-height: 1.35;
+}
+
+/* Barra de scroll horizontal mais visível */
+.table-container::-webkit-scrollbar {
+  height: 14px !important;
+}
+
+/* Container do table dando altura pra scroll funcionar bem */
+.table-container {
+  max-height: calc(100vh - 240px) !important;
+}
+</style>
+
 </head>
 <body class="omie-com-banner">
 
