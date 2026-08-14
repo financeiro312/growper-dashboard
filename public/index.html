@@ -565,14 +565,14 @@ body.scalia-mode .company-badge {
 .table-container table th:first-child,
 .table-container table td:first-child {
   min-width: 320px !important;
-  max-width: 380px;
-  white-space: normal;
-  word-break: break-word;
+  white-space: nowrap !important;
+  overflow: visible;
   position: sticky;
   left: 0;
   background: var(--surface);
   z-index: 5;
   box-shadow: 2px 0 4px rgba(0,0,0,0.05);
+  padding-right: 20px !important;
 }
 
 /* Header da primeira coluna precisa ficar em cima de tudo (sticky top+left) */
@@ -622,8 +622,8 @@ body.scalia-mode .company-badge {
 
 /* Nome de categoria/cliente com quebra e ellipsis se muito longo */
 .cat-row td:first-child {
-  font-size: 12.5px !important;
-  line-height: 1.35;
+  font-size: 13px !important;
+  line-height: 1.4;
 }
 
 /* Barra de scroll horizontal mais visível */
