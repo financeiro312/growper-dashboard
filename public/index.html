@@ -6384,14 +6384,36 @@ if (document.readyState === 'loading') {
         });
       }
 
-      // Linha Total Receitas
-      let tCells = '<td style="padding:10px 14px;padding-left:36px;font-weight:800;color:#166534">Total Receitas</td>';
+      // Linha Total Receitas (operacional)
+      let tCells = '<td style="padding:10px 14px;padding-left:36px;font-weight:700;color:#166534">Total Receitas Operacionais</td>';
       MONTHS.forEach(m => {
         const v = totRecMes[m] || 0;
-        tCells += `<td style="text-align:right;padding:10px 8px;font-weight:800;color:#166534" class="value-pos">${v === 0 ? '—' : _fmt(v)}</td>`;
+        tCells += `<td style="text-align:right;padding:10px 8px;font-weight:700;color:#166534" class="value-pos">${v === 0 ? '—' : _fmt(v)}</td>`;
       });
-      tCells += `<td style="text-align:right;padding:10px 12px;font-weight:800;color:#166534" class="value-pos">${_fmt(recGrandTot)}</td>`;
+      tCells += `<td style="text-align:right;padding:10px 12px;font-weight:700;color:#166534" class="value-pos">${_fmt(recGrandTot)}</td>`;
       html += `<tr class="total-row" style="background:#f0fdf4">${tCells}</tr>`;
+    }
+
+    // ============================================================
+    // TOTAL CONTAS A RECEBER (bruto — inclui ajustes de entrada)
+    // Bate com o total do relatório OMIE Financeiro > Contas a Receber
+    // ============================================================
+    {
+      // Ajustes entrada por mês
+      const totAjEntradaMes = {}; MONTHS.forEach(m => totAjEntradaMes[m] = 0);
+      ajustesEntrada.forEach((g) => {
+        MONTHS.forEach(m => totAjEntradaMes[m] += (g.byMonth[m] || 0));
+      });
+      const totCrBruto = {}; MONTHS.forEach(m => totCrBruto[m] = (totRecMes[m] || 0) + totAjEntradaMes[m]);
+      let crGrand = 0; MONTHS.forEach(m => crGrand += totCrBruto[m]);
+
+      let crCells = '<td style="padding:12px 14px;background:#dcfce7;color:#14532d;font-weight:800">📗 TOTAL CONTAS A RECEBER</td>';
+      MONTHS.forEach(m => {
+        const v = totCrBruto[m] || 0;
+        crCells += `<td style="text-align:right;padding:12px 8px;background:#dcfce7;color:#14532d;font-weight:800" class="value-pos">${v === 0 ? '—' : _fmt(v)}</td>`;
+      });
+      crCells += `<td style="text-align:right;padding:12px 12px;background:#dcfce7;color:#14532d;font-weight:800" class="value-pos">${_fmt(crGrand)}</td>`;
+      html += `<tr class="section-header">${crCells}</tr>`;
       html += `<tr class="spacer"><td colspan="${MONTHS.length + 2}" style="height:6px"></td></tr>`;
     }
 
@@ -6495,17 +6517,38 @@ if (document.readyState === 'loading') {
       }
     }
 
-    // Total DESPESAS
+    // Total DESPESAS OPERACIONAIS (inclui cartão)
     const totDespComCartao = {}; MONTHS.forEach(m => totDespComCartao[m] = (totDespMes[m] || 0) + (totCartaoMes[m] || 0));
     let despGrand = 0; MONTHS.forEach(m => { despGrand += totDespComCartao[m]; });
-    let tdCells = '<td style="padding:10px 14px;padding-left:20px;font-weight:800;color:#991b1b">Total Despesas</td>';
+    let tdCells = '<td style="padding:10px 14px;padding-left:20px;font-weight:700;color:#991b1b">Total Despesas Operacionais</td>';
     MONTHS.forEach(m => {
       const v = totDespComCartao[m] || 0;
-      tdCells += `<td style="text-align:right;padding:10px 8px;font-weight:800;color:#991b1b" class="value-neg">${v === 0 ? '—' : _fmt(v)}</td>`;
+      tdCells += `<td style="text-align:right;padding:10px 8px;font-weight:700;color:#991b1b" class="value-neg">${v === 0 ? '—' : _fmt(v)}</td>`;
     });
-    tdCells += `<td style="text-align:right;padding:10px 12px;font-weight:800;color:#991b1b" class="value-neg">${_fmt(despGrand)}</td>`;
+    tdCells += `<td style="text-align:right;padding:10px 12px;font-weight:700;color:#991b1b" class="value-neg">${_fmt(despGrand)}</td>`;
     html += `<tr class="total-row" style="background:#fef2f2">${tdCells}</tr>`;
-    html += `<tr class="spacer"><td colspan="${MONTHS.length + 2}" style="height:6px"></td></tr>`;
+
+    // ============================================================
+    // TOTAL CONTAS A PAGAR (bruto — inclui ajustes de saída)
+    // Bate com o total do relatório OMIE Financeiro > Contas a Pagar
+    // ============================================================
+    {
+      const totAjSaidaMes = {}; MONTHS.forEach(m => totAjSaidaMes[m] = 0);
+      ajustesSaida.forEach((g) => {
+        MONTHS.forEach(m => totAjSaidaMes[m] += (g.byMonth[m] || 0));
+      });
+      const totCpBruto = {}; MONTHS.forEach(m => totCpBruto[m] = (totDespComCartao[m] || 0) + totAjSaidaMes[m]);
+      let cpGrand = 0; MONTHS.forEach(m => cpGrand += totCpBruto[m]);
+
+      let cpCells = '<td style="padding:12px 14px;background:#fee2e2;color:#7f1d1d;font-weight:800">📕 TOTAL CONTAS A PAGAR</td>';
+      MONTHS.forEach(m => {
+        const v = totCpBruto[m] || 0;
+        cpCells += `<td style="text-align:right;padding:12px 8px;background:#fee2e2;color:#7f1d1d;font-weight:800" class="value-neg">${v === 0 ? '—' : _fmt(v)}</td>`;
+      });
+      cpCells += `<td style="text-align:right;padding:12px 12px;background:#fee2e2;color:#7f1d1d;font-weight:800" class="value-neg">${_fmt(cpGrand)}</td>`;
+      html += `<tr class="section-header">${cpCells}</tr>`;
+      html += `<tr class="spacer"><td colspan="${MONTHS.length + 2}" style="height:6px"></td></tr>`;
+    }
 
     // ============================================================
     // RESULTADO OPERACIONAL (Receitas - Despesas - Cartão)
