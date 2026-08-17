@@ -6267,15 +6267,36 @@ if (document.readyState === 'loading') {
       });
     }
 
+    // ===== Match tolerante de tipo e conta =====
+    function _isReceber(tipo) {
+      const t = String(tipo || '').toLowerCase();
+      return t.includes('receber');
+    }
+    function _isPagar(tipo) {
+      const t = String(tipo || '').toLowerCase();
+      return t.includes('pagar');
+    }
+    function _isCartao(conta) {
+      const c = String(conta || '').toLowerCase().trim();
+      return c.includes('cart') && c.includes('2130');
+    }
+
+    // Contadores pra diagnóstico
+    let _diag = { total: 0, foraDoMes: 0, valZero: 0, cartao: 0, receitas: 0,
+                  ajusteEntrada: 0, ajusteSaida: 0, despesa: 0,
+                  receberOutras: 0, semTipo: 0 };
+
     rows.forEach(r => {
+      _diag.total++;
       const mes = r[mesKey];
-      if (!MONTHS.includes(mes)) return;
+      if (!MONTHS.includes(mes)) { _diag.foraDoMes++; return; }
       const val = Math.abs(r[valKey] || 0);
-      if (val === 0) return;
+      // NÃO descarta val=0 — deixa passar mas não soma
       const catLimpa = _limparCategoria(r.categoria || '');
 
-      // Cartão de crédito (bloco separado)
-      if (r.tipo === '2. Contas a Pagar' && r.conta === 'Cartão 2130') {
+      // Cartão de crédito (bloco separado) — usa match tolerante
+      if (_isPagar(r.tipo) && _isCartao(r.conta)) {
+        _diag.cartao++;
         cartao.byMonth[mes] = (cartao.byMonth[mes] || 0) + val;
         cartao.total += val;
         cartao.items.push({
@@ -6290,36 +6311,54 @@ if (document.readyState === 'loading') {
 
       const grupo = _classificar(catLimpa, r.departamento);
 
-      // Receitas
-      if (grupo === _GRUPO_RECEITAS) {
+      // Receitas (só se _isReceber for verdadeiro)
+      if (grupo === _GRUPO_RECEITAS && _isReceber(r.tipo)) {
+        _diag.receitas++;
         _addItem(receitas, catLimpa, mes, val, r);
         totRecMes[mes] += val;
         return;
       }
-      // Ajustes entrada (aumenta caixa) e saída (diminui caixa)
+      // Ajuste entrada explícito
       if (grupo === _GRUPO_AJUSTE_ENTRADA) {
+        _diag.ajusteEntrada++;
         _addItem(ajustesEntrada, catLimpa, mes, val, r);
         totAjustMes[mes] += val;
         return;
       }
+      // Ajuste saída explícito
       if (grupo === _GRUPO_AJUSTE_SAIDA) {
+        _diag.ajusteSaida++;
         _addItem(ajustesSaida, catLimpa, mes, val, r);
         totAjustMes[mes] -= val;
         return;
       }
-      // Se veio um "Receber" que não é Receita nem Ajuste_Entrada:
-      // tratamos como ajuste entrada por segurança (não somar como despesa)
-      if (r.tipo === '1. Contas a Receber') {
+      // Qualquer "Receber" não classificado como Receita vai pra Ajuste Entrada
+      if (_isReceber(r.tipo)) {
+        _diag.receberOutras++;
         _addItem(ajustesEntrada, catLimpa, mes, val, r);
         totAjustMes[mes] += val;
         return;
       }
-      // Despesa dentro do grupo apropriado
-      const grpMap = despesasPorGrupo.get(grupo) || despesasPorGrupo.get(_GRUPO_OUTRAS);
-      _addItem(grpMap, catLimpa, mes, val, r);
-      totDespMes[mes] += val;
-      totGrupoMes[grupo][mes] = (totGrupoMes[grupo][mes] || 0) + val;
+      // Qualquer "Pagar" vai como despesa
+      if (_isPagar(r.tipo)) {
+        _diag.despesa++;
+        const grpMap = despesasPorGrupo.get(grupo) || despesasPorGrupo.get(_GRUPO_OUTRAS);
+        _addItem(grpMap, catLimpa, mes, val, r);
+        totDespMes[mes] += val;
+        if (totGrupoMes[grupo]) totGrupoMes[grupo][mes] = (totGrupoMes[grupo][mes] || 0) + val;
+        else totGrupoMes[_GRUPO_OUTRAS][mes] = (totGrupoMes[_GRUPO_OUTRAS][mes] || 0) + val;
+        return;
+      }
+      // Não bateu com nenhum
+      _diag.semTipo++;
     });
+
+    // Log de diagnóstico silencioso (só no console)
+    console.log('[renderMain] Diagnóstico:', _diag,
+                'Ano:', (typeof currentYear !== 'undefined') ? currentYear : 'N/A',
+                'Conta:', (typeof currentConta !== 'undefined') ? currentConta : 'N/A',
+                'Concil:', (typeof currentConciliado !== 'undefined') ? currentConciliado : 'N/A',
+                'View:', (typeof currentView !== 'undefined') ? currentView : 'N/A');
 
     // Construir HTML
     const thead = document.getElementById('tableHead');
