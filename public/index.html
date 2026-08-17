@@ -6053,9 +6053,12 @@ if (document.readyState === 'loading') {
 
   // ============ Filtros globais ============
   function _applyFilters(rows) {
+    function _norm(s) { return String(s || '').trim().toLowerCase(); }
+    const contaSel = (typeof currentConta !== 'undefined') ? _norm(currentConta) : 'all';
+    const concilSel = (typeof currentConciliado !== 'undefined') ? _norm(currentConciliado) : 'all';
     return rows.filter(r => {
-      if (typeof currentConta !== 'undefined' && currentConta !== 'all' && r.conta !== currentConta) return false;
-      if (typeof currentConciliado !== 'undefined' && currentConciliado !== 'all' && r.conciliado !== currentConciliado) return false;
+      if (contaSel !== 'all' && _norm(r.conta) !== contaSel) return false;
+      if (concilSel !== 'all' && _norm(r.conciliado) !== concilSel) return false;
       return true;
     });
   }
@@ -6216,12 +6219,22 @@ if (document.readyState === 'loading') {
   // renderMain com estrutura gerencial hierárquica
   // =====================================================================================
   window.renderMain = function() {
+    // Limpar cache de drill-down entre renders (evita colisão de chaves)
+    Object.keys(_drillCache).forEach(k => delete _drillCache[k]);
+
     const MONTHS = _getMonths();
     const MONTH_LABELS = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
     const MONTH_NAMES = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
 
     const { data, mesKey, valKey } = _getDataForSection('main');
     const rows = _applyFilters(data);
+
+    // Debug em caso de tabela vazia: mostra o que está chegando
+    if (rows.length === 0) {
+      console.warn('[renderMain] 0 linhas após filtro. currentConta=', typeof currentConta !== 'undefined' ? currentConta : 'N/A',
+                   'currentConciliado=', typeof currentConciliado !== 'undefined' ? currentConciliado : 'N/A',
+                   'total no dataset:', data.length);
+    }
 
     // Estruturas
     const receitas = new Map();                  // categoria -> { byMonth, total, items }
