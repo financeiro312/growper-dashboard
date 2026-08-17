@@ -567,7 +567,7 @@ body.scalia-mode .company-badge {
    Sem max-width: se a categoria for maior, a coluna expande. */
 .table-container table th:first-child,
 .table-container table td:first-child {
-  min-width: 340px !important;
+  min-width: 280px !important;
   white-space: nowrap !important;
   overflow: visible !important;
   padding: 8px 14px !important;
@@ -6542,15 +6542,72 @@ if (document.readyState === 'loading') {
     roCells += `<td></td>`;
     html += `<tr>${roCells}</tr>`;
 
-    // (+/-) Ajustes Financeiros
+    // (±) Ajustes Financeiros — expansível
     if (hasAjustes) {
-      let aCells = '<td style="padding:8px 14px;padding-left:36px;font-size:12.5px;color:var(--text-secondary)">(±) Ajustes Financeiros</td>';
+      const ajExpKey = 'sec|ajustesCaixa';
+      const ajOpen = _expanded.has(ajExpKey);
+      let ajGrandTot = 0; MONTHS.forEach(m => { ajGrandTot += totAjustMes[m] || 0; });
+
+      // Linha cabeçalho: (±) Ajustes Financeiros com seta + total mensal
+      let aCells = `<td style="padding:8px 14px;padding-left:36px;font-size:12.5px;color:var(--text-secondary);cursor:pointer" onclick="_toggleExpand('${ajExpKey}')">
+        <span style="display:inline-block;width:14px;color:var(--primary);font-weight:700">${ajOpen ? '▼' : '▶'}</span> (±) Ajustes Financeiros
+      </td>`;
       MONTHS.forEach(m => {
         const v = totAjustMes[m] || 0;
         aCells += `<td style="text-align:right;padding:8px;font-size:11.5px" class="${_cls(v)}">${v === 0 ? '—' : _fmtSigned(v)}</td>`;
       });
-      aCells += `<td></td>`;
+      aCells += `<td style="text-align:right;padding:8px 12px;font-weight:700" class="${_cls(ajGrandTot)}">${ajGrandTot === 0 ? '—' : _fmtSigned(ajGrandTot)}</td>`;
       html += `<tr>${aCells}</tr>`;
+
+      // Se expandido: mostrar Entradas + Saídas com categorias
+      if (ajOpen) {
+        // ----- Entradas -----
+        if (ajustesEntrada.size > 0) {
+          let ecells = '<td style="padding:6px 14px;padding-left:52px;font-size:11.5px;font-weight:700;color:#1e40af">Entradas</td>';
+          MONTHS.forEach(() => ecells += '<td></td>');
+          ecells += '<td></td>';
+          html += `<tr>${ecells}</tr>`;
+          Array.from(ajustesEntrada.entries()).sort((a,b) => b[1].total - a[1].total).forEach(([cat, g], idx) => {
+            const key = 'ajCxE_' + idx;
+            let cells = `<td style="padding:6px 14px;padding-left:68px;font-size:12px" title="${_esc(cat)}">${_esc(cat)}</td>`;
+            MONTHS.forEach(m => {
+              const v = g.byMonth[m] || 0;
+              if (v > 0) {
+                const ck = key + '_' + m;
+                _drillCache[ck] = { titulo: cat, subtitulo: MONTH_NAMES[MONTHS.indexOf(m)] + ' • Ajuste (Entrada)', items: g.items.filter(it => it.mes === m) };
+                cells += `<td onclick="_showLancamentos('${ck}')" style="text-align:right;padding:6px;cursor:pointer;font-size:11.5px" class="value-pos">${_fmt(v)}</td>`;
+              } else {
+                cells += `<td style="text-align:right;padding:6px;font-size:11.5px" class="value-zero">—</td>`;
+              }
+            });
+            cells += `<td style="text-align:right;padding:6px 12px;font-weight:600" class="value-pos">${_fmt(g.total)}</td>`;
+            html += `<tr class="cat-row">${cells}</tr>`;
+          });
+        }
+        // ----- Saídas -----
+        if (ajustesSaida.size > 0) {
+          let scells = '<td style="padding:6px 14px;padding-left:52px;font-size:11.5px;font-weight:700;color:#9f1239">Saídas</td>';
+          MONTHS.forEach(() => scells += '<td></td>');
+          scells += '<td></td>';
+          html += `<tr>${scells}</tr>`;
+          Array.from(ajustesSaida.entries()).sort((a,b) => b[1].total - a[1].total).forEach(([cat, g], idx) => {
+            const key = 'ajCxS_' + idx;
+            let cells = `<td style="padding:6px 14px;padding-left:68px;font-size:12px" title="${_esc(cat)}">${_esc(cat)}</td>`;
+            MONTHS.forEach(m => {
+              const v = g.byMonth[m] || 0;
+              if (v > 0) {
+                const ck = key + '_' + m;
+                _drillCache[ck] = { titulo: cat, subtitulo: MONTH_NAMES[MONTHS.indexOf(m)] + ' • Ajuste (Saída)', items: g.items.filter(it => it.mes === m) };
+                cells += `<td onclick="_showLancamentos('${ck}')" style="text-align:right;padding:6px;cursor:pointer;font-size:11.5px" class="value-neg">${_fmt(-v)}</td>`;
+              } else {
+                cells += `<td style="text-align:right;padding:6px;font-size:11.5px" class="value-zero">—</td>`;
+              }
+            });
+            cells += `<td style="text-align:right;padding:6px 12px;font-weight:600" class="value-neg">${_fmt(-g.total)}</td>`;
+            html += `<tr class="cat-row">${cells}</tr>`;
+          });
+        }
+      }
     }
 
     // (=) Movimentação líquida do mês
