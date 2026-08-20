@@ -848,7 +848,20 @@ let RAW_DATA_COMP = [];
 
 let PREPOP_CLIENTES = [];
 
-const MONTHS = ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'];
+// MONTHS calculado a partir de currentYear pra funcionar automaticamente em qualquer ano
+function _computeMonthsForYear(y) {
+  y = String(y || new Date().getFullYear());
+  const arr = [];
+  for (let i = 1; i <= 12; i++) arr.push(y + '-' + String(i).padStart(2,'0'));
+  return arr;
+}
+let MONTHS = _computeMonthsForYear('2026');
+// Getter dinâmico: sempre reflete currentYear se ele mudar em runtime
+Object.defineProperty(window, 'MONTHS_DYN', {
+  get: function() {
+    return _computeMonthsForYear(typeof currentYear !== 'undefined' ? currentYear : '2026');
+  }
+});
 const MONTH_LABELS = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
 const MONTH_NAMES = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
 
@@ -6037,19 +6050,39 @@ if (document.readyState === 'loading') {
   const _drillCache = {};
   window._drillCache = _drillCache;
 
+  // ============ Helper universal de mês (cascata de fallback) ============
+  // Para Competência: prefere data de vencimento (mesPrevisao) sobre data de registro.
+  // Isso resolve o problema de títulos cadastrados adiantados (registro em julho,
+  // vencendo em agosto) aparecerem no mês certo (agosto).
+  // Para Caixa: usa data de pagamento (mesPagto). Se não pago, cai em mesPrevisao
+  // como último recurso (evita "sumir" no dashboard).
+  window._getMes = function(r, section) {
+    if (!r) return '';
+    section = section || 'main';
+    const view = (typeof currentView !== 'undefined') ? currentView : 'caixa';
+    if (section === 'card') return r.mesPagto || r.mesPrevisao || r.mesRegistro || '';
+    if (section === 'recebiveis') return r.mesPagto || r.mesPrevisao || r.mesRegistro || '';
+    if (section === 'dre' || section === 'margem' || section === 'ticket' || section === 'pjs')
+      return r.mesPrevisao || r.mesRegistro || r.mesPagto || '';
+    // Menu principal e outros: respeita view
+    if (view === 'competencia') return r.mesPrevisao || r.mesRegistro || r.mesPagto || '';
+    // caixa
+    return r.mesPagto || r.mesPrevisao || r.mesRegistro || '';
+  };
+
   // ============ Escolha dados por seção/view ============
   function _getDataForSection(section) {
     // Menu Principal → respeita botão Caixa/Competência
     if (section === 'main') {
       if (typeof currentView !== 'undefined' && currentView === 'competencia') {
-        return { data: RAW_DATA_COMP, mesKey: 'mesRegistro', valKey: 'valorPago' };
+        return { data: RAW_DATA_COMP, mesKey: 'mesRegistro', valKey: 'valorPago', section: 'main' };
       }
-      return { data: RAW_DATA_CAIXA, mesKey: 'mesPagto', valKey: 'valorPago' };
+      return { data: RAW_DATA_CAIXA, mesKey: 'mesPagto', valKey: 'valorPago', section: 'main' };
     }
     if (section === 'card' || section === 'recebiveis') {
-      return { data: RAW_DATA_CAIXA, mesKey: 'mesPagto', valKey: 'valorPago' };
+      return { data: RAW_DATA_CAIXA, mesKey: 'mesPagto', valKey: 'valorPago', section: section };
     }
-    return { data: RAW_DATA_COMP, mesKey: 'mesRegistro', valKey: 'valorPago' };
+    return { data: RAW_DATA_COMP, mesKey: 'mesRegistro', valKey: 'valorPago', section: section };
   }
 
   // ============ Filtros globais ============
@@ -6288,7 +6321,7 @@ if (document.readyState === 'loading') {
 
     rows.forEach(r => {
       _diag.total++;
-      const mes = r[mesKey];
+      const mes = _getMes(r, (typeof currentSection !== 'undefined' ? currentSection : 'main'));
       if (!MONTHS.includes(mes)) { _diag.foraDoMes++; return; }
       const val = Math.abs(r[valKey] || 0);
       // NÃO descarta val=0 — deixa passar mas não soma
@@ -6742,7 +6775,7 @@ if (document.readyState === 'loading') {
     const recMes = {}; const despMes = {};
     MONTHS.forEach(m => { recMes[m] = 0; despMes[m] = 0; });
     rows.forEach(r => {
-      const mes = r.mesRegistro;
+      const mes = _getMes(r, (typeof currentSection !== 'undefined' ? currentSection : 'main'));
       if (!MONTHS.includes(mes)) return;
       const val = Math.abs(r.valorPago || 0);
       if (r.tipo === '1. Contas a Receber') recMes[mes] += val;
@@ -6784,7 +6817,7 @@ if (document.readyState === 'loading') {
     const recMes = {}; const despMes = {};
     MONTHS.forEach(m => { recMes[m] = 0; despMes[m] = 0; });
     rows.forEach(r => {
-      const mes = r.mesRegistro;
+      const mes = _getMes(r, (typeof currentSection !== 'undefined' ? currentSection : 'main'));
       if (!MONTHS.includes(mes)) return;
       const val = Math.abs(r.valorPago || 0);
       if (r.tipo === '1. Contas a Receber') recMes[mes] += val;
@@ -6826,7 +6859,7 @@ if (document.readyState === 'loading') {
     const recMes = {}; const clientesMes = {};
     MONTHS.forEach(m => { recMes[m] = 0; clientesMes[m] = new Set(); });
     rows.forEach(r => {
-      const mes = r.mesRegistro;
+      const mes = _getMes(r, (typeof currentSection !== 'undefined' ? currentSection : 'main'));
       if (!MONTHS.includes(mes)) return;
       const val = Math.abs(r.valorPago || 0);
       recMes[mes] += val;
@@ -6868,7 +6901,7 @@ if (document.readyState === 'loading') {
     const rows = _applyFilters(RAW_DATA_COMP).filter(r => r.tipo === '2. Contas a Pagar');
     const porDept = new Map();
     rows.forEach(r => {
-      const mes = r.mesRegistro;
+      const mes = _getMes(r, (typeof currentSection !== 'undefined' ? currentSection : 'main'));
       if (!MONTHS.includes(mes)) return;
       const val = Math.abs(r.valorPago || 0);
       if (val === 0) return;
@@ -6936,7 +6969,7 @@ if (document.readyState === 'loading') {
     const totalMes = {}; MONTHS.forEach(m => totalMes[m] = 0);
     let grand = 0;
     rows.forEach(r => {
-      const mes = r.mesRegistro;
+      const mes = _getMes(r, (typeof currentSection !== 'undefined' ? currentSection : 'main'));
       if (!MONTHS.includes(mes)) return;
       const val = Math.abs(r.valorPago || 0);
       if (val === 0) return;
@@ -7001,7 +7034,7 @@ if (document.readyState === 'loading') {
       return porCli.get(cli);
     }
     rowsComp.forEach(r => {
-      const mes = r.mesRegistro;
+      const mes = _getMes(r, (typeof currentSection !== 'undefined' ? currentSection : 'main'));
       if (!MONTHS.includes(mes)) return;
       const val = Math.abs(r.valorPago || 0);
       const cli = r.fornecedor || '(sem cliente)';
@@ -7010,7 +7043,7 @@ if (document.readyState === 'loading') {
       g.totalPrev += val;
     });
     rowsCaixa.forEach(r => {
-      const mes = r.mesPagto;
+      const mes = _getMes(r, (typeof currentSection !== 'undefined' ? currentSection : 'main'));
       if (!MONTHS.includes(mes)) return;
       const val = Math.abs(r.valorPago || 0);
       const cli = r.fornecedor || '(sem cliente)';
@@ -7135,7 +7168,7 @@ if (document.readyState === 'loading') {
     }
 
     rows.forEach(r => {
-      const mes = r[mesKey];
+      const mes = _getMes(r, (typeof currentSection !== 'undefined' ? currentSection : 'main'));
       if (!MONTHS.includes(mes)) return;
       const val = Math.abs(r[valKey] || 0);
       if (val === 0) return;
@@ -7280,14 +7313,14 @@ if (document.readyState === 'loading') {
 
     // ============ Aba 2: Lançamentos detalhados ============
     const lancRaw = rows
-      .filter(r => MONTHS.includes(r[mesKey]) && Math.abs(r[valKey] || 0) > 0)
+      .filter(r => MONTHS.includes(_getMes(r, section || 'main')) && Math.abs(r[valKey] || 0) > 0)
       .map(r => {
         const catLimpa = _limparCategoria(r.categoria || '');
         const grupo = _classificar(catLimpa, r.departamento);
         const isCartao = r.tipo === '2. Contas a Pagar' && r.conta === 'Cartão 2130';
         return {
           data: r.dataPagto || '',
-          mes: r[mesKey],
+          mes: _getMes(r, section || 'main'),
           tipo: r.tipo || '',
           grupo: isCartao ? 'CARTÃO DE CRÉDITO' : grupo,
           categoria: catLimpa,
