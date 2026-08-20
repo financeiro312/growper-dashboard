@@ -225,8 +225,8 @@ export function transformarMovimento(bruto: any, enricher: Enricher): Lancamento
     valorDocumento: parseDecimal(
       getFirst(d, 'nValorTitulo', 'nValor', 'valor_documento')
     ),
-    valorPago: parseDecimal(
-      getFirst(d, 'nValPago', 'nValorTitulo', 'nValor', 'valor_pago') ?? 0
+     valorPago: parseDecimal(
+      getFirst(d, 'nValPago', 'nValorMovCC', 'nValorTitulo', 'nValor', 'valor_pago') ?? parseDecimal(bruto?.resumo?.nValPago) ?? 0
     ),
     contaCodigo: contaCod,
     contaNome: enricher.nomeConta(contaCod),
