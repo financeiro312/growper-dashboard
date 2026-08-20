@@ -1125,10 +1125,10 @@ function getMesKey(r) {
   // Para sections fixas
   if (currentSection === 'card') return r.mesPagto;
   if (currentSection === 'recebiveis') return r.mesPagto || r.mesPrevisao;
-  if (currentSection === 'dre' || currentSection === 'margem') return r.mesRegistro;
+  if (currentSection === 'dre' || currentSection === 'margem') return r.mesPrevisao || r.mesRegistro;
   // Para outras, usa view atual
   if (currentView === 'caixa') return r.mesPagto;
-  if (currentView === 'competencia') return r.mesRegistro;
+  if (currentView === 'competencia') return r.mesPrevisao || r.mesRegistro;
   return r.mesPrevisao;
 }
 
