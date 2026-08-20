@@ -195,7 +195,7 @@ export function transformarMovimento(bruto: any, enricher: Enricher): Lancamento
   const nCodTit = String(getFirst(d, 'nCodTitulo', 'codigo') ?? '');
   const nCodRepet = String(getFirst(d, 'nCodTitRepet') ?? '');
   const numParc = String(getFirst(d, 'cNumParcela') ?? '');
-  const dtPag = String(getFirst(d, 'dDtPagamento', 'data_pagamento') ?? '');
+  const dtPag = String(getFirst(d, 'dDtConcilia', 'dDtPagamento', 'data_pagamento') ?? '');
   let idMov: string;
   if (nCodRepet && nCodRepet !== nCodTit) {
     idMov = `${nCodTit}_${nCodRepet}`;
@@ -216,7 +216,7 @@ export function transformarMovimento(bruto: any, enricher: Enricher): Lancamento
     tipo,
     status,
     cancelado,
-    dataPagto: parseDataOmie(getFirst(d, 'dDtPagamento', 'data_pagamento')),
+    dataPagto: parseDataOmie(getFirst(d, 'dDtConcilia', 'dDtPagamento', 'data_pagamento')),
     dataRegistro: parseDataOmie(getFirst(d, 'dDtRegistro', 'data_registro')),
     dataPrevisao: parseDataOmie(getFirst(d, 'dDtPrevisao', 'data_previsao')),
     dataVencimento: parseDataOmie(
