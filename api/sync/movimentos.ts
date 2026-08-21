@@ -13,7 +13,7 @@ export const config = { maxDuration: 60 };
 //   Baixa 3 páginas do Omie: ~9s
 //   Transformer + upsert:    ~10s
 //   Total: ~24s (bem folgado)
-const PAGINAS_POR_CHAMADA = 12;
+const PAGINAS_POR_CHAMADA = 35;
 
 function requireEnv(name: string): string {
   const v = process.env[name];
