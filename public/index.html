@@ -6112,7 +6112,7 @@ if (document.readyState === 'loading') {
     const { titulo, subtitulo, items } = entry;
 
     let total = 0;
-    items.forEach(it => { total += it.val; });
+    items.forEach(it => { total += (it.valor !== undefined ? it.valor : it.val) || 0; });
 
     let body = `<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 18px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
       <div>
@@ -6131,7 +6131,7 @@ if (document.readyState === 'loading') {
       const f = it.fornecedor || '(sem identificação)';
       if (!byFornec.has(f)) byFornec.set(f, { total: 0, lancs: [] });
       const g = byFornec.get(f);
-      g.total += it.val;
+      g.total += (it.valor !== undefined ? it.valor : it.val) || 0;
       g.lancs.push(it);
     });
 
@@ -6151,11 +6151,12 @@ if (document.readyState === 'loading') {
           const dt = l.data || l.dataPagto || '';
           const dtFormatada = dt ? (dt.split('-').reverse().join('/')) : '(sem data)';
           const desc = l.numeroDocumento || l.observacao || l.descricao || '';
+          const _lval = (l.valor !== undefined ? l.valor : l.val) || 0;
           body += `<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:11.5px;border-bottom:1px dashed #e5e7eb">
             <div style="color:var(--text-secondary)">
               <span style="color:var(--text);font-weight:500">${dtFormatada}</span>${desc ? ' — ' + _esc(String(desc).slice(0, 60)) : ''}
             </div>
-            <div class="${_cls(l.val)}" style="font-weight:600">${_fmtSigned(l.val)}</div>
+            <div class="${_cls(_lval)}" style="font-weight:600">${_fmtSigned(_lval)}</div>
           </div>`;
         });
         body += `</div>`;
@@ -6484,8 +6485,8 @@ if (document.readyState === 'loading') {
               const f = it.fornecedor || '(sem identificação)';
               if (!byFornec.has(f)) byFornec.set(f, { byMonth: {}, total: 0, items: [] });
               const fg = byFornec.get(f);
-              fg.byMonth[it.mes] = (fg.byMonth[it.mes] || 0) + it.val;
-              fg.total += it.val;
+              fg.byMonth[it.mes] = (fg.byMonth[it.mes] || 0) + it.valor;
+              fg.total += it.valor;
               fg.items.push(it);
             });
             Array.from(byFornec.entries()).sort((a,b) => Math.abs(b[1].total) - Math.abs(a[1].total)).forEach(([fName, fG], fIdx) => {
@@ -6605,8 +6606,8 @@ if (document.readyState === 'loading') {
               const f = it.fornecedor || '(sem identificação)';
               if (!byFornec.has(f)) byFornec.set(f, { byMonth: {}, total: 0, items: [] });
               const fg = byFornec.get(f);
-              fg.byMonth[it.mes] = (fg.byMonth[it.mes] || 0) + it.val;
-              fg.total += it.val;
+              fg.byMonth[it.mes] = (fg.byMonth[it.mes] || 0) + it.valor;
+              fg.total += it.valor;
               fg.items.push(it);
             });
             Array.from(byFornec.entries()).sort((a,b) => Math.abs(b[1].total) - Math.abs(a[1].total)).forEach(([fName, fG], fIdx) => {
