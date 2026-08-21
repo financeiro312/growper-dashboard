@@ -6136,13 +6136,32 @@ if (document.readyState === 'loading') {
     });
 
     Array.from(byFornec.entries()).sort((a,b) => Math.abs(b[1].total) - Math.abs(a[1].total)).forEach(([f, g]) => {
+      // Cabeçalho do fornecedor
       body += `<div style="border-bottom:1px solid var(--border);padding:10px 0">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
           <div style="font-weight:600;font-size:13px">${_esc(f)}</div>
           <div class="${_cls(g.total)}" style="font-weight:700">${_fmtSigned(g.total)}</div>
         </div>
-        <div style="font-size:10.5px;color:var(--text-light)">${g.lancs.length} lançamento${g.lancs.length > 1 ? 's' : ''} • ${_esc(_limparCategoria(g.lancs[0].categoria || ''))}</div>
-      </div>`;
+        <div style="font-size:10.5px;color:var(--text-light);margin-bottom:8px">${g.lancs.length} lançamento${g.lancs.length > 1 ? 's' : ''} • ${_esc(_limparCategoria(g.lancs[0].categoria || ''))}</div>`;
+
+      // Lista detalhada de cada lançamento individual
+      if (g.lancs.length > 0) {
+        body += `<div style="background:#f9fafb;border-radius:6px;padding:6px 10px;margin-top:4px">`;
+        g.lancs.forEach(l => {
+          const dt = l.data || l.dataPagto || '';
+          const dtFormatada = dt ? (dt.split('-').reverse().join('/')) : '(sem data)';
+          const desc = l.numeroDocumento || l.observacao || l.descricao || '';
+          body += `<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:11.5px;border-bottom:1px dashed #e5e7eb">
+            <div style="color:var(--text-secondary)">
+              <span style="color:var(--text);font-weight:500">${dtFormatada}</span>${desc ? ' — ' + _esc(String(desc).slice(0, 60)) : ''}
+            </div>
+            <div class="${_cls(l.val)}" style="font-weight:600">${_fmtSigned(l.val)}</div>
+          </div>`;
+        });
+        body += `</div>`;
+      }
+
+      body += `</div>`;
     });
 
     if (typeof openModal === 'function') openModal(titulo, subtitulo, body);
@@ -6440,7 +6459,11 @@ if (document.readyState === 'loading') {
         Array.from(receitas.entries()).sort((a,b) => b[1].total - a[1].total).forEach(([cat, g], idx) => {
           const key = 'rec_' + idx;
           _drillCache[key + '_items'] = g.items;
-          let cells = `<td style="padding:8px 14px;padding-left:36px" title="${_esc(cat)}">${_esc(cat)}</td>`;
+          const catExpKey = 'cat|rec|' + idx;
+          const catOpen = _expanded.has(catExpKey);
+          let cells = `<td style="padding:8px 14px;padding-left:36px;cursor:pointer" title="${_esc(cat)}" onclick="_toggleExpand('${catExpKey}')">
+            <span style="display:inline-block;width:14px;color:var(--primary);font-weight:700">${catOpen ? '▼' : '▶'}</span> ${_esc(cat)}
+          </td>`;
           MONTHS.forEach(m => {
             const v = g.byMonth[m] || 0;
             if (v > 0) {
@@ -6453,6 +6476,35 @@ if (document.readyState === 'loading') {
           });
           cells += `<td style="text-align:right;padding:8px 12px;font-weight:700" class="value-pos">${_fmt(g.total)}</td>`;
           html += `<tr class="cat-row">${cells}</tr>`;
+
+          // Expansão: fornecedores/clientes desta categoria
+          if (catOpen) {
+            const byFornec = new Map();
+            g.items.forEach(it => {
+              const f = it.fornecedor || '(sem identificação)';
+              if (!byFornec.has(f)) byFornec.set(f, { byMonth: {}, total: 0, items: [] });
+              const fg = byFornec.get(f);
+              fg.byMonth[it.mes] = (fg.byMonth[it.mes] || 0) + it.val;
+              fg.total += it.val;
+              fg.items.push(it);
+            });
+            Array.from(byFornec.entries()).sort((a,b) => Math.abs(b[1].total) - Math.abs(a[1].total)).forEach(([fName, fG], fIdx) => {
+              const fKey = key + '_f' + fIdx;
+              let fCells = `<td style="padding:6px 14px;padding-left:70px;font-size:11.5px;color:var(--text-secondary)" title="${_esc(fName)}">↳ ${_esc(fName)}</td>`;
+              MONTHS.forEach(m => {
+                const v = fG.byMonth[m] || 0;
+                if (v > 0) {
+                  const fck = fKey + '_' + m;
+                  _drillCache[fck] = { titulo: fName, subtitulo: MONTH_NAMES[MONTHS.indexOf(m)] + ' • ' + cat, items: fG.items.filter(it => it.mes === m) };
+                  fCells += `<td onclick="_showLancamentos('${fck}')" style="text-align:right;padding:6px;cursor:pointer;font-size:11px" class="value-pos">${_fmt(v)}</td>`;
+                } else {
+                  fCells += `<td style="text-align:right;padding:6px;font-size:11px" class="value-zero">—</td>`;
+                }
+              });
+              fCells += `<td style="text-align:right;padding:6px 12px;font-weight:600;font-size:11px" class="value-pos">${_fmt(fG.total)}</td>`;
+              html += `<tr>${fCells}</tr>`;
+            });
+          }
         });
       }
 
@@ -6528,7 +6580,11 @@ if (document.readyState === 'loading') {
       if (gOpen) {
         Array.from(catsMap.entries()).sort((a,b) => b[1].total - a[1].total).forEach(([cat, g], idx) => {
           const key = 'grp_' + grupo.replace(/[^A-Za-z0-9]/g,'') + '_' + idx;
-          let cells = `<td style="padding:8px 14px;padding-left:52px" title="${_esc(cat)}">${_esc(cat)}</td>`;
+          const catExpKey = 'cat|desp|' + grupo.replace(/[^A-Za-z0-9]/g,'') + '|' + idx;
+          const catOpen = _expanded.has(catExpKey);
+          let cells = `<td style="padding:8px 14px;padding-left:52px;cursor:pointer" title="${_esc(cat)}" onclick="_toggleExpand('${catExpKey}')">
+            <span style="display:inline-block;width:14px;color:var(--primary);font-weight:700">${catOpen ? '▼' : '▶'}</span> ${_esc(cat)}
+          </td>`;
           MONTHS.forEach(m => {
             const v = g.byMonth[m] || 0;
             if (v > 0) {
@@ -6541,6 +6597,35 @@ if (document.readyState === 'loading') {
           });
           cells += `<td style="text-align:right;padding:8px 12px;font-weight:700" class="value-neg">${_fmt(g.total)}</td>`;
           html += `<tr class="cat-row">${cells}</tr>`;
+
+          // Expansão: fornecedores desta categoria
+          if (catOpen) {
+            const byFornec = new Map();
+            g.items.forEach(it => {
+              const f = it.fornecedor || '(sem identificação)';
+              if (!byFornec.has(f)) byFornec.set(f, { byMonth: {}, total: 0, items: [] });
+              const fg = byFornec.get(f);
+              fg.byMonth[it.mes] = (fg.byMonth[it.mes] || 0) + it.val;
+              fg.total += it.val;
+              fg.items.push(it);
+            });
+            Array.from(byFornec.entries()).sort((a,b) => Math.abs(b[1].total) - Math.abs(a[1].total)).forEach(([fName, fG], fIdx) => {
+              const fKey = key + '_f' + fIdx;
+              let fCells = `<td style="padding:6px 14px;padding-left:86px;font-size:11.5px;color:var(--text-secondary)" title="${_esc(fName)}">↳ ${_esc(fName)}</td>`;
+              MONTHS.forEach(m => {
+                const v = fG.byMonth[m] || 0;
+                if (v > 0) {
+                  const fck = fKey + '_' + m;
+                  _drillCache[fck] = { titulo: fName, subtitulo: MONTH_NAMES[MONTHS.indexOf(m)] + ' • ' + cat, items: fG.items.filter(it => it.mes === m) };
+                  fCells += `<td onclick="_showLancamentos('${fck}')" style="text-align:right;padding:6px;cursor:pointer;font-size:11px" class="value-neg">${_fmt(v)}</td>`;
+                } else {
+                  fCells += `<td style="text-align:right;padding:6px;font-size:11px" class="value-zero">—</td>`;
+                }
+              });
+              fCells += `<td style="text-align:right;padding:6px 12px;font-weight:600;font-size:11px" class="value-neg">${_fmt(fG.total)}</td>`;
+              html += `<tr>${fCells}</tr>`;
+            });
+          }
         });
       }
     });
