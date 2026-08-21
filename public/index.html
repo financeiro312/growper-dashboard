@@ -7399,14 +7399,14 @@ if (document.readyState === 'loading') {
 
     // ============ Aba 2: Lançamentos detalhados ============
     const lancRaw = rows
-      .filter(r => MONTHS.includes(_getMes(r, section || 'main')) && Math.abs(r[valKey] || 0) > 0)
+      .filter(r => MONTHS.includes(_getMes(r, 'main')) && Math.abs(r[valKey] || 0) > 0)
       .map(r => {
         const catLimpa = _limparCategoria(r.categoria || '');
         const grupo = _classificar(catLimpa, r.departamento);
         const isCartao = r.tipo === '2. Contas a Pagar' && r.conta === 'Cartão 2130';
         return {
           data: r.dataPagto || '',
-          mes: _getMes(r, section || 'main'),
+          mes: _getMes(r, 'main'),
           tipo: r.tipo || '',
           grupo: isCartao ? 'CARTÃO DE CRÉDITO' : grupo,
           categoria: catLimpa,
