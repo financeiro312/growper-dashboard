@@ -736,6 +736,7 @@ body.scalia-mode .company-badge {
           <button class="view-btn" data-view="competencia">Competência</button>
           <button class="view-btn" data-view="forecast">Forecast</button>
         </div>
+        <button id="btnExportExcelInline" onclick="exportarMenuPrincipal()" style="display:none;margin-left:8px;background:#065f46;color:white;border:none;padding:8px 14px;border-radius:6px;font-family:Poppins,sans-serif;font-weight:600;font-size:12.5px;cursor:pointer;align-items:center;gap:6px;white-space:nowrap" title="Exportar Menu Principal para Excel">📊 Exportar Excel</button>
         <!-- Sub-abas de recebíveis agora ficam dentro da seção -->
       </div>
     </div>
@@ -5960,6 +5961,35 @@ async function omieBootstrap() {
     RAW_DATA_COMP = comp || [];
     PREPOP_CLIENTES = prepop || [];
 
+    // ============================================================
+    // DEDUPLICAÇÃO DEFENSIVA — remove registros idênticos em memória
+    // Chave: tipo + conta + fornecedor + categoria + mesPagto/mesRegistro + valor
+    // Isso protege o dashboard mesmo se o Supabase tiver duplicatas.
+    // ============================================================
+    function _dedupArray(arr, keyFn) {
+      const seen = new Set();
+      const out = [];
+      for (const r of arr) {
+        const k = keyFn(r);
+        if (seen.has(k)) continue;
+        seen.add(k);
+        out.push(r);
+      }
+      return out;
+    }
+    const _antesCaixa = RAW_DATA_CAIXA.length;
+    const _antesComp = RAW_DATA_COMP.length;
+    RAW_DATA_CAIXA = _dedupArray(RAW_DATA_CAIXA, r =>
+      [r.tipo || '', r.conta || '', r.fornecedor || '', r.categoria || '',
+       r.mesPagto || '', r.dataPagto || '', Number(r.valorPago || 0).toFixed(2)].join('|')
+    );
+    RAW_DATA_COMP = _dedupArray(RAW_DATA_COMP, r =>
+      [r.tipo || '', r.conta || '', r.fornecedor || '', r.categoria || '',
+       r.mesRegistro || '', r.mesPrevisao || '', Number(r.valorPago || 0).toFixed(2)].join('|')
+    );
+    console.log('[Dedup] Caixa:', _antesCaixa, '→', RAW_DATA_CAIXA.length,
+                '| Comp:', _antesComp, '→', RAW_DATA_COMP.length);
+
     console.log('[Omie] Dados carregados:', {
       caixa: RAW_DATA_CAIXA.length,
       comp: RAW_DATA_COMP.length,
@@ -7473,8 +7503,8 @@ if (document.readyState === 'loading') {
 </script>
 
 
-<!-- Botão de exportar Excel (Menu Principal) -->
-<div id="btnExportExcel" style="display:none;position:fixed;top:70px;right:20px;z-index:100">
+<!-- Botão flutuante desativado — substituído pelo inline no cabeçalho -->
+<div id="btnExportExcel" style="display:none !important;position:fixed;top:70px;right:20px;z-index:100">
   <button onclick="exportarMenuPrincipal()" style="background:#065f46;color:white;border:none;padding:12px 20px;border-radius:8px;font-family:Poppins,sans-serif;font-weight:600;font-size:13px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.15);display:flex;align-items:center;gap:8px" title="Exportar Menu Principal para Excel">
     📊 Exportar Excel
   </button>
@@ -7483,10 +7513,12 @@ if (document.readyState === 'loading') {
 (function() {
   // Mostra/oculta botão conforme seção
   function _atualizarBotaoExport() {
-    const btn = document.getElementById('btnExportExcel');
-    if (!btn) return;
+    const btnInline = document.getElementById('btnExportExcelInline');
     const secao = (typeof currentSection !== 'undefined') ? currentSection : '';
-    btn.style.display = (secao === 'main') ? 'block' : 'none';
+    if (btnInline) btnInline.style.display = (secao === 'main') ? 'inline-flex' : 'none';
+    // Botão flutuante permanece oculto
+    const btnFloat = document.getElementById('btnExportExcel');
+    if (btnFloat) btnFloat.style.display = 'none';
   }
   // Wrappa showSection pra atualizar botão
   if (typeof window.showSection === 'function') {
