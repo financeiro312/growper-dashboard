@@ -196,17 +196,9 @@ export function transformarMovimento(bruto: any, enricher: Enricher): Lancamento
   const nCodRepet = String(getFirst(d, 'nCodTitRepet') ?? '');
   const numParc = String(getFirst(d, 'cNumParcela') ?? '');
   const dtPag = String(getFirst(d, 'dDtConcilia', 'dDtPagamento', 'data_pagamento') ?? '');
-  let idMov: string;
-  if (nCodRepet && nCodRepet !== nCodTit) {
-    idMov = `${nCodTit}_${nCodRepet}`;
-  } else if (numParc) {
-    idMov = `${nCodTit}_${numParc.replace('/', 'de')}`;
-  } else if (dtPag) {
-    idMov = `${nCodTit}_${dtPag.replace(/\//g, '')}`;
-  } else {
-    idMov = nCodTit;
-  }
-
+  const nCodMovCC = String(getFirst(d, 'nCodMovCC') ?? '');
+  const nCodBaixa = String(getFirst(d, 'nCodBaixa') ?? '');
+  const idMov: string = nCodMovCC || nCodBaixa || (nCodRepet && nCodRepet !== nCodTit ? `${nCodTit}_${nCodRepet}` : (numParc ? `${nCodTit}_${numParc.replace('/', 'de')}` : (dtPag ? `${nCodTit}_${dtPag.replace(/\//g, '')}` : nCodTit)));
   return {
     idMovimento: idMov,
     idTitulo: String(
