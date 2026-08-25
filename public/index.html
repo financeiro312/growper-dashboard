@@ -6717,8 +6717,8 @@ if (document.readyState === 'loading') {
       }
     });
 
-    // Cartão de crédito como grupo separado dentro de DESPESAS
-    if (cartao.total > 0) {
+    // Cartão de crédito como grupo separado DENTRO de DESPESAS (aparece só se dOpen)
+    if (dOpen && cartao.total > 0) {
       const cExpKey = 'sec|cartao';
       const cOpen = _expanded.has(cExpKey);
       let cCells = `<td style="padding:10px 14px;padding-left:20px;background:#fef7f7;color:#7f1d1d;font-weight:700;cursor:pointer" onclick="_toggleExpand('${cExpKey}')">
