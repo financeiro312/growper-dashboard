@@ -6291,8 +6291,8 @@ if (document.readyState === 'loading') {
     'Incentivos e Bônus Prestadores': 'VARIÁVEIS',
     'Voucher Aniversário / Datas Comemorativas': 'VARIÁVEIS',
     'Brindes Internos (Equipe)': 'VARIÁVEIS',
-    'Devolução de Adiantamento de Cliente': 'VARIÁVEIS',
-    'Devolução de Receita de Serviços': 'VARIÁVEIS',
+    'Devolução de Adiantamento de Cliente': _GRUPO_AJUSTE_SAIDA,
+    'Devolução de Receita de Serviços': _GRUPO_AJUSTE_SAIDA,
     'Premiação e Incentivos para Clientes': 'VARIÁVEIS',
     'Brindes para Clientes': 'VARIÁVEIS',
 
@@ -6633,12 +6633,14 @@ if (document.readyState === 'loading') {
     // O "Total Receitas Operacionais" já é exibido acima como resumo do bloco de receitas.
 
     // ============================================================
-    // DESPESAS (com sub-grupos)
+    // DESPESAS (com sub-grupos expansível)
     // ============================================================
-    // Cabeçalho DESPESAS
+    // Cabeçalho DESPESAS (com seta expansível)
+    const dExpKey = 'section|despesas';
+    const dOpen = _expanded.has(dExpKey);
     let despHeadTot = 0; MONTHS.forEach(m => { despHeadTot += totDespMes[m] || 0; });
-    let dhCells = `<td style="padding:12px 14px;background:#fef2f2;color:#991b1b;font-weight:800">
-        📤 DESPESAS
+    let dhCells = `<td style="padding:12px 14px;background:#fef2f2;color:#991b1b;font-weight:800;cursor:pointer" onclick="_toggleExpand('${dExpKey}')">
+        <span style="display:inline-block;width:16px">${dOpen ? '▼' : '▶'}</span> 📤 DESPESAS
       </td>`;
     MONTHS.forEach(m => {
       const v = totDespMes[m] || 0;
@@ -6647,8 +6649,8 @@ if (document.readyState === 'loading') {
     dhCells += `<td style="text-align:right;padding:12px 12px;background:#fef2f2;color:#991b1b;font-weight:800" class="value-neg">${_fmt(despHeadTot)}</td>`;
     html += `<tr class="section-header">${dhCells}</tr>`;
 
-    // Cada grupo de despesa
-    _ORDEM_GRUPOS_DESPESA.forEach(grupo => {
+    // Cada grupo de despesa (só se o header DESPESAS estiver expandido)
+    if (dOpen) _ORDEM_GRUPOS_DESPESA.forEach(grupo => {
       const catsMap = despesasPorGrupo.get(grupo);
       if (!catsMap || catsMap.size === 0) return;
 
