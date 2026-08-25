@@ -2942,7 +2942,7 @@ function renderCard() {
   MONTHS.forEach(m => totalGeral.byMonth[m] = 0);
   
   // Ordenar departamentos por total decrescente (maior consumidor primeiro)
-  const deptOrd = Object.entries(byDept).sort((a,b) => Math.abs(b[1].total) - Math.abs(a[1].total));
+  const deptOrd = Object.entries(byDept).sort((a,b) => a[0].localeCompare(b[0]));
   
   deptOrd.forEach(([dept, dInfo], idxD) => {
     const deptKey = 'card|d' + idxD;
@@ -2962,7 +2962,7 @@ function renderCard() {
     
     // === NÍVEL 2: Categoria (se departamento aberto) ===
     if (deptOpen) {
-      const catOrd = Object.entries(dInfo.byCat).sort((a,b) => Math.abs(b[1].total) - Math.abs(a[1].total));
+      const catOrd = Object.entries(dInfo.byCat).sort((a,b) => a[0].localeCompare(b[0]));
       catOrd.forEach(([cat, cInfo], idxC) => {
         const catKey = 'card|d' + idxD + '|c' + idxC;
         const catOpen = expandedRows.has(catKey);
@@ -2978,7 +2978,7 @@ function renderCard() {
         
         // === NÍVEL 3: Fornecedor (direto, sem expansão — clique no valor abre lançamentos) ===
         if (catOpen) {
-          const fornOrd = Object.entries(cInfo.byForn).sort((a,b) => Math.abs(b[1].total) - Math.abs(a[1].total));
+          const fornOrd = Object.entries(cInfo.byForn).sort((a,b) => a[0].localeCompare(b[0]));
           fornOrd.forEach(([forn, fInfo], idxF) => {
             let fCells = `<td style="padding-left:56px;font-size:11.5px;background:#fffbeb;color:var(--text-secondary)">${forn}</td>`;
             MONTHS.forEach(m => {
@@ -6491,7 +6491,7 @@ if (document.readyState === 'loading') {
       html += `<tr class="section-header">${hCells}</tr>`;
 
       if (rOpen) {
-        Array.from(receitas.entries()).sort((a,b) => b[1].total - a[1].total).forEach(([cat, g], idx) => {
+        Array.from(receitas.entries()).sort((a,b) => a[0].localeCompare(b[0])).forEach(([cat, g], idx) => {
           const key = 'rec_' + idx;
           _drillCache[key + '_items'] = g.items;
           const catExpKey = 'cat|rec|' + idx;
@@ -6523,7 +6523,7 @@ if (document.readyState === 'loading') {
               fg.total += it.valor;
               fg.items.push(it);
             });
-            Array.from(byFornec.entries()).sort((a,b) => Math.abs(b[1].total) - Math.abs(a[1].total)).forEach(([fName, fG], fIdx) => {
+            Array.from(byFornec.entries()).sort((a,b) => a[0].localeCompare(b[0])).forEach(([fName, fG], fIdx) => {
               const fKey = key + '_f' + fIdx;
               let fCells = `<td style="padding:6px 14px;padding-left:70px;font-size:11.5px;color:var(--text-secondary)" title="${_esc(fName)}">↳ ${_esc(fName)}</td>`;
               MONTHS.forEach(m => {
@@ -6596,7 +6596,7 @@ if (document.readyState === 'loading') {
 
       // Categorias dentro do sub-grupo
       if (gOpen) {
-        Array.from(catsMap.entries()).sort((a,b) => b[1].total - a[1].total).forEach(([cat, g], idx) => {
+        Array.from(catsMap.entries()).sort((a,b) => a[0].localeCompare(b[0])).forEach(([cat, g], idx) => {
           const key = 'grp_' + grupo.replace(/[^A-Za-z0-9]/g,'') + '_' + idx;
           const catExpKey = 'cat|desp|' + grupo.replace(/[^A-Za-z0-9]/g,'') + '|' + idx;
           const catOpen = _expanded.has(catExpKey);
@@ -6627,7 +6627,7 @@ if (document.readyState === 'loading') {
               fg.total += it.valor;
               fg.items.push(it);
             });
-            Array.from(byFornec.entries()).sort((a,b) => Math.abs(b[1].total) - Math.abs(a[1].total)).forEach(([fName, fG], fIdx) => {
+            Array.from(byFornec.entries()).sort((a,b) => a[0].localeCompare(b[0])).forEach(([fName, fG], fIdx) => {
               const fKey = key + '_f' + fIdx;
               let fCells = `<td style="padding:6px 14px;padding-left:86px;font-size:11.5px;color:var(--text-secondary)" title="${_esc(fName)}">↳ ${_esc(fName)}</td>`;
               MONTHS.forEach(m => {
