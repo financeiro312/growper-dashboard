@@ -6304,9 +6304,9 @@ if (document.readyState === 'loading') {
     'Simples Nacional': 'IMPOSTOS',
     'INSS': 'IMPOSTOS',
     'IRPJ': 'IMPOSTOS',
-    'Tarifas Bancárias': 'IMPOSTOS',
+    'Tarifas Bancárias': _GRUPO_AJUSTE_SAIDA,  // não entra no resultado operacional
     'Taxas Municipais': 'IMPOSTOS',
-    'IOF': 'IMPOSTOS',
+    'IOF': _GRUPO_AJUSTE_SAIDA,  // não entra no resultado operacional
 
     // ==== DESPESAS — DISTRIBUIÇÃO DOS SÓCIOS ====
     'Distribuição de Lucros / Dividendos': 'DISTRIBUIÇÃO DOS SÓCIOS',
@@ -6803,8 +6803,9 @@ if (document.readyState === 'loading') {
     // ============================================================
     // CONTROLE DE CAIXA — saldo bancário acumulado
     // ============================================================
-    let saldoInicial = 0;
-    try { saldoInicial = parseFloat(localStorage.getItem('caixaSaldoInicial_v1') || '0'); } catch(e) {}
+    // Saldo inicial 01/01/2026 = Banco Inter R$ 1.639,62 + Banco Itaú R$ -29.052,14
+    let saldoInicial = -27412.52;
+    try { const s = localStorage.getItem('caixaSaldoInicial_v1'); if (s !== null && s !== '') saldoInicial = parseFloat(s); } catch(e) {}
 
     html += `<tr class="spacer"><td colspan="${MONTHS.length + 2}" style="height:12px"></td></tr>`;
     html += `<tr class="section-header"><td colspan="${MONTHS.length + 2}" style="background:#dbeafe;color:#1e40af;padding:14px;font-weight:800">🏦 CONTROLE DE CAIXA</td></tr>`;
