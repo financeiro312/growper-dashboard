@@ -6514,7 +6514,7 @@ if (document.readyState === 'loading') {
       let recGrandTot = 0; MONTHS.forEach(m => { recGrandTot += totRecMes[m] || 0; });
 
       let hCells = `<td style="padding:12px 14px;background:#f0fdf4;color:#166534;font-weight:800;cursor:pointer" onclick="_toggleExpand('${rExpKey}')">
-        <span style="display:inline-block;width:16px">${rOpen ? '▼' : '▶'}</span> 📥 RECEITAS
+        <span style="display:inline-block;width:16px">${rOpen ? '▼' : '▶'}</span> 📥 RECEITAS OPERACIONAIS
       </td>`;
       MONTHS.forEach(m => {
         const v = totRecMes[m] || 0;
@@ -6616,14 +6616,7 @@ if (document.readyState === 'loading') {
         });  // fim forEach sub-grupos
       }
 
-      // Linha Total Receitas (operacional)
-      let tCells = '<td style="padding:10px 14px;padding-left:36px;font-weight:700;color:#166534">Total Receitas Operacionais</td>';
-      MONTHS.forEach(m => {
-        const v = totRecMes[m] || 0;
-        tCells += `<td style="text-align:right;padding:10px 8px;font-weight:700;color:#166534" class="value-pos">${v === 0 ? '—' : _fmt(v)}</td>`;
-      });
-      tCells += `<td style="text-align:right;padding:10px 12px;font-weight:700;color:#166534" class="value-pos">${_fmt(recGrandTot)}</td>`;
-      html += `<tr class="total-row" style="background:#f0fdf4">${tCells}</tr>`;
+      // Linha "Total Receitas Operacionais" removida — total já aparece no header do bloco.
     }
 
     // ============================================================
@@ -6638,12 +6631,13 @@ if (document.readyState === 'loading') {
     // Cabeçalho DESPESAS (com seta expansível)
     const dExpKey = 'section|despesas';
     const dOpen = _expanded.has(dExpKey);
-    let despHeadTot = 0; MONTHS.forEach(m => { despHeadTot += totDespMes[m] || 0; });
+    // Total do header inclui cartão de crédito
+    let despHeadTot = 0; MONTHS.forEach(m => { despHeadTot += (totDespMes[m] || 0) + (totCartaoMes[m] || 0); });
     let dhCells = `<td style="padding:12px 14px;background:#fef2f2;color:#991b1b;font-weight:800;cursor:pointer" onclick="_toggleExpand('${dExpKey}')">
-        <span style="display:inline-block;width:16px">${dOpen ? '▼' : '▶'}</span> 📤 DESPESAS
+        <span style="display:inline-block;width:16px">${dOpen ? '▼' : '▶'}</span> 📤 DESPESAS OPERACIONAIS
       </td>`;
     MONTHS.forEach(m => {
-      const v = totDespMes[m] || 0;
+      const v = (totDespMes[m] || 0) + (totCartaoMes[m] || 0);
       dhCells += `<td style="text-align:right;padding:12px 8px;background:#fef2f2;color:#991b1b;font-weight:800" class="value-neg">${v === 0 ? '—' : _fmt(v)}</td>`;
     });
     dhCells += `<td style="text-align:right;padding:12px 12px;background:#fef2f2;color:#991b1b;font-weight:800" class="value-neg">${_fmt(despHeadTot)}</td>`;
@@ -6767,16 +6761,9 @@ if (document.readyState === 'loading') {
       }
     }
 
-    // Total DESPESAS OPERACIONAIS (inclui cartão)
+    // Total Despesas Operacionais (inclui cartão) — variável mantida para uso no Resultado
     const totDespComCartao = {}; MONTHS.forEach(m => totDespComCartao[m] = (totDespMes[m] || 0) + (totCartaoMes[m] || 0));
-    let despGrand = 0; MONTHS.forEach(m => { despGrand += totDespComCartao[m]; });
-    let tdCells = '<td style="padding:10px 14px;padding-left:20px;font-weight:700;color:#991b1b">Total Despesas Operacionais</td>';
-    MONTHS.forEach(m => {
-      const v = totDespComCartao[m] || 0;
-      tdCells += `<td style="text-align:right;padding:10px 8px;font-weight:700;color:#991b1b" class="value-neg">${v === 0 ? '—' : _fmt(v)}</td>`;
-    });
-    tdCells += `<td style="text-align:right;padding:10px 12px;font-weight:700;color:#991b1b" class="value-neg">${_fmt(despGrand)}</td>`;
-    html += `<tr class="total-row" style="background:#fef2f2">${tdCells}</tr>`;
+    // Linha "Total Despesas Operacionais" removida — total já aparece no header do bloco.
 
     // ============================================================
     // TOTAL CONTAS A PAGAR (bruto — inclui ajustes de saída)
