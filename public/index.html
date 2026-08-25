@@ -5979,14 +5979,10 @@ async function omieBootstrap() {
     }
     const _antesCaixa = RAW_DATA_CAIXA.length;
     const _antesComp = RAW_DATA_COMP.length;
-    RAW_DATA_CAIXA = _dedupArray(RAW_DATA_CAIXA, r =>
-      [r.tipo || '', r.conta || '', r.fornecedor || '', r.categoria || '',
-       r.mesPagto || '', r.dataPagto || '', Number(r.valorPago || 0).toFixed(2)].join('|')
-    );
-    RAW_DATA_COMP = _dedupArray(RAW_DATA_COMP, r =>
-      [r.tipo || '', r.conta || '', r.fornecedor || '', r.categoria || '',
-       r.mesRegistro || '', r.mesPrevisao || '', Number(r.valorPago || 0).toFixed(2)].join('|')
-    );
+    // Dedup defensiva desativada — as views SQL já garantem que não há duplicatas.
+    // A dedup em memória estava removendo pagamentos legítimos que têm valores idênticos
+    // no mesmo dia (ex: 2 pagamentos de R$1000 do Hugs em 13/03 na categoria TikTok).
+    // console.log('[Dedup] desativada — views SQL fazem a limpeza');
     console.log('[Dedup] Caixa:', _antesCaixa, '→', RAW_DATA_CAIXA.length,
                 '| Comp:', _antesComp, '→', RAW_DATA_COMP.length);
 
@@ -6209,7 +6205,7 @@ if (document.readyState === 'loading') {
   const _GRUPO_RECEITAS = 'RECEITAS';
   const _GRUPO_AJUSTE_ENTRADA = 'AJUSTE_ENTRADA';
   const _GRUPO_AJUSTE_SAIDA = 'AJUSTE_SAIDA';
-  const _GRUPO_OUTRAS = 'OUTRAS';
+  const _GRUPO_OUTRAS = 'MOVIMENTAÇÕES DE CAIXA';
   const _GRUPO_SCALIA = 'SCALIA';
 
   const _CLASSIFICACAO = {
@@ -6243,6 +6239,15 @@ if (document.readyState === 'loading') {
     'Aluguel': 'FORNECEDORES',
     'Serviços Administrativos': 'FORNECEDORES',
     'Advogados': 'FORNECEDORES',
+    'Treinamentos e Capacitação': 'FORNECEDORES',
+    'Honorários Contábeis': 'FORNECEDORES',
+    'Software e Sistemas': 'FORNECEDORES',
+    'Serviços de Terceiros': 'FORNECEDORES',
+    'Telefone': 'FORNECEDORES',
+    'Softwares Operacionais': 'FORNECEDORES',
+    'Material de Escritório': 'FORNECEDORES',
+    'Estrutura e Equipamentos': 'FORNECEDORES',
+    'Compra de Equipamentos': 'FORNECEDORES',
 
     // ==== DESPESAS — VARIÁVEIS ====
     'Despesas Eventuais': 'VARIÁVEIS',
@@ -6253,11 +6258,8 @@ if (document.readyState === 'loading') {
     'Brindes Internos (Equipe)': 'VARIÁVEIS',
     'Devolução de Adiantamento de Cliente': 'VARIÁVEIS',
     'Devolução de Receita de Serviços': 'VARIÁVEIS',
-    'Softwares Operacionais': 'VARIÁVEIS',
-    'Telefone': 'VARIÁVEIS',
     'Premiação e Incentivos para Clientes': 'VARIÁVEIS',
     'Brindes para Clientes': 'VARIÁVEIS',
-    'Serviços de Terceiros': 'VARIÁVEIS',
 
     // ==== DESPESAS — INVESTIMENTOS ====
     'Créditos Meta': 'INVESTIMENTOS',
@@ -6284,7 +6286,7 @@ if (document.readyState === 'loading') {
     'IMPOSTOS',
     'DISTRIBUIÇÃO DOS SÓCIOS',
     'SCALIA',
-    _GRUPO_OUTRAS,
+    // OUTRAS: categorias não mapeadas cairão em MOVIMENTAÇÕES DE CAIXA (fora do operacional)
   ];
 
   function _classificar(catLimpa, departamento) {
@@ -6552,25 +6554,8 @@ if (document.readyState === 'loading') {
     // ============================================================
     // TOTAL CONTAS A RECEBER (bruto — inclui ajustes de entrada)
     // Bate com o total do relatório OMIE Financeiro > Contas a Receber
-    // ============================================================
-    {
-      // Ajustes entrada por mês
-      const totAjEntradaMes = {}; MONTHS.forEach(m => totAjEntradaMes[m] = 0);
-      ajustesEntrada.forEach((g) => {
-        MONTHS.forEach(m => totAjEntradaMes[m] += (g.byMonth[m] || 0));
-      });
-      const totCrBruto = {}; MONTHS.forEach(m => totCrBruto[m] = (totRecMes[m] || 0) + totAjEntradaMes[m]);
-      let crGrand = 0; MONTHS.forEach(m => crGrand += totCrBruto[m]);
-
-      let crCells = '<td style="padding:12px 14px;background:#dcfce7;color:#14532d;font-weight:800">📗 TOTAL CONTAS A RECEBER</td>';
-      MONTHS.forEach(m => {
-        const v = totCrBruto[m] || 0;
-        crCells += `<td style="text-align:right;padding:12px 8px;background:#dcfce7;color:#14532d;font-weight:800" class="value-pos">${v === 0 ? '—' : _fmt(v)}</td>`;
-      });
-      crCells += `<td style="text-align:right;padding:12px 12px;background:#dcfce7;color:#14532d;font-weight:800" class="value-pos">${_fmt(crGrand)}</td>`;
-      html += `<tr class="section-header">${crCells}</tr>`;
-      html += `<tr class="spacer"><td colspan="${MONTHS.length + 2}" style="height:6px"></td></tr>`;
-    }
+    // Linha "TOTAL CONTAS A RECEBER" removida conforme solicitado.
+    // O "Total Receitas Operacionais" já é exibido acima como resumo do bloco de receitas.
 
     // ============================================================
     // DESPESAS (com sub-grupos)
@@ -6720,23 +6705,8 @@ if (document.readyState === 'loading') {
     // TOTAL CONTAS A PAGAR (bruto — inclui ajustes de saída)
     // Bate com o total do relatório OMIE Financeiro > Contas a Pagar
     // ============================================================
-    {
-      const totAjSaidaMes = {}; MONTHS.forEach(m => totAjSaidaMes[m] = 0);
-      ajustesSaida.forEach((g) => {
-        MONTHS.forEach(m => totAjSaidaMes[m] += (g.byMonth[m] || 0));
-      });
-      const totCpBruto = {}; MONTHS.forEach(m => totCpBruto[m] = (totDespComCartao[m] || 0) + totAjSaidaMes[m]);
-      let cpGrand = 0; MONTHS.forEach(m => cpGrand += totCpBruto[m]);
-
-      let cpCells = '<td style="padding:12px 14px;background:#fee2e2;color:#7f1d1d;font-weight:800">📕 TOTAL CONTAS A PAGAR</td>';
-      MONTHS.forEach(m => {
-        const v = totCpBruto[m] || 0;
-        cpCells += `<td style="text-align:right;padding:12px 8px;background:#fee2e2;color:#7f1d1d;font-weight:800" class="value-neg">${v === 0 ? '—' : _fmt(v)}</td>`;
-      });
-      cpCells += `<td style="text-align:right;padding:12px 12px;background:#fee2e2;color:#7f1d1d;font-weight:800" class="value-neg">${_fmt(cpGrand)}</td>`;
-      html += `<tr class="section-header">${cpCells}</tr>`;
-      html += `<tr class="spacer"><td colspan="${MONTHS.length + 2}" style="height:6px"></td></tr>`;
-    }
+    // Linha "TOTAL CONTAS A PAGAR" removida conforme solicitado.
+    // O "Total Despesas Operacionais" já é exibido acima como resumo do bloco de despesas.
 
     // ============================================================
     // RESULTADO OPERACIONAL (Receitas - Despesas - Cartão)
