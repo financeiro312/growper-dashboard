@@ -6219,6 +6219,23 @@ if (document.readyState === 'loading') {
   // Regra especial: qualquer categoria com departamento contendo "Scalia" vai pro grupo SCALIA
   // =====================================================================================
   const _GRUPO_RECEITAS = 'RECEITAS';
+  
+  // Sub-grupos dentro de RECEITAS (Diretas vs Estratégicas)
+  const _SUBGRUPO_RECEITA = {
+    'Receita de Prestação de Serviços (Mensalidades Clientes)': 'Receitas Diretas',
+    'Receita de Projetos e Consultorias': 'Receitas Diretas',
+    'Receita de Vendas Tik Tok': 'Receitas Diretas',
+    'Bonificações de Plataformas': 'Receitas Estratégicas',
+    'Estratégia direto na conta': 'Receitas Estratégicas',
+    'Estratégia recrutamento': 'Receitas Estratégicas',
+    'Outras Receitas Operacionais': 'Receitas Diretas',
+    'Rendimentos de Aplicações': 'Receitas Estratégicas',
+  };
+  const _ORDEM_SUBGRUPOS_RECEITA = ['Receitas Diretas', 'Receitas Estratégicas'];
+  
+  function _subgrupoReceita(cat) {
+    return _SUBGRUPO_RECEITA[cat] || 'Receitas Diretas';
+  }
   const _GRUPO_AJUSTE_ENTRADA = 'AJUSTE_ENTRADA';
   const _GRUPO_AJUSTE_SAIDA = 'AJUSTE_SAIDA';
   const _GRUPO_OUTRAS = 'MOVIMENTAÇÕES DE CAIXA';
@@ -6507,12 +6524,51 @@ if (document.readyState === 'loading') {
       html += `<tr class="section-header">${hCells}</tr>`;
 
       if (rOpen) {
-        Array.from(receitas.entries()).sort((a,b) => a[0].localeCompare(b[0])).forEach(([cat, g], idx) => {
+        // Agrupar categorias de receita por sub-grupo (Diretas / Estratégicas)
+        const recPorSubgrupo = new Map();
+        _ORDEM_SUBGRUPOS_RECEITA.forEach(sg => recPorSubgrupo.set(sg, new Map()));
+        Array.from(receitas.entries()).forEach(([cat, g]) => {
+          const sg = _subgrupoReceita(cat);
+          if (!recPorSubgrupo.has(sg)) recPorSubgrupo.set(sg, new Map());
+          recPorSubgrupo.get(sg).set(cat, g);
+        });
+        
+        // Renderizar cada sub-grupo com header expansível
+        let subIdxGlobal = 0;
+        _ORDEM_SUBGRUPOS_RECEITA.forEach(sgName => {
+          const sgMap = recPorSubgrupo.get(sgName);
+          if (!sgMap || sgMap.size === 0) return;
+          
+          // Totais do sub-grupo
+          const sgTotMes = {}; MONTHS.forEach(m => sgTotMes[m] = 0);
+          let sgTotal = 0;
+          Array.from(sgMap.values()).forEach(g => {
+            MONTHS.forEach(m => sgTotMes[m] += (g.byMonth[m] || 0));
+            sgTotal += g.total;
+          });
+          
+          const sgKey = 'subrec|' + sgName.replace(/\s+/g,'_');
+          const sgOpen = _expanded.has(sgKey);
+          let sgCells = `<td style="padding:10px 14px;padding-left:24px;background:#ecfdf5;color:#065f46;font-weight:700;cursor:pointer" onclick="_toggleExpand('${sgKey}')">
+            <span style="display:inline-block;width:14px">${sgOpen ? '▼' : '▶'}</span> ${sgName}
+          </td>`;
+          MONTHS.forEach(m => {
+            const v = sgTotMes[m] || 0;
+            sgCells += `<td style="text-align:right;padding:10px 8px;background:#ecfdf5;color:#065f46;font-weight:700" class="value-pos">${v === 0 ? '—' : _fmt(v)}</td>`;
+          });
+          sgCells += `<td style="text-align:right;padding:10px 12px;background:#ecfdf5;color:#065f46;font-weight:700" class="value-pos">${_fmt(sgTotal)}</td>`;
+          html += `<tr>${sgCells}</tr>`;
+          
+          if (!sgOpen) return;
+          
+          // Categorias dentro do sub-grupo
+          Array.from(sgMap.entries()).sort((a,b) => a[0].localeCompare(b[0])).forEach(([cat, g]) => {
+          const idx = subIdxGlobal++;
           const key = 'rec_' + idx;
           _drillCache[key + '_items'] = g.items;
           const catExpKey = 'cat|rec|' + idx;
           const catOpen = _expanded.has(catExpKey);
-          let cells = `<td style="padding:8px 14px;padding-left:36px;cursor:pointer" title="${_esc(cat)}" onclick="_toggleExpand('${catExpKey}')">
+          let cells = `<td style="padding:8px 14px;padding-left:52px;cursor:pointer" title="${_esc(cat)}" onclick="_toggleExpand('${catExpKey}')">
             <span style="display:inline-block;width:14px;color:var(--primary);font-weight:700">${catOpen ? '▼' : '▶'}</span> ${_esc(cat)}
           </td>`;
           MONTHS.forEach(m => {
@@ -6556,7 +6612,8 @@ if (document.readyState === 'loading') {
               html += `<tr>${fCells}</tr>`;
             });
           }
-        });
+          });  // fim forEach categorias do sub-grupo
+        });  // fim forEach sub-grupos
       }
 
       // Linha Total Receitas (operacional)
