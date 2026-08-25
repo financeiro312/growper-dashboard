@@ -2897,6 +2897,17 @@ function renderAreaComparativo() {
 }
 
 // =================== CARTÃO (Dept → Cat → Total mês a mês) ===================
+// Helper: limpa nome de departamento — remove código/ID numérico e prefixo D001/R011
+function _limparDepto(dept) {
+  if (!dept) return 'Sem Departamento';
+  let s = String(dept).trim();
+  // Remove prefixo de código numérico (ex: "4543375655 ")
+  s = s.replace(/^\d+\s+/, '');
+  // Remove prefixo tipo "D001 - " ou "R011 - "
+  s = s.replace(/^[DR]\d+\s*-\s*/, '');
+  return s.trim() || 'Sem Departamento';
+}
+
 function renderCard() {
   // CARTÃO DE CRÉDITO — análise gerencial por departamento
   // Usa os lançamentos detalhados do Cartão 2130 (despesas que entraram no cartão)
@@ -2912,7 +2923,7 @@ function renderCard() {
   // Group: Dept → Categoria → Fornecedor → Lançamentos
   const byDept = {};
   lancamentos.forEach(item => {
-    const dept = item.departamento || 'Sem Departamento';
+    const dept = _limparDepto(item.departamento);
     const cat = item.categoria || 'Sem categoria';
     const forn = item.fornecedor || 'Sem identificação';
     
@@ -3336,22 +3347,27 @@ function loadRecebiveis() {
 }
 
 function mergePrepop() {
+  // Só considera clientes com ID numérico entre parênteses: "(123) Nome"
+  const ID_PATTERN = /^\(\d+\)/;
   // Garantir que novos clientes da prepop sejam adicionados (não remove os existentes)
   const existentesNomes = new Set(recebiveisData.map(c => c.nome));
   let novos = 0;
   PREPOP_CLIENTES.forEach(p => {
+    if (!ID_PATTERN.test(p.nome)) return;  // ignora clientes sem ID
     if (!existentesNomes.has(p.nome)) {
       recebiveisData.push(JSON.parse(JSON.stringify(p)));
       novos++;
     } else {
-      // Atualizar valoresSistema dos existentes (caso tenham vindo dados novos)
       const idx = recebiveisData.findIndex(c => c.nome === p.nome);
       if (idx >= 0) {
         recebiveisData[idx].valoresSistema = p.valoresSistema || {};
       }
     }
   });
-  if (novos > 0) saveRecebiveis();
+  // Remove clientes existentes que não passam no filtro (limpeza defensiva)
+  const before = recebiveisData.length;
+  recebiveisData = recebiveisData.filter(c => ID_PATTERN.test(c.nome));
+  if (novos > 0 || recebiveisData.length !== before) saveRecebiveis();
 }
 
 function saveRecebiveis() {
@@ -4089,7 +4105,7 @@ function renderPJsCusto() {
   // Group: dept → categoria → colaborador
   const grouped = {};
   filtered.forEach(r => {
-    const dept = r.departamento || 'Sem Departamento';
+    const dept = _limparDepto(r.departamento);
     const cat = r.categoria;
     const colab = r.fornecedor || 'Sem identificação';
     const mes = getMesKey(r);
@@ -4238,7 +4254,7 @@ function renderPJsLucro() {
   // Agrupar PJs por departamento
   const pjsByDept = {};
   pjFiltered.forEach(r => {
-    const dept = r.departamento || 'Sem Departamento';
+    const dept = _limparDepto(r.departamento);
     if (!pjsByDept[dept]) pjsByDept[dept] = {};
     const pj = r.fornecedor || 'Sem identificação';
     if (!pjsByDept[dept][pj]) pjsByDept[dept][pj] = 0;
