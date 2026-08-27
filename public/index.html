@@ -2900,6 +2900,23 @@ function renderAreaComparativo() {
 }
 
 // =================== CARTÃO (Dept → Cat → Total mês a mês) ===================
+// Helper: nome de exibição da categoria (permite renomear no dashboard sem alterar a fonte)
+window._RENOMEAR_CATEGORIA = {
+  'Receita de Prestação de Serviços (Mensalidades Clientes)': 'Mensalidades Clientes',
+  'Receita de Prestação de Serviços (Mensalidade Inadimplentes)': 'Mensalidades Inadimplentes',
+  'Receita de Prestação de Serviços (Taxa de Implementação)': 'Taxa de Implementação',
+};
+window._nomeExibicao = function(cat) {
+  if (!cat) return '';
+  const s = String(cat).trim();
+  // 1) tenta match exato
+  if (window._RENOMEAR_CATEGORIA[s]) return window._RENOMEAR_CATEGORIA[s];
+  // 2) tenta com prefixo removido
+  const semPrefixo = s.replace(/^[\d.]+\s+/, '');
+  if (window._RENOMEAR_CATEGORIA[semPrefixo]) return window._RENOMEAR_CATEGORIA[semPrefixo];
+  return s;
+};
+
 // Helper: limpa nome de departamento — remove código/ID numérico e prefixo D001/R011
 function _limparDepto(dept) {
   if (!dept) return 'Sem Departamento';
@@ -6569,15 +6586,27 @@ if (document.readyState === 'loading') {
           
           if (!sgOpen) return;
           
-          // Categorias dentro do sub-grupo
-          Array.from(sgMap.entries()).sort((a,b) => a[0].localeCompare(b[0])).forEach(([cat, g]) => {
+          // Categorias dentro do sub-grupo — ordem customizada para Receitas Diretas
+          const _ORDEM_DIRETAS = {
+            'Receita de Prestação de Serviços (Mensalidades Clientes)': 1,
+            'Receita de Prestação de Serviços (Mensalidade Inadimplentes)': 2,
+            'Receita de Prestação de Serviços (Taxa de Implementação)': 3,
+            'Receita de Projetos e Consultorias': 4,
+            'Receita de Vendas Tik Tok': 5,
+          };
+          Array.from(sgMap.entries()).sort((a,b) => {
+            const oa = _ORDEM_DIRETAS[a[0]] || 999;
+            const ob = _ORDEM_DIRETAS[b[0]] || 999;
+            if (oa !== ob) return oa - ob;
+            return _nomeExibicao(a[0]).localeCompare(_nomeExibicao(b[0]));
+          }).forEach(([cat, g]) => {
           const idx = subIdxGlobal++;
           const key = 'rec_' + idx;
           _drillCache[key + '_items'] = g.items;
           const catExpKey = 'cat|rec|' + idx;
           const catOpen = _expanded.has(catExpKey);
           let cells = `<td style="padding:8px 14px;padding-left:52px;cursor:pointer" title="${_esc(cat)}" onclick="_toggleExpand('${catExpKey}')">
-            <span style="display:inline-block;width:14px;color:var(--primary);font-weight:700">${catOpen ? '▼' : '▶'}</span> ${_esc(cat)}
+            <span style="display:inline-block;width:14px;color:var(--primary);font-weight:700">${catOpen ? '▼' : '▶'}</span> ${_esc(_nomeExibicao(cat))}
           </td>`;
           MONTHS.forEach(m => {
             const v = g.byMonth[m] || 0;
@@ -6673,12 +6702,27 @@ if (document.readyState === 'loading') {
 
       // Categorias dentro do sub-grupo
       if (gOpen) {
-        Array.from(catsMap.entries()).sort((a,b) => a[0].localeCompare(b[0])).forEach(([cat, g], idx) => {
+        (function(){
+          const _ORDEM_FORNEC = grupo === 'FORNECEDORES' ? {
+            'Influenciadores / Talentos': 1,
+            'Editores de Vídeo': 2,
+            'Aluguel': 3,
+            'Prestadores de Serviços - Pontual': 4,
+          } : null;
+          return Array.from(catsMap.entries()).sort((a,b) => {
+            if (_ORDEM_FORNEC) {
+              const oa = _ORDEM_FORNEC[a[0]] || 999;
+              const ob = _ORDEM_FORNEC[b[0]] || 999;
+              if (oa !== ob) return oa - ob;
+            }
+            return a[0].localeCompare(b[0]);
+          });
+        })().forEach(([cat, g], idx) => {
           const key = 'grp_' + grupo.replace(/[^A-Za-z0-9]/g,'') + '_' + idx;
           const catExpKey = 'cat|desp|' + grupo.replace(/[^A-Za-z0-9]/g,'') + '|' + idx;
           const catOpen = _expanded.has(catExpKey);
           let cells = `<td style="padding:8px 14px;padding-left:52px;cursor:pointer" title="${_esc(cat)}" onclick="_toggleExpand('${catExpKey}')">
-            <span style="display:inline-block;width:14px;color:var(--primary);font-weight:700">${catOpen ? '▼' : '▶'}</span> ${_esc(cat)}
+            <span style="display:inline-block;width:14px;color:var(--primary);font-weight:700">${catOpen ? '▼' : '▶'}</span> ${_esc(_nomeExibicao(cat))}
           </td>`;
           MONTHS.forEach(m => {
             const v = g.byMonth[m] || 0;
@@ -6805,7 +6849,7 @@ if (document.readyState === 'loading') {
     try { const s = localStorage.getItem('caixaSaldoInicial_v1'); if (s !== null && s !== '') saldoInicial = parseFloat(s); } catch(e) {}
 
     html += `<tr class="spacer"><td colspan="${MONTHS.length + 2}" style="height:12px"></td></tr>`;
-    html += `<tr class="section-header"><td colspan="${MONTHS.length + 2}" style="background:#dbeafe;color:#1e40af;padding:14px;font-weight:800">🏦 MOVIMENTAÇÕES DE CAIXA</td></tr>`;
+    html += `<tr class="section-header"><td style="background:#dbeafe;color:#1e40af;padding:14px;font-weight:800;position:sticky;left:0;z-index:5">🏦 MOVIMENTAÇÕES DE CAIXA</td>` + MONTHS.map(() => '<td style="background:#dbeafe"></td>').join('') + '<td style="background:#dbeafe"></td></tr>';
 
     // (+) Resultado Operacional
     let roCells = '<td style="padding:8px 14px;padding-left:36px;font-size:12.5px;color:var(--text-secondary)">(+) Resultado Operacional</td>';
