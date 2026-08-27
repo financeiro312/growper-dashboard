@@ -2364,7 +2364,7 @@ function renderMain() {
     html += `<tr class="spacer"><td colspan="${colspanTotal}"></td></tr>`;
     
     // Header do bloco
-    html += `<tr class="section-header" style="background:#dbeafe"><td style="font-weight:800;color:#1e40af">💰 CONTROLE DE CAIXA</td>`;
+    html += `<tr class="section-header" style="background:#dbeafe"><td style="font-weight:800;color:#1e40af">💰 MOVIMENTAÇÕES DE CAIXA</td>`;
     MONTHS.forEach(mes => {
       const cs = projetadoVisible[mes] ? 2 : 1;
       html += `<td colspan="${cs}" style="border-right:2px solid var(--border);background:#dbeafe"></td>`;
@@ -5346,7 +5346,7 @@ function scaliaRender() {
   
   // Bloco Controle de Caixa
   body += '<tr class="spacer"><td colspan="' + (SCALIA_MONTHS.length + 2) + '"></td></tr>';
-  body += '<tr style="background:#dbeafe"><td style="color:#1e40af;font-weight:700">💰 CONTROLE DE CAIXA</td>';
+  body += '<tr style="background:#dbeafe"><td style="color:#1e40af;font-weight:700">💰 MOVIMENTAÇÕES DE CAIXA</td>';
   SCALIA_MONTHS.forEach(_ => body += '<td></td>');
   body += '<td></td></tr>';
   
@@ -6223,6 +6223,8 @@ if (document.readyState === 'loading') {
   // Sub-grupos dentro de RECEITAS (Diretas vs Estratégicas)
   const _SUBGRUPO_RECEITA = {
     'Receita de Prestação de Serviços (Mensalidades Clientes)': 'Receitas Diretas',
+    'Receita de Prestação de Serviços (Taxa de Implementação)': 'Receitas Diretas',
+    'Receita de Prestação de Serviço - Taxa de Implementação': 'Receitas Diretas',
     'Receita de Projetos e Consultorias': 'Receitas Diretas',
     'Receita de Vendas Tik Tok': 'Receitas Diretas',
     'Bonificações de Plataformas': 'Receitas Estratégicas',
@@ -6797,7 +6799,7 @@ if (document.readyState === 'loading') {
     try { const s = localStorage.getItem('caixaSaldoInicial_v1'); if (s !== null && s !== '') saldoInicial = parseFloat(s); } catch(e) {}
 
     html += `<tr class="spacer"><td colspan="${MONTHS.length + 2}" style="height:12px"></td></tr>`;
-    html += `<tr class="section-header"><td colspan="${MONTHS.length + 2}" style="background:#dbeafe;color:#1e40af;padding:14px;font-weight:800">🏦 CONTROLE DE CAIXA</td></tr>`;
+    html += `<tr class="section-header"><td colspan="${MONTHS.length + 2}" style="background:#dbeafe;color:#1e40af;padding:14px;font-weight:800">🏦 MOVIMENTAÇÕES DE CAIXA</td></tr>`;
 
     // (+) Resultado Operacional
     let roCells = '<td style="padding:8px 14px;padding-left:36px;font-size:12.5px;color:var(--text-secondary)">(+) Resultado Operacional</td>';
