@@ -6840,6 +6840,9 @@ if (document.readyState === 'loading') {
     // Ajustes financeiros agora entram apenas na linha (±) do CONTROLE DE CAIXA
     // (não exibimos mais como bloco separado)
     const hasAjustes = ajustesEntrada.size > 0 || ajustesSaida.size > 0;
+    // Cartão de crédito entra em Ajustes Financeiros (afeta caixa mas não Resultado Op)
+    const totAjustComCartao = {};
+    MONTHS.forEach(m => totAjustComCartao[m] = (totAjustMes[m] || 0) - (totCartaoMes[m] || 0));
 
     // ============================================================
     // CONTROLE DE CAIXA — saldo bancário acumulado
@@ -6864,8 +6867,6 @@ if (document.readyState === 'loading') {
     if (hasAjustes) {
       const ajExpKey = 'sec|ajustesCaixa';
       const ajOpen = _expanded.has(ajExpKey);
-      // Cartão de crédito entra em Ajustes Financeiros (não afeta Resultado Operacional mas afeta caixa)
-      const totAjustComCartao = {}; MONTHS.forEach(m => totAjustComCartao[m] = (totAjustMes[m] || 0) + (totCartaoMes[m] || 0));
       let ajGrandTot = 0; MONTHS.forEach(m => { ajGrandTot += totAjustComCartao[m] || 0; });
 
       // Linha cabeçalho: (±) Ajustes Financeiros com seta + total mensal
