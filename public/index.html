@@ -720,17 +720,23 @@ body.scalia-mode .company-badge {
       <div class="header-controls">
 
 <select id="selYear"><option value="2026">2026</option><option value="2025">2025</option></select>
-        <select id="selConta">
-          <option value="all">Todas as contas</option>
-          <option value="Banco Inter">Banco Inter</option>
-          <option value="Banco Inter (Aplicação)">Banco Inter (Aplicação)</option>
-          <option value="Investimentos Banco Inter">Investimentos Banco Inter</option>
-          <option value="Itaú Unibanco">Itaú Unibanco</option>
-          <option value="Investimentos Itaú Unibanco">Investimentos Itaú Unibanco</option>
-          <option value="Nubank">Nubank</option>
-          <option value="Caixinha">Caixinha</option>
-          <option value="Cartão 2130">Cartão 2130</option>
-        </select>
+        <div id="selContaWrap" style="position:relative;display:inline-block">
+          <button type="button" id="selContaBtn" onclick="_toggleContaDropdown(event)" 
+            style="padding:8px 14px;background:white;border:1px solid #d1d5db;border-radius:6px;font-family:Poppins;font-size:13px;cursor:pointer;min-width:170px;text-align:left;display:flex;align-items:center;justify-content:space-between;gap:8px">
+            <span id="selContaLabel">Todas as contas</span>
+            <span style="color:#6b7280">▾</span>
+          </button>
+          <div id="selContaDropdown" style="display:none;position:absolute;top:100%;left:0;margin-top:4px;background:white;border:1px solid #d1d5db;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.1);z-index:100;min-width:230px;max-height:340px;overflow-y:auto">
+            <div style="padding:8px 10px;border-bottom:1px solid #e5e7eb;background:#f9fafb;font-weight:600;font-size:12px;color:#374151;display:flex;justify-content:space-between;align-items:center">
+              <span>Contas</span>
+              <div>
+                <button type="button" onclick="_toggleAllContas(true)" style="border:none;background:transparent;color:#2563eb;cursor:pointer;font-size:11px;padding:2px 4px">Todas</button>
+                <button type="button" onclick="_toggleAllContas(false)" style="border:none;background:transparent;color:#6b7280;cursor:pointer;font-size:11px;padding:2px 4px">Nenhuma</button>
+              </div>
+            </div>
+            <div id="selContaOptions" style="padding:4px 0"></div>
+          </div>
+        </div>
         <select id="selConciliado">
           <option value="all">Conciliado: Todos</option>
           <option value="Sim">Conciliados</option>
@@ -878,6 +884,88 @@ let currentView = 'caixa';
 let currentYear = '2026';
 let currentConta = 'all';
 let currentConciliado = 'all';
+
+// ============================================================
+// MULTI-SELECT de contas
+// ============================================================
+const _TODAS_CONTAS = ['Banco Inter', 'Banco Inter (Aplicação)', 'Investimentos Banco Inter', 'Itaú Unibanco', 'Investimentos Itaú Unibanco', 'Nubank', 'Caixinha', 'Cartão 2130'];
+let currentContasSet = new Set(_TODAS_CONTAS);  // por padrão: todas
+
+// Sincroniza currentConta (compatibilidade) baseado no Set
+function _syncCurrentConta() {
+  if (currentContasSet.size === 0 || currentContasSet.size === _TODAS_CONTAS.length) {
+    currentConta = 'all';
+  } else if (currentContasSet.size === 1) {
+    currentConta = [...currentContasSet][0];
+  } else {
+    currentConta = 'multi';  // marca multi-select
+  }
+}
+
+// Verifica se uma conta está no filtro atual
+function _contaAceita(conta) {
+  return currentContasSet.has(conta);
+}
+
+function _renderContaOptions() {
+  const wrap = document.getElementById('selContaOptions');
+  if (!wrap) return;
+  let html = '';
+  _TODAS_CONTAS.forEach(c => {
+    const checked = currentContasSet.has(c) ? 'checked' : '';
+    const esc = c.replace(/"/g, '&quot;');
+    html += `<label style="display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:12.5px" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'">
+      <input type="checkbox" data-conta="${esc}" ${checked} onchange="_onContaCheckChange(this)" style="cursor:pointer">
+      <span>${c}</span>
+    </label>`;
+  });
+  wrap.innerHTML = html;
+}
+
+function _atualizarLabelConta() {
+  const label = document.getElementById('selContaLabel');
+  if (!label) return;
+  if (currentContasSet.size === 0) label.textContent = 'Nenhuma conta';
+  else if (currentContasSet.size === _TODAS_CONTAS.length) label.textContent = 'Todas as contas';
+  else if (currentContasSet.size === 1) label.textContent = [...currentContasSet][0];
+  else label.textContent = `${currentContasSet.size} contas selecionadas`;
+}
+
+function _onContaCheckChange(input) {
+  const conta = input.dataset.conta;
+  if (input.checked) currentContasSet.add(conta);
+  else currentContasSet.delete(conta);
+  _syncCurrentConta();
+  _atualizarLabelConta();
+  if (typeof refreshCurrent === 'function') refreshCurrent();
+}
+
+function _toggleAllContas(marcar) {
+  currentContasSet.clear();
+  if (marcar) _TODAS_CONTAS.forEach(c => currentContasSet.add(c));
+  _syncCurrentConta();
+  _atualizarLabelConta();
+  _renderContaOptions();
+  if (typeof refreshCurrent === 'function') refreshCurrent();
+}
+
+function _toggleContaDropdown(evt) {
+  if (evt) evt.stopPropagation();
+  const dd = document.getElementById('selContaDropdown');
+  if (!dd) return;
+  const isOpen = dd.style.display !== 'none';
+  dd.style.display = isOpen ? 'none' : 'block';
+  if (!isOpen) _renderContaOptions();
+}
+
+// Fechar dropdown ao clicar fora
+document.addEventListener('click', function(e) {
+  const wrap = document.getElementById('selContaWrap');
+  const dd = document.getElementById('selContaDropdown');
+  if (wrap && dd && !wrap.contains(e.target)) {
+    dd.style.display = 'none';
+  }
+});
 let currentSection = 'main';
 let currentRecTab = 'tabela';
 let modalStack = [];
@@ -1163,7 +1251,7 @@ function getVal(r) {
 
 function filterData(data, excludeCard = true) {
   return data.filter(r => {
-    if (currentConta !== 'all' && r.conta !== currentConta) return false;
+    if (!_contaAceita(r.conta)) return false;
     if (currentConciliado !== 'all' && r.conciliado !== currentConciliado) return false;
     if (excludeCard && r.conta === 'Cartão 2130') return false;
     return true;
@@ -4366,7 +4454,7 @@ function renderMargem() {
   MONTHS.forEach(m => { recR[m] = 0; cdR[m] = 0; ciR[m] = 0; tribR[m] = 0; distrR[m] = 0; });
   
   const dataCaixa = RAW_DATA_CAIXA.filter(r => {
-    if (currentConta !== 'all' && r.conta !== currentConta) return false;
+    if (!_contaAceita(r.conta)) return false;
     if (currentConciliado !== 'all' && r.conciliado !== currentConciliado) return false;
     return true;
   });
@@ -5056,7 +5144,7 @@ document.querySelectorAll('.view-btn[data-rectab]').forEach(btn => {
   });
 });
 document.getElementById('selYear').addEventListener('change', e => { currentYear = e.target.value; refreshCurrent(); });
-document.getElementById('selConta').addEventListener('change', e => { currentConta = e.target.value; refreshCurrent(); });
+// (event listener removido - agora usa _onContaCheckChange do multi-select)
 document.getElementById('selConciliado').addEventListener('change', e => { currentConciliado = e.target.value; refreshCurrent(); });
 
 
@@ -6453,6 +6541,10 @@ if (document.readyState === 'loading') {
         totRecMes[mes] += val;
         return;
       }
+      // Movimentos de contas de aplicação/investimento: pulam - vão pro bloco Aplicações Financeiras próprio
+      if (r.conta === 'Banco Inter (Aplicação)' || r.conta === 'Investimentos Banco Inter' || r.conta === 'Investimentos Itaú Unibanco') {
+        return;
+      }
       // Ajuste entrada explícito
       if (grupo === _GRUPO_AJUSTE_ENTRADA) {
         _diag.ajusteEntrada++;
@@ -6841,7 +6933,7 @@ if (document.readyState === 'loading') {
     data.forEach(r => {
       if (r.conta !== 'Banco Inter (Aplicação)' && r.conta !== 'Investimentos Banco Inter' && r.conta !== 'Investimentos Itaú Unibanco') return;
       if (!(r.categoria || '').includes('Transferência')) return;
-      if (currentConta !== 'all' && r.conta !== currentConta) return;
+      if (!_contaAceita(r.conta)) return;
       if (currentConciliado !== 'all' && r.conciliado !== currentConciliado) return;
       const mes = r.mesPagto;
       if (!MONTHS.includes(mes)) return;
@@ -6863,6 +6955,70 @@ if (document.readyState === 'loading') {
     let saldoInicial = -27412.52;
     try { const s = localStorage.getItem('caixaSaldoInicial_v1'); if (s !== null && s !== '') saldoInicial = parseFloat(s); } catch(e) {}
 
+    // ============================================================
+    // 🏦 APLICAÇÕES FINANCEIRAS — bloco separado ANTES de Movimentações de Caixa
+    // Fica fora do Resultado Operacional e fora dos Ajustes, mas soma no saldo final
+    // ============================================================
+    if (hasAplicacoes) {
+      const aplExpKey = 'section|aplicacoes';
+      const aplOpen = _expanded.has(aplExpKey);
+      let aplHeadTot = 0; MONTHS.forEach(m => aplHeadTot += totAplicMes[m] || 0);
+      
+      html += `<tr class="spacer"><td colspan="${MONTHS.length + 2}" style="height:8px"></td></tr>`;
+      
+      // Header do bloco
+      let aplHeadCells = `<td style="padding:12px 14px;background:#fef3c7;color:#92400e;font-weight:800;cursor:pointer;position:sticky;left:0;z-index:5" onclick="_toggleExpand('${aplExpKey}')">
+          <span style="display:inline-block;width:16px">${aplOpen ? '▼' : '▶'}</span> 🏦 APLICAÇÕES FINANCEIRAS
+        </td>`;
+      MONTHS.forEach(m => {
+        const v = totAplicMes[m] || 0;
+        aplHeadCells += `<td style="text-align:right;padding:12px 8px;background:#fef3c7;color:#92400e;font-weight:800" class="${_cls(v)}">${v === 0 ? '—' : _fmtSigned(v)}</td>`;
+      });
+      aplHeadCells += `<td style="text-align:right;padding:12px 12px;background:#fef3c7;color:#92400e;font-weight:800" class="${_cls(aplHeadTot)}">${aplHeadTot === 0 ? '—' : _fmtSigned(aplHeadTot)}</td>`;
+      html += `<tr class="section-header">${aplHeadCells}</tr>`;
+      
+      // Detalhes se expandido: mostra Entradas e Saídas separadas
+      if (aplOpen) {
+        // Separar por tipo
+        const aplEntradas = {}; const aplSaidas = {};
+        MONTHS.forEach(m => { aplEntradas[m] = 0; aplSaidas[m] = 0; });
+        data.forEach(r => {
+          if (r.conta !== 'Banco Inter (Aplicação)' && r.conta !== 'Investimentos Banco Inter' && r.conta !== 'Investimentos Itaú Unibanco') return;
+          if (!(r.categoria || '').includes('Transferência')) return;
+          if (!_contaAceita(r.conta)) return;
+          if (currentConciliado !== 'all' && r.conciliado !== currentConciliado) return;
+          const mes = r.mesPagto;
+          if (!MONTHS.includes(mes)) return;
+          const val = Math.abs(r.valorPago);
+          if (r.tipo === '1. Contas a Receber') aplEntradas[mes] += val;
+          else aplSaidas[mes] += val;
+        });
+        
+        // Linha Aplicado (Entradas)
+        let entTot = 0; MONTHS.forEach(m => entTot += aplEntradas[m]);
+        if (entTot > 0) {
+          let entCells = '<td style="padding:6px 14px;padding-left:36px;font-size:11.5px;color:#7c2d12">Aplicado</td>';
+          MONTHS.forEach(m => {
+            const v = aplEntradas[m];
+            entCells += `<td style="text-align:right;padding:6px;font-size:11.5px" class="${v > 0 ? 'value-neg' : 'value-zero'}">${v === 0 ? '—' : _fmt(-v)}</td>`;
+          });
+          entCells += `<td style="text-align:right;padding:6px 12px;font-weight:600" class="value-neg">${_fmt(-entTot)}</td>`;
+          html += `<tr>${entCells}</tr>`;
+        }
+        // Linha Resgatado (Saídas)
+        let saiTot = 0; MONTHS.forEach(m => saiTot += aplSaidas[m]);
+        if (saiTot > 0) {
+          let saiCells = '<td style="padding:6px 14px;padding-left:36px;font-size:11.5px;color:#166534">Resgatado</td>';
+          MONTHS.forEach(m => {
+            const v = aplSaidas[m];
+            saiCells += `<td style="text-align:right;padding:6px;font-size:11.5px" class="${v > 0 ? 'value-pos' : 'value-zero'}">${v === 0 ? '—' : _fmt(v)}</td>`;
+          });
+          saiCells += `<td style="text-align:right;padding:6px 12px;font-weight:600" class="value-pos">${_fmt(saiTot)}</td>`;
+          html += `<tr>${saiCells}</tr>`;
+        }
+      }
+    }
+    
     html += `<tr class="spacer"><td colspan="${MONTHS.length + 2}" style="height:12px"></td></tr>`;
     html += `<tr class="section-header"><td style="background:#dbeafe;color:#1e40af;padding:14px;font-weight:800;position:sticky;left:0;z-index:5">🏦 MOVIMENTAÇÕES DE CAIXA</td>` + MONTHS.map(() => '<td style="background:#dbeafe"></td>').join('') + '<td style="background:#dbeafe"></td></tr>';
 
@@ -6874,18 +7030,6 @@ if (document.readyState === 'loading') {
     });
     roCells += `<td></td>`;
     html += `<tr>${roCells}</tr>`;
-
-    // (±) Aplicações Financeiras — só aparece se tiver movimento
-    if (hasAplicacoes) {
-      let aplGrand = 0; MONTHS.forEach(m => aplGrand += totAplicMes[m] || 0);
-      let aplCells = '<td style="padding:8px 14px;padding-left:36px;font-size:12.5px;color:var(--text-secondary)">(±) Aplicações Financeiras</td>';
-      MONTHS.forEach(m => {
-        const v = totAplicMes[m] || 0;
-        aplCells += `<td style="text-align:right;padding:8px;font-size:11.5px" class="${_cls(v)}">${v === 0 ? '—' : _fmtSigned(v)}</td>`;
-      });
-      aplCells += `<td style="text-align:right;padding:8px 12px;font-weight:700" class="${_cls(aplGrand)}">${aplGrand === 0 ? '—' : _fmtSigned(aplGrand)}</td>`;
-      html += `<tr>${aplCells}</tr>`;
-    }
 
     // (±) Ajustes Financeiros — expansível
     if (hasAjustes) {
@@ -7645,6 +7789,7 @@ if (document.readyState === 'loading') {
   }
   // Estado inicial
   setTimeout(_atualizarBotaoExport, 500);
+setTimeout(() => { if (typeof _atualizarLabelConta === 'function') _atualizarLabelConta(); }, 100);
 })();
 </script>
 
