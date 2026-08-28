@@ -6831,6 +6831,27 @@ if (document.readyState === 'loading') {
     // Ajustes financeiros agora entram apenas na linha (±) do CONTROLE DE CAIXA
     // (não exibimos mais como bloco separado)
     const hasAjustes = ajustesEntrada.size > 0 || ajustesSaida.size > 0;
+    
+    // ==== APLICAÇÕES FINANCEIRAS ====
+    // Movimentos da conta Banco Inter (Aplicação) — aplicações e resgates
+    // Entrada de Transferência na aplicação = valor SAIU do caixa (foi aplicado) → negativo
+    // Saída de Transferência da aplicação = valor VOLTOU pro caixa (foi resgatado) → positivo
+    const totAplicMes = {}; MONTHS.forEach(m => totAplicMes[m] = 0);
+    let hasAplicacoes = false;
+    data.forEach(r => {
+      if (r.conta !== 'Banco Inter (Aplicação)' && r.conta !== 'Investimentos Banco Inter' && r.conta !== 'Investimentos Itaú Unibanco') return;
+      if (!(r.categoria || '').includes('Transferência')) return;
+      if (currentConta !== 'all' && r.conta !== currentConta) return;
+      if (currentConciliado !== 'all' && r.conciliado !== currentConciliado) return;
+      const mes = r.mesPagto;
+      if (!MONTHS.includes(mes)) return;
+      const val = Math.abs(r.valorPago);
+      // Entrada de Transferência na aplicação = aplicou (dinheiro saiu do caixa)
+      // Saída de Transferência da aplicação = resgatou (dinheiro voltou pro caixa)
+      const sign = (r.tipo === '1. Contas a Receber') ? -1 : +1;
+      totAplicMes[mes] += sign * val;
+      hasAplicacoes = true;
+    });
     // Ajustes Financeiros SEM cartão (cartão está em Despesas Operacionais)
     const totAjustComCartao = {};
     MONTHS.forEach(m => totAjustComCartao[m] = (totAjustMes[m] || 0));
@@ -6853,6 +6874,18 @@ if (document.readyState === 'loading') {
     });
     roCells += `<td></td>`;
     html += `<tr>${roCells}</tr>`;
+
+    // (±) Aplicações Financeiras — só aparece se tiver movimento
+    if (hasAplicacoes) {
+      let aplGrand = 0; MONTHS.forEach(m => aplGrand += totAplicMes[m] || 0);
+      let aplCells = '<td style="padding:8px 14px;padding-left:36px;font-size:12.5px;color:var(--text-secondary)">(±) Aplicações Financeiras</td>';
+      MONTHS.forEach(m => {
+        const v = totAplicMes[m] || 0;
+        aplCells += `<td style="text-align:right;padding:8px;font-size:11.5px" class="${_cls(v)}">${v === 0 ? '—' : _fmtSigned(v)}</td>`;
+      });
+      aplCells += `<td style="text-align:right;padding:8px 12px;font-weight:700" class="${_cls(aplGrand)}">${aplGrand === 0 ? '—' : _fmtSigned(aplGrand)}</td>`;
+      html += `<tr>${aplCells}</tr>`;
+    }
 
     // (±) Ajustes Financeiros — expansível
     if (hasAjustes) {
@@ -6927,7 +6960,7 @@ if (document.readyState === 'loading') {
     let acumMov = 0;
     const movMes = {};
     MONTHS.forEach(m => {
-      const v = (totRecMes[m] || 0) - (totDespComCartao[m] || 0) + (totAjustComCartao[m] || 0);
+      const v = (totRecMes[m] || 0) - (totDespComCartao[m] || 0) + (totAjustComCartao[m] || 0) + (totAplicMes[m] || 0);
       movMes[m] = v;
       acumMov += v;
       sfCells += `<td style="text-align:right;padding:10px 8px;font-weight:700" class="${_cls(v)}">${v === 0 ? '—' : _fmtSigned(v)}</td>`;
