@@ -723,7 +723,10 @@ body.scalia-mode .company-badge {
         <select id="selConta">
           <option value="all">Todas as contas</option>
           <option value="Banco Inter">Banco Inter</option>
+          <option value="Banco Inter (Aplicação)">Banco Inter (Aplicação)</option>
+          <option value="Investimentos Banco Inter">Investimentos Banco Inter</option>
           <option value="Itaú Unibanco">Itaú Unibanco</option>
+          <option value="Investimentos Itaú Unibanco">Investimentos Itaú Unibanco</option>
           <option value="Nubank">Nubank</option>
           <option value="Caixinha">Caixinha</option>
           <option value="Cartão 2130">Cartão 2130</option>
@@ -6269,7 +6272,6 @@ if (document.readyState === 'loading') {
     'Empréstimo de Sócio (Aporte Temporário)': _GRUPO_AJUSTE_ENTRADA,
 
     // ==== AJUSTES FINANCEIROS — SAÍDAS ====
-    'Devolução de Empréstimo Bancário': _GRUPO_AJUSTE_SAIDA,
     'Créditos TikTok': 'INVESTIMENTOS',  // entra no resultado operacional
     'Devolução de Empréstimo de Sócio': _GRUPO_AJUSTE_SAIDA,
 
@@ -6279,6 +6281,7 @@ if (document.readyState === 'loading') {
     // ==== DESPESAS — FORNECEDORES ====
     'Influenciadores / Talentos': 'FORNECEDORES',
     'Editores de Vídeo': 'FORNECEDORES',
+    'Devolução de Empréstimo Bancário': 'FORNECEDORES',
     'Prestadores de Serviços - Pontual': 'FORNECEDORES',
     'Aluguel de Equipamentos Operacionais': 'FORNECEDORES',
     'Aluguel': 'FORNECEDORES',
@@ -6303,6 +6306,7 @@ if (document.readyState === 'loading') {
     'Brindes Internos (Equipe)': 'VARIÁVEIS',
     'Devolução de Adiantamento de Cliente': _GRUPO_AJUSTE_SAIDA,
     'Devolução de Receita de Serviços': _GRUPO_AJUSTE_SAIDA,
+    'Marketing e Divulgação': 'VARIÁVEIS',
     'Premiação e Incentivos para Clientes': 'VARIÁVEIS',
     'Brindes para Clientes': 'VARIÁVEIS',
 
@@ -6343,7 +6347,8 @@ if (document.readyState === 'loading') {
 
     const g = _CLASSIFICACAO[catLimpa];
     if (g) return g;
-    return _GRUPO_OUTRAS;
+    // Categorias não mapeadas: para AJUSTES (aparecem em Movimentações de Caixa > Ajustes Financeiros)
+    return _GRUPO_AJUSTE_SAIDA;
   }
 
   // =====================================================================================
@@ -6691,8 +6696,9 @@ if (document.readyState === 'loading') {
           const _ORDEM_FORNEC = grupo === 'FORNECEDORES' ? {
             'Influenciadores / Talentos': 1,
             'Editores de Vídeo': 2,
-            'Aluguel': 3,
-            'Prestadores de Serviços - Pontual': 4,
+            'Devolução de Empréstimo Bancário': 3,
+            'Aluguel': 4,
+            'Prestadores de Serviços - Pontual': 5,
           } : null;
           return Array.from(catsMap.entries()).sort((a,b) => {
             if (_ORDEM_FORNEC) {
