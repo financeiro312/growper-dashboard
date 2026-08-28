@@ -567,9 +567,11 @@ body.scalia-mode .company-badge {
    Sem max-width: se a categoria for maior, a coluna expande. */
 .table-container table th:first-child,
 .table-container table td:first-child {
-  min-width: 280px !important;
+  min-width: 200px !important;
+  max-width: 200px !important;
   white-space: nowrap !important;
-  overflow: visible !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
   padding: 8px 14px !important;
   font-size: 12.5px !important;
 }
@@ -1614,14 +1616,10 @@ function sumByDept(deptName, tipo) {
 }
 
 function sumCartao() {
-  // CARTÃO DE CRÉDITO = valor efetivamente pago da fatura no mês
-  // Captura: Saída de Transferência do Banco Inter para "Cartão 2130"
-  // Esse valor reflete o desembolso real e bate com a planilha conciliada
-  // 
-  // IMPORTANTE: o cartão de crédito é uma fatura paga pelo Banco Inter.
-  // Quando o filtro de conta é OUTRA conta (ex: Itaú, Nubank), o cartão não deve aparecer.
+  // CARTÃO DE CRÉDITO = soma de todas as despesas no Cartão 2130 (por mês de pagamento)
+  // Bate com a planilha conciliada / imagem de fatura mensal
   
-  // Se filtro != 'all' e != 'Banco Inter', retorna vazio
+  // Se filtro != 'all' e != 'Banco Inter', retorna vazio (cartão é do Inter)
   if (currentConta !== 'all' && currentConta !== 'Banco Inter') {
     const empty = {}; MONTHS.forEach(m => empty[m] = 0);
     return { byMonth: empty, total: 0, items: [], detalhes: [] };
@@ -1629,11 +1627,8 @@ function sumCartao() {
   
   const data = getRawData();
   const filtered = data.filter(r => {
+    if (r.conta !== 'Cartão 2130') return false;
     if (r.tipo !== '2. Contas a Pagar') return false;
-    if (r.conta !== 'Banco Inter') return false;
-    if (r.categoria !== 'Saída de Transferência') return false;
-    const forn = String(r.fornecedor || '');
-    if (forn.indexOf('Cartão 2130') < 0) return false;
     if (currentConciliado !== 'all' && r.conciliado !== currentConciliado) return false;
     return true;
   });
@@ -1643,23 +1638,13 @@ function sumCartao() {
   filtered.forEach(r => {
     const mes = r.mesPagto;
     if (!MONTHS.includes(mes)) return;
-    const val = r.valorPago;
+    const val = Math.abs(r.valorPago);  // valorPago vem negativo pra CP
     result[mes] = (result[mes] || 0) + val;
     total += val;
     items.push({ ...r, val, mes });
   });
   
-  // Itens detalhados (despesas pagas pelo Cartão 2130) — para drill-down
-  // Mostra a composição da fatura por categoria/fornecedor/lançamento
-  // USA mesPrevisao (data de vencimento) — esse é o mês da fatura
-  const detalhes = data.filter(r => {
-    if (r.tipo !== '2. Contas a Pagar') return false;
-    if (r.conta !== 'Cartão 2130') return false;
-    if (!r.mesPrevisao) return false;
-    return true;
-  }).map(r => ({ ...r, val: r.valorPago, mes: r.mesPrevisao }));
-  
-  return { byMonth: result, total, items, detalhes };
+  return { byMonth: result, total, items, detalhes: items };
 }
 
 // MODAL SYSTEM
