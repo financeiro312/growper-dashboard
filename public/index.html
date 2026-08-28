@@ -6668,13 +6668,13 @@ if (document.readyState === 'loading') {
     // Cabeçalho DESPESAS (com seta expansível)
     const dExpKey = 'section|despesas';
     const dOpen = _expanded.has(dExpKey);
-    // Total do header NÃO inclui cartão de crédito (bate com Omie)
-    let despHeadTot = 0; MONTHS.forEach(m => { despHeadTot += totDespMes[m] || 0; });
+    // Total do header INCLUI cartão de crédito
+    let despHeadTot = 0; MONTHS.forEach(m => { despHeadTot += (totDespMes[m] || 0) + (totCartaoMes[m] || 0); });
     let dhCells = `<td style="padding:12px 14px;background:#fef2f2;color:#991b1b;font-weight:800;cursor:pointer" onclick="_toggleExpand('${dExpKey}')">
         <span style="display:inline-block;width:16px">${dOpen ? '▼' : '▶'}</span> 📤 DESPESAS OPERACIONAIS
       </td>`;
     MONTHS.forEach(m => {
-      const v = totDespMes[m] || 0;
+      const v = (totDespMes[m] || 0) + (totCartaoMes[m] || 0);
       dhCells += `<td style="text-align:right;padding:12px 8px;background:#fef2f2;color:#991b1b;font-weight:800" class="value-neg">${v === 0 ? '—' : _fmt(v)}</td>`;
     });
     dhCells += `<td style="text-align:right;padding:12px 12px;background:#fef2f2;color:#991b1b;font-weight:800" class="value-neg">${_fmt(despHeadTot)}</td>`;
@@ -6814,7 +6814,7 @@ if (document.readyState === 'loading') {
     }
 
     // Total Despesas Operacionais (inclui cartão) — variável mantida para uso no Resultado
-    const totDespComCartao = {}; MONTHS.forEach(m => totDespComCartao[m] = (totDespMes[m] || 0));  // cartão fora do resultado op
+    const totDespComCartao = {}; MONTHS.forEach(m => totDespComCartao[m] = (totDespMes[m] || 0) + (totCartaoMes[m] || 0));  // cartão dentro do resultado op
     // Linha "Total Despesas Operacionais" removida — total já aparece no header do bloco.
 
     // ============================================================
@@ -6840,9 +6840,9 @@ if (document.readyState === 'loading') {
     // Ajustes financeiros agora entram apenas na linha (±) do CONTROLE DE CAIXA
     // (não exibimos mais como bloco separado)
     const hasAjustes = ajustesEntrada.size > 0 || ajustesSaida.size > 0;
-    // Cartão de crédito entra em Ajustes Financeiros (afeta caixa mas não Resultado Op)
+    // Ajustes Financeiros SEM cartão (cartão está em Despesas Operacionais)
     const totAjustComCartao = {};
-    MONTHS.forEach(m => totAjustComCartao[m] = (totAjustMes[m] || 0) - (totCartaoMes[m] || 0));
+    MONTHS.forEach(m => totAjustComCartao[m] = (totAjustMes[m] || 0));
 
     // ============================================================
     // CONTROLE DE CAIXA — saldo bancário acumulado
@@ -7479,7 +7479,7 @@ if (document.readyState === 'loading') {
       sheet.push(linhaCategoria('Cartão 2130 (fatura consolidada)', cartao, '  ▸'));
       sheet.push(linhaAgregada('    Total Cartão', totCartaoMes));
     }
-    const totDespComCartao = {}; MONTHS.forEach(m => totDespComCartao[m] = (totDespMes[m] || 0));  // cartão fora do resultado op
+    const totDespComCartao = {}; MONTHS.forEach(m => totDespComCartao[m] = (totDespMes[m] || 0) + (totCartaoMes[m] || 0));  // cartão dentro do resultado op
     sheet.push(linhaAgregada('Total Despesas', totDespComCartao));
     sheet.push([]);
 
