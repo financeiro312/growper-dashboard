@@ -113,9 +113,9 @@ th {
   padding: 14px; text-align: right; font-weight: 600; font-size: 11px;
   color: var(--text-secondary); letter-spacing: 0.3px; text-transform: uppercase;
 }
-th:first-child { text-align: left; min-width: 280px; position: sticky; left: 0; background: #f9fafb; z-index: 10; }
+th:first-child { text-align: left; min-width: 200px; max-width: 200px; position: sticky; left: 0; background: #f9fafb; z-index: 10; }
 td { padding: 11px 14px; border-bottom: 1px solid var(--border); font-size: 13px; text-align: right; }
-td:first-child { text-align: left; position: sticky; left: 0; background: var(--surface); z-index: 5; }
+td:first-child { text-align: left; position: sticky; left: 0; background: var(--surface); z-index: 5; min-width: 200px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 tr:hover td:first-child { background: #f9fafb; }
 tr:hover td { background: #f9fafb; }
 tr.section-header td {
@@ -6668,13 +6668,13 @@ if (document.readyState === 'loading') {
     // Cabeçalho DESPESAS (com seta expansível)
     const dExpKey = 'section|despesas';
     const dOpen = _expanded.has(dExpKey);
-    // Total do header inclui cartão de crédito
-    let despHeadTot = 0; MONTHS.forEach(m => { despHeadTot += (totDespMes[m] || 0) + (totCartaoMes[m] || 0); });
+    // Total do header NÃO inclui cartão de crédito (bate com Omie)
+    let despHeadTot = 0; MONTHS.forEach(m => { despHeadTot += totDespMes[m] || 0; });
     let dhCells = `<td style="padding:12px 14px;background:#fef2f2;color:#991b1b;font-weight:800;cursor:pointer" onclick="_toggleExpand('${dExpKey}')">
         <span style="display:inline-block;width:16px">${dOpen ? '▼' : '▶'}</span> 📤 DESPESAS OPERACIONAIS
       </td>`;
     MONTHS.forEach(m => {
-      const v = (totDespMes[m] || 0) + (totCartaoMes[m] || 0);
+      const v = totDespMes[m] || 0;
       dhCells += `<td style="text-align:right;padding:12px 8px;background:#fef2f2;color:#991b1b;font-weight:800" class="value-neg">${v === 0 ? '—' : _fmt(v)}</td>`;
     });
     dhCells += `<td style="text-align:right;padding:12px 12px;background:#fef2f2;color:#991b1b;font-weight:800" class="value-neg">${_fmt(despHeadTot)}</td>`;
@@ -6814,7 +6814,7 @@ if (document.readyState === 'loading') {
     }
 
     // Total Despesas Operacionais (inclui cartão) — variável mantida para uso no Resultado
-    const totDespComCartao = {}; MONTHS.forEach(m => totDespComCartao[m] = (totDespMes[m] || 0) + (totCartaoMes[m] || 0));
+    const totDespComCartao = {}; MONTHS.forEach(m => totDespComCartao[m] = (totDespMes[m] || 0));  // cartão fora do resultado op
     // Linha "Total Despesas Operacionais" removida — total já aparece no header do bloco.
 
     // ============================================================
@@ -6864,14 +6864,16 @@ if (document.readyState === 'loading') {
     if (hasAjustes) {
       const ajExpKey = 'sec|ajustesCaixa';
       const ajOpen = _expanded.has(ajExpKey);
-      let ajGrandTot = 0; MONTHS.forEach(m => { ajGrandTot += totAjustMes[m] || 0; });
+      // Cartão de crédito entra em Ajustes Financeiros (não afeta Resultado Operacional mas afeta caixa)
+      const totAjustComCartao = {}; MONTHS.forEach(m => totAjustComCartao[m] = (totAjustMes[m] || 0) + (totCartaoMes[m] || 0));
+      let ajGrandTot = 0; MONTHS.forEach(m => { ajGrandTot += totAjustComCartao[m] || 0; });
 
       // Linha cabeçalho: (±) Ajustes Financeiros com seta + total mensal
       let aCells = `<td style="padding:8px 14px;padding-left:36px;font-size:12.5px;color:var(--text-secondary);cursor:pointer" onclick="_toggleExpand('${ajExpKey}')">
         <span style="display:inline-block;width:14px;color:var(--primary);font-weight:700">${ajOpen ? '▼' : '▶'}</span> (±) Ajustes Financeiros
       </td>`;
       MONTHS.forEach(m => {
-        const v = totAjustMes[m] || 0;
+        const v = totAjustComCartao[m] || 0;
         aCells += `<td style="text-align:right;padding:8px;font-size:11.5px" class="${_cls(v)}">${v === 0 ? '—' : _fmtSigned(v)}</td>`;
       });
       aCells += `<td style="text-align:right;padding:8px 12px;font-weight:700" class="${_cls(ajGrandTot)}">${ajGrandTot === 0 ? '—' : _fmtSigned(ajGrandTot)}</td>`;
@@ -6933,7 +6935,7 @@ if (document.readyState === 'loading') {
     let acumMov = 0;
     const movMes = {};
     MONTHS.forEach(m => {
-      const v = (totRecMes[m] || 0) - (totDespComCartao[m] || 0) + (totAjustMes[m] || 0);
+      const v = (totRecMes[m] || 0) - (totDespComCartao[m] || 0) + (totAjustComCartao[m] || 0);
       movMes[m] = v;
       acumMov += v;
       sfCells += `<td style="text-align:right;padding:10px 8px;font-weight:700" class="${_cls(v)}">${v === 0 ? '—' : _fmtSigned(v)}</td>`;
@@ -7476,7 +7478,7 @@ if (document.readyState === 'loading') {
       sheet.push(linhaCategoria('Cartão 2130 (fatura consolidada)', cartao, '  ▸'));
       sheet.push(linhaAgregada('    Total Cartão', totCartaoMes));
     }
-    const totDespComCartao = {}; MONTHS.forEach(m => totDespComCartao[m] = (totDespMes[m] || 0) + (totCartaoMes[m] || 0));
+    const totDespComCartao = {}; MONTHS.forEach(m => totDespComCartao[m] = (totDespMes[m] || 0));  // cartão fora do resultado op
     sheet.push(linhaAgregada('Total Despesas', totDespComCartao));
     sheet.push([]);
 
