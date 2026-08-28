@@ -7016,6 +7016,19 @@ if (document.readyState === 'loading') {
           saiCells += `<td style="text-align:right;padding:6px 12px;font-weight:600" class="value-pos">${_fmt(saiTot)}</td>`;
           html += `<tr>${saiCells}</tr>`;
         }
+        
+        // Linha SALDO (acumulado por mês)
+        // Saldo inicial da conta Banco Inter (Aplicação) = R$ 36.181,00 conforme Omie
+        const SALDO_INICIAL_APL = 36181.00;
+        let saldoAcum = SALDO_INICIAL_APL;
+        let sldCells = '<td style="padding:8px 14px;padding-left:36px;font-size:12px;font-weight:700;color:#92400e;background:#fffbeb">Saldo</td>';
+        MONTHS.forEach(m => {
+          // saldo acumulado = saldo mês anterior + entradas - saídas do mês
+          saldoAcum += aplEntradas[m] - aplSaidas[m];
+          sldCells += `<td style="text-align:right;padding:8px;font-size:12px;font-weight:700;color:#92400e;background:#fffbeb">${_fmt(saldoAcum)}</td>`;
+        });
+        sldCells += `<td style="text-align:right;padding:8px 12px;font-weight:700;color:#92400e;background:#fffbeb">${_fmt(saldoAcum)}</td>`;
+        html += `<tr>${sldCells}</tr>`;
       }
     }
     
