@@ -7125,12 +7125,32 @@ if (document.readyState === 'loading') {
     sfCells += `<td style="text-align:right;padding:10px 12px;font-weight:800" class="${_cls(acumMov)}">${_fmtSigned(acumMov)}</td>`;
     html += `<tr style="background:#ecfdf5">${sfCells}</tr>`;
 
-    // Saldo Bancário Acumulado
-    let sbCells = `<td style="padding:12px 14px;font-weight:800;color:#065f46">🏦 Saldo Bancário Acumulado
-      <input type="number" step="0.01" value="${saldoInicial}" onchange="try{localStorage.setItem('caixaSaldoInicial_v1', this.value);}catch(e){} renderMain();"
-        style="margin-left:8px;width:110px;padding:4px 6px;border:1px solid #6ee7b7;border-radius:4px;font-family:Poppins;font-size:11px;text-align:right;background:white"
-        title="Saldo inicial (edite aqui)"/></td>`;
-    let saldo = saldoInicial;
+    // Saldo Bancário Acumulado — baseado nas contas selecionadas
+    // Saldos iniciais em 01/01/2026 (extraídos do Omie):
+    //   Banco Inter: R$ 1.639,62 | Itaú Unibanco: R$ -29.052,14
+    //   Outras contas (Cartão, Aplicação, Investimentos, Nubank, Caixinha): 0
+    const _SALDOS_INICIAIS = {
+      'Banco Inter': 1639.62,
+      'Itaú Unibanco': -29052.14,
+      'Cartão 2130': 0,
+      'Banco Inter (Aplicação)': 36181.00,
+      'Investimentos Banco Inter': 0,
+      'Investimentos Itaú Unibanco': 0,
+      'Nubank': 0,
+      'Caixinha': 0
+    };
+    // Saldo inicial = soma dos saldos iniciais das contas selecionadas
+    let saldoIniConsol = 0;
+    if (typeof currentContasSet !== 'undefined' && currentContasSet.size > 0) {
+      currentContasSet.forEach(c => { saldoIniConsol += _SALDOS_INICIAIS[c] || 0; });
+    } else {
+      // Fallback: se não tem multi-select, usa compatibilidade
+      if (currentConta === 'all') Object.values(_SALDOS_INICIAIS).forEach(v => saldoIniConsol += v);
+      else saldoIniConsol = _SALDOS_INICIAIS[currentConta] || 0;
+    }
+    
+    let sbCells = `<td style="padding:12px 14px;font-weight:800;color:#065f46">🏦 Saldo Bancário Acumulado</td>`;
+    let saldo = saldoIniConsol;
     MONTHS.forEach(m => {
       saldo += movMes[m] || 0;
       sbCells += `<td style="text-align:right;padding:12px 8px;font-weight:800" class="${_cls(saldo)}">${_fmtSigned(saldo)}</td>`;
