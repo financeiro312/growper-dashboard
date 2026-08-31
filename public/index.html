@@ -7143,10 +7143,12 @@ if (document.readyState === 'loading') {
     sfCells += `<td style="text-align:right;padding:10px 12px;font-weight:800" class="${_cls(acumMov)}">${_fmtSigned(acumMov)}</td>`;
     html += `<tr style="background:#ecfdf5">${sfCells}</tr>`;
 
-    // Saldo Bancário Acumulado — baseado nas contas selecionadas
-    // Saldos iniciais em 01/01/2026 (extraídos do Omie):
-    //   Banco Inter: R$ 1.639,62 | Itaú Unibanco: R$ -29.052,14
-    //   Outras contas (Cartão, Aplicação, Investimentos, Nubank, Caixinha): 0
+    // Saldo Bancário Acumulado — CÁLCULO DIRETO da view v_raw_data_caixa
+    // Bate exatamente com o extrato Omie porque:
+    //   1) Saldo inicial = soma dos saldos iniciais 01/01/2026 das contas selecionadas
+    //   2) Movimento mensal = soma DIRETA de valorPago das contas selecionadas
+    //   3) Saldo acumulado = saldo inicial + soma cumulativa dos movimentos
+    // NÃO depende de classificação (receita/despesa/ajuste/aplicação) que pode divergir
     const _SALDOS_INICIAIS = {
       'Banco Inter': 1639.62,
       'Itaú Unibanco': -29052.14,
@@ -7157,24 +7159,44 @@ if (document.readyState === 'loading') {
       'Nubank': 0,
       'Caixinha': 0
     };
-    // Saldo inicial = soma dos saldos iniciais das contas selecionadas
+    // Saldo inicial consolidado das contas selecionadas
     let saldoIniConsol = 0;
+    let contasParaSaldo;
     if (typeof currentContasSet !== 'undefined' && currentContasSet.size > 0) {
-      currentContasSet.forEach(c => { saldoIniConsol += _SALDOS_INICIAIS[c] || 0; });
+      contasParaSaldo = currentContasSet;
     } else {
-      // Fallback: se não tem multi-select, usa compatibilidade
-      if (currentConta === 'all') Object.values(_SALDOS_INICIAIS).forEach(v => saldoIniConsol += v);
-      else saldoIniConsol = _SALDOS_INICIAIS[currentConta] || 0;
+      contasParaSaldo = new Set();
+      if (currentConta === 'all') Object.keys(_SALDOS_INICIAIS).forEach(k => contasParaSaldo.add(k));
+      else contasParaSaldo.add(currentConta);
     }
+    contasParaSaldo.forEach(c => { saldoIniConsol += _SALDOS_INICIAIS[c] || 0; });
+    
+    // Movimento REAL por mês (soma direta de valorPago, sem classificação)
+    const movRealMes = {}; MONTHS.forEach(m => movRealMes[m] = 0);
+    data.forEach(r => {
+      if (!contasParaSaldo.has(r.conta)) return;
+      if (typeof currentConciliado !== 'undefined' && currentConciliado !== 'all' && r.conciliado !== currentConciliado) return;
+      const mes = r.mesPagto;
+      if (!MONTHS.includes(mes)) return;
+      movRealMes[mes] += (r.valorPago || 0);
+    });
     
     let sbCells = `<td style="padding:12px 14px;font-weight:800;color:#065f46">🏦 Saldo Bancário Acumulado</td>`;
     let saldo = saldoIniConsol;
     MONTHS.forEach(m => {
-      saldo += movMes[m] || 0;
+      saldo += movRealMes[m];
       sbCells += `<td style="text-align:right;padding:12px 8px;font-weight:800" class="${_cls(saldo)}">${_fmtSigned(saldo)}</td>`;
     });
     sbCells += `<td style="text-align:right;padding:12px 12px;font-weight:800" class="${_cls(saldo)}">${_fmtSigned(saldo)}</td>`;
     html += `<tr style="background:#d1fae5">${sbCells}</tr>`;
+    
+    // Log para diagnóstico
+    console.log('[Saldo Bancário]', {
+      contasSelecionadas: [...contasParaSaldo],
+      saldoInicial: saldoIniConsol,
+      movMensal: movRealMes,
+      saldoFinal: saldo
+    });
 
     document.getElementById('tableBody').innerHTML = html;
 
