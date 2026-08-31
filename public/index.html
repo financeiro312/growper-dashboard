@@ -888,7 +888,7 @@ let currentConciliado = 'all';
 // ============================================================
 // MULTI-SELECT de contas
 // ============================================================
-const _TODAS_CONTAS = ['Banco Inter', 'Banco Inter (Aplicação)', 'Investimentos Banco Inter', 'Itaú Unibanco', 'Investimentos Itaú Unibanco', 'Nubank', 'Caixinha', 'Cartão 2130'];
+const _TODAS_CONTAS = ['Banco Inter', 'Banco Inter (Aplicação)', 'Itaú Unibanco', 'Cartão 2130'];
 let currentContasSet = new Set(_TODAS_CONTAS);  // por padrão: todas
 
 // Sincroniza currentConta (compatibilidade) baseado no Set
@@ -6767,7 +6767,12 @@ if (document.readyState === 'loading') {
     const dExpKey = 'section|despesas';
     const dOpen = _expanded.has(dExpKey);
     // Cartão só entra no total se estiver selecionado (evita dupla contagem quando filtra por Inter)
-    const _cartaoIncluir = (typeof _contaAceita === 'function') ? _contaAceita('Cartão 2130') : (currentConta === 'all' || currentConta === 'Cartão 2130');
+    // Cartão aparece em Despesas Op quando Banco Inter OU Cartão 2130 estiver no filtro
+    // (fatura do cartão é paga pelo Banco Inter, então faz parte do Resultado Operacional)
+    // O Saldo Bancário Acumulado usa cálculo direto separado (não afetado por este flag)
+    const _cartaoIncluir = (typeof _contaAceita === 'function') 
+      ? (_contaAceita('Cartão 2130') || _contaAceita('Banco Inter'))
+      : (currentConta === 'all' || currentConta === 'Cartão 2130' || currentConta === 'Banco Inter');
     // Total do header INCLUI cartão de crédito (se selecionado)
     let despHeadTot = 0; MONTHS.forEach(m => { despHeadTot += (totDespMes[m] || 0) + (_cartaoIncluir ? (totCartaoMes[m] || 0) : 0); });
     let dhCells = `<td style="padding:12px 14px;background:#fef2f2;color:#991b1b;font-weight:800;cursor:pointer" onclick="_toggleExpand('${dExpKey}')">
@@ -7160,14 +7165,16 @@ if (document.readyState === 'loading') {
       'Caixinha': 0
     };
     // Saldo inicial consolidado das contas selecionadas
+    // Contas de APLICAÇÃO/INVESTIMENTO NÃO entram no Saldo Bancário Acumulado
+    // (elas têm o próprio bloco "Aplicações Financeiras" com seu saldo separado)
+    const _CONTAS_APLICACAO = new Set(['Banco Inter (Aplicação)', 'Investimentos Banco Inter', 'Investimentos Itaú Unibanco']);
     let saldoIniConsol = 0;
-    let contasParaSaldo;
+    let contasParaSaldo = new Set();
     if (typeof currentContasSet !== 'undefined' && currentContasSet.size > 0) {
-      contasParaSaldo = currentContasSet;
+      currentContasSet.forEach(c => { if (!_CONTAS_APLICACAO.has(c)) contasParaSaldo.add(c); });
     } else {
-      contasParaSaldo = new Set();
-      if (currentConta === 'all') Object.keys(_SALDOS_INICIAIS).forEach(k => contasParaSaldo.add(k));
-      else contasParaSaldo.add(currentConta);
+      if (currentConta === 'all') Object.keys(_SALDOS_INICIAIS).forEach(k => { if (!_CONTAS_APLICACAO.has(k)) contasParaSaldo.add(k); });
+      else if (!_CONTAS_APLICACAO.has(currentConta)) contasParaSaldo.add(currentConta);
     }
     contasParaSaldo.forEach(c => { saldoIniConsol += _SALDOS_INICIAIS[c] || 0; });
     
