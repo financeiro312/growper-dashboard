@@ -6226,10 +6226,18 @@ if (document.readyState === 'loading') {
   // ============ Filtros globais ============
   function _applyFilters(rows) {
     function _norm(s) { return String(s || '').trim().toLowerCase(); }
-    const contaSel = (typeof currentConta !== 'undefined') ? _norm(currentConta) : 'all';
     const concilSel = (typeof currentConciliado !== 'undefined') ? _norm(currentConciliado) : 'all';
+    // Usa multi-select se disponível
+    const usarMulti = (typeof currentContasSet !== 'undefined' && typeof _contaAceita === 'function');
+    const contaSel = (typeof currentConta !== 'undefined') ? _norm(currentConta) : 'all';
     return rows.filter(r => {
-      if (contaSel !== 'all' && _norm(r.conta) !== contaSel) return false;
+      // Filtro de conta
+      if (usarMulti) {
+        if (!_contaAceita(r.conta)) return false;
+      } else if (contaSel !== 'all' && _norm(r.conta) !== contaSel) {
+        return false;
+      }
+      // Filtro de conciliado
       if (concilSel !== 'all' && _norm(r.conciliado) !== concilSel) return false;
       return true;
     });
@@ -6459,6 +6467,14 @@ if (document.readyState === 'loading') {
                    'currentConciliado=', typeof currentConciliado !== 'undefined' ? currentConciliado : 'N/A',
                    'total no dataset:', data.length);
     }
+    // Diagnóstico do multi-select
+    console.log('[renderMain] Diagnóstico:', {
+      totalDataset: data.length,
+      rowsAposFiltro: rows.length,
+      currentConta: typeof currentConta !== 'undefined' ? currentConta : 'N/A',
+      contasSelecionadas: typeof currentContasSet !== 'undefined' ? [...currentContasSet] : 'N/A',
+      exemploContas: [...new Set(rows.slice(0, 100).map(r => r.conta))].sort()
+    });
 
     // Estruturas
     const receitas = new Map();                  // categoria -> { byMonth, total, items }
