@@ -6890,31 +6890,78 @@ if (document.readyState === 'loading') {
       html += `<tr>${cCells}</tr>`;
 
       if (cOpen) {
-        // Agrupar cartão por categoria
-        const cardCats = new Map();
+        // Agrupar cartão por DEPARTAMENTO (grupo) → depois expansível para CATEGORIAS
+        // Ex: FORNECEDORES > Software e Sistemas, Serv Terceiros, etc.
+        const cardByGrupo = new Map();  // grupo -> Map<categoria, {byMonth, total, items}>
         cartao.items.forEach(it => {
-          const c = _limparCategoria(it.categoria || '') || '(sem categoria)';
-          if (!cardCats.has(c)) cardCats.set(c, { byMonth: {}, total: 0, items: [] });
-          const g = cardCats.get(c);
-          g.byMonth[it.mes] = (g.byMonth[it.mes] || 0) + it.valor;
-          g.total += it.valor;
-          g.items.push(it);
+          const catLimpa = _limparCategoria(it.categoria || '') || '(sem categoria)';
+          const grupo = _classificar(catLimpa, it.departamento) || 'OUTROS';
+          if (!cardByGrupo.has(grupo)) cardByGrupo.set(grupo, new Map());
+          const gMap = cardByGrupo.get(grupo);
+          if (!gMap.has(catLimpa)) gMap.set(catLimpa, { byMonth: {}, total: 0, items: [] });
+          const cat = gMap.get(catLimpa);
+          cat.byMonth[it.mes] = (cat.byMonth[it.mes] || 0) + it.valor;
+          cat.total += it.valor;
+          cat.items.push(it);
         });
-        Array.from(cardCats.entries()).sort((a,b) => b[1].total - a[1].total).forEach(([c, g], idx) => {
-          const key = 'card_' + idx;
-          let cells = `<td style="padding:8px 14px;padding-left:52px" title="${_esc(c)}">${_esc(c)}</td>`;
-          MONTHS.forEach(m => {
-            const v = g.byMonth[m] || 0;
-            if (v > 0) {
-              const ck = key + '_' + m;
-              _drillCache[ck] = { titulo: c, subtitulo: MONTH_NAMES[MONTHS.indexOf(m)] + ' • Cartão 2130', items: g.items.filter(it => it.mes === m) };
-              cells += `<td onclick="_showLancamentos('${ck}')" style="text-align:right;padding:8px;cursor:pointer;font-size:11.5px" class="value-neg">${_fmt(v)}</td>`;
-            } else {
-              cells += `<td style="text-align:right;padding:8px;font-size:11.5px" class="value-zero">—</td>`;
-            }
+        
+        // Ordenar grupos pela _ORDEM_GRUPOS_DESPESA se existir, senão por total desc
+        const _ordemGrp = (typeof _ORDEM_GRUPOS_DESPESA !== 'undefined') ? _ORDEM_GRUPOS_DESPESA : null;
+        const grupos = Array.from(cardByGrupo.keys()).sort((a, b) => {
+          if (_ordemGrp) {
+            const ia = _ordemGrp.indexOf(a); const ib = _ordemGrp.indexOf(b);
+            if (ia >= 0 && ib >= 0) return ia - ib;
+            if (ia >= 0) return -1; if (ib >= 0) return 1;
+          }
+          let ta = 0, tb = 0;
+          cardByGrupo.get(a).forEach(v => ta += v.total);
+          cardByGrupo.get(b).forEach(v => tb += v.total);
+          return tb - ta;
+        });
+        
+        grupos.forEach((grupo, gIdx) => {
+          const gMap = cardByGrupo.get(grupo);
+          const grpKey = 'card_grp_' + gIdx;
+          const grpOpen = _expanded.has(grpKey);
+          
+          // Total do grupo por mês
+          const grpTot = { byMonth: {}, total: 0 };
+          MONTHS.forEach(m => grpTot.byMonth[m] = 0);
+          gMap.forEach(cat => {
+            MONTHS.forEach(m => grpTot.byMonth[m] += (cat.byMonth[m] || 0));
+            grpTot.total += cat.total;
           });
-          cells += `<td style="text-align:right;padding:8px 12px;font-weight:700" class="value-neg">${_fmt(g.total)}</td>`;
-          html += `<tr class="cat-row">${cells}</tr>`;
+          
+          // Linha do grupo (departamento) — expansível
+          let grpCells = `<td style="padding:8px 14px;padding-left:52px;font-weight:600;color:#7f1d1d;cursor:pointer" onclick="_toggleExpand('${grpKey}')">
+            <span style="display:inline-block;width:14px">${grpOpen ? '▼' : '▶'}</span> ${_esc(grupo)}
+          </td>`;
+          MONTHS.forEach(m => {
+            const v = grpTot.byMonth[m] || 0;
+            grpCells += `<td style="text-align:right;padding:8px;font-size:11.5px;font-weight:600" class="${v > 0 ? 'value-neg' : 'value-zero'}">${v === 0 ? '—' : _fmt(v)}</td>`;
+          });
+          grpCells += `<td style="text-align:right;padding:8px 12px;font-weight:700" class="value-neg">${_fmt(grpTot.total)}</td>`;
+          html += `<tr class="cat-row">${grpCells}</tr>`;
+          
+          // Se grupo expandido, mostrar categorias
+          if (grpOpen) {
+            Array.from(gMap.entries()).sort((a, b) => b[1].total - a[1].total).forEach(([catNome, cat], cIdx) => {
+              const catKey = grpKey + '_cat_' + cIdx;
+              let cells = `<td style="padding:6px 14px;padding-left:84px;font-size:11.5px" title="${_esc(catNome)}">${_esc(catNome)}</td>`;
+              MONTHS.forEach(m => {
+                const v = cat.byMonth[m] || 0;
+                if (v > 0) {
+                  const ck = catKey + '_' + m;
+                  _drillCache[ck] = { titulo: catNome, subtitulo: MONTH_NAMES[MONTHS.indexOf(m)] + ' • Cartão 2130 • ' + grupo, items: cat.items.filter(it => it.mes === m) };
+                  cells += `<td onclick="_showLancamentos('${ck}')" style="text-align:right;padding:6px;cursor:pointer;font-size:11px" class="value-neg">${_fmt(v)}</td>`;
+                } else {
+                  cells += `<td style="text-align:right;padding:6px;font-size:11px" class="value-zero">—</td>`;
+                }
+              });
+              cells += `<td style="text-align:right;padding:6px 12px;font-size:11px" class="value-neg">${_fmt(cat.total)}</td>`;
+              html += `<tr class="cat-row">${cells}</tr>`;
+            });
+          }
         });
       }
     }
@@ -7056,8 +7103,15 @@ if (document.readyState === 'loading') {
     }
     
     html += `<tr class="spacer"><td colspan="${MONTHS.length + 2}" style="height:12px"></td></tr>`;
-    html += `<tr class="section-header"><td style="background:#dbeafe;color:#1e40af;padding:14px;font-weight:800;position:sticky;left:0;z-index:5">🏦 MOVIMENTAÇÕES DE CAIXA</td>` + MONTHS.map(() => '<td style="background:#dbeafe"></td>').join('') + '<td style="background:#dbeafe"></td></tr>';
+    // Header MOVIMENTAÇÕES DE CAIXA expansível (setinha)
+    const mcExpKey = 'section|movcaixa';
+    const mcOpen = _expanded.has(mcExpKey);
+    html += `<tr class="section-header"><td style="background:#dbeafe;color:#1e40af;padding:14px;font-weight:800;position:sticky;left:0;z-index:5;cursor:pointer" onclick="_toggleExpand('${mcExpKey}')">
+      <span style="display:inline-block;width:16px">${mcOpen ? '▼' : '▶'}</span> 🏦 MOVIMENTAÇÕES DE CAIXA
+      </td>` + MONTHS.map(() => '<td style="background:#dbeafe"></td>').join('') + '<td style="background:#dbeafe"></td></tr>';
 
+    // Conteúdo interno só aparece quando expandido
+    if (mcOpen) {
     // (+) Resultado Operacional
     let roCells = '<td style="padding:8px 14px;padding-left:36px;font-size:12.5px;color:var(--text-secondary)">(+) Resultado Operacional</td>';
     MONTHS.forEach(m => {
@@ -7147,6 +7201,7 @@ if (document.readyState === 'loading') {
     });
     sfCells += `<td style="text-align:right;padding:10px 12px;font-weight:800" class="${_cls(acumMov)}">${_fmtSigned(acumMov)}</td>`;
     html += `<tr style="background:#ecfdf5">${sfCells}</tr>`;
+    } // fim if (mcOpen)
 
     // Saldo Bancário Acumulado — CÁLCULO DIRETO da view v_raw_data_caixa
     // Bate exatamente com o extrato Omie porque:
