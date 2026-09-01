@@ -125,6 +125,8 @@ export async function upsertMovimentos(itens: Lancamento[]): Promise<number> {
       categoria_nome: m.categoriaNome,
       cliente_codigo: m.clienteCodigo || null,
       cliente_nome: m.clienteNome,
+      departamento_codigo: m.departamentoCodigo || null,
+      departamento_nome: m.departamentoNome || null,
       numero_documento: m.numeroDocumento,
       observacao: m.observacao,
       atualizado_em: new Date().toISOString(),
