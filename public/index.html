@@ -691,6 +691,7 @@ body.scalia-mode .company-badge {
     <div class="nav-label">Análise Financeira</div>
     <div class="nav-buttons">
       <button class="nav-btn active" data-section="main"><span class="nav-icon">📊</span><span>Principal</span></button>
+      <button class="nav-btn" data-section="card"><span class="nav-icon">💳</span><span>Cartão de Crédito</span></button>
       <button class="nav-btn" data-section="recebiveis"><span class="nav-icon">💰</span><span>Recebíveis</span></button>
       <button class="nav-btn" data-section="kits"><span class="nav-icon">🎁</span><span>Orçamento de Kits</span></button>
       <button class="nav-btn" data-section="area"><span class="nav-icon">🏢</span><span>Por Área</span></button>
@@ -745,7 +746,7 @@ body.scalia-mode .company-badge {
         <div class="view-buttons" id="viewButtons">
           <button class="view-btn active" data-view="caixa">Caixa</button>
           <button class="view-btn" data-view="competencia">Competência</button>
-          <button class="view-btn" data-view="forecast">Forecast</button>
+          
         </div>
         <button id="btnExportExcelInline" onclick="exportarMenuPrincipal()" style="display:none;margin-left:8px;background:#065f46;color:white;border:none;padding:8px 14px;border-radius:6px;font-family:Poppins,sans-serif;font-weight:600;font-size:12.5px;cursor:pointer;align-items:center;gap:6px;white-space:nowrap" title="Exportar Menu Principal para Excel">📊 Exportar Excel</button>
         <!-- Sub-abas de recebíveis agora ficam dentro da seção -->
@@ -6156,6 +6157,7 @@ if (document.readyState === 'loading') {
   const _GRUPO_AJUSTE_SAIDA = 'AJUSTE_SAIDA';
   const _GRUPO_OUTRAS = 'MOVIMENTAÇÕES DE CAIXA';
   const _GRUPO_SCALIA = 'SCALIA';
+  const _GRUPO_EMPRESTIMOS = 'EMPRÉSTIMOS';
 
   const _CLASSIFICACAO = {
     // ==== RECEITAS ====
@@ -6186,7 +6188,7 @@ if (document.readyState === 'loading') {
     // ==== DESPESAS — FORNECEDORES ====
     'Influenciadores / Talentos': 'FORNECEDORES',
     'Editores de Vídeo': 'FORNECEDORES',
-    'Devolução de Empréstimo Bancário': 'FORNECEDORES',
+    'Devolução de Empréstimo Bancário': 'EMPRÉSTIMOS',
     'Prestadores de Serviços - Pontual': 'FORNECEDORES',
     'Aluguel de Equipamentos Operacionais': 'FORNECEDORES',
     'Aluguel': 'FORNECEDORES',
@@ -6236,11 +6238,11 @@ if (document.readyState === 'loading') {
     'OPERAÇÃO',
     'FORNECEDORES',
     'VARIÁVEIS',
+    'SCALIA',        // logo abaixo de VARIÁVEIS
     'INVESTIMENTOS',
     'IMPOSTOS',
+    'EMPRÉSTIMOS',   // logo abaixo de IMPOSTOS
     'DISTRIBUIÇÃO DOS SÓCIOS',
-    'SCALIA',
-    // OUTRAS: categorias não mapeadas cairão em MOVIMENTAÇÕES DE CAIXA (fora do operacional)
   ];
 
   function _classificar(catLimpa, departamento) {
@@ -6375,7 +6377,7 @@ if (document.readyState === 'loading') {
       if (r.conta === 'Banco Inter' && r.tipo === '2. Contas a Pagar' 
           && catLimpa.includes('Transferência') 
           && String(r.fornecedor || '').includes('Cartão 2130')) {
-        const grpF = _grupos.get('FORNECEDORES');
+        const grpF = despesasPorGrupo.get('FORNECEDORES');
         const catKey = 'Transferência p/ Cartão de Crédito';
         if (!grpF.has(catKey)) grpF.set(catKey, { byMonth: {}, total: 0, items: [], forns: new Map() });
         const g = grpF.get(catKey);
