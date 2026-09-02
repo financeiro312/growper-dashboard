@@ -1945,7 +1945,7 @@ function showSection(section) {
   if (currentCompany === 'scalia') {
     if (section === 'main') section = 'scaliaMain';
     else if (section === 'kpis') { renderKPIs(); return; }
-  if (section === 'card') section = 'scaliaCard';
+// 'card' agora usa renderCard() direto (novo menu Cartão de Crédito)
     else if (section === 'kits') section = 'scaliaKits';
   }
   
@@ -5526,7 +5526,7 @@ function scaliaCardTotalByMonth() {
 function scaliaShowSection(section) {
   // Compatibilidade: alguns botões antigos chamavam scaliaShowSection
   if (section === 'main') showSection('scaliaMain');
-  else if (section === 'card') showSection('scaliaCard');
+  // else if (section === 'card') → agora usa renderCard() diretamente
 }
 
 function scaliaResetCardData() {
@@ -6370,6 +6370,22 @@ if (document.readyState === 'loading') {
       if (r.conta === 'Banco Inter (Aplicação)' || r.conta === 'Investimentos Banco Inter' || r.conta === 'Investimentos Itaú Unibanco') {
         return;
       }
+      // Saída de Transferência do Banco Inter → Cartão 2130 = FORNECEDORES (pagamento da fatura)
+      // Isso faz a linha aparecer dentro do grupo FORNECEDORES em vez de Ajustes
+      if (r.conta === 'Banco Inter' && r.tipo === '2. Contas a Pagar' 
+          && catLimpa.includes('Transferência') 
+          && String(r.fornecedor || '').includes('Cartão 2130')) {
+        const grpF = _grupos.get('FORNECEDORES');
+        const catKey = 'Transferência p/ Cartão de Crédito';
+        if (!grpF.has(catKey)) grpF.set(catKey, { byMonth: {}, total: 0, items: [], forns: new Map() });
+        const g = grpF.get(catKey);
+        g.byMonth[mes] = (g.byMonth[mes] || 0) + val;
+        g.total += val;
+        g.items.push(r);
+        totDespMes[mes] += val;
+        totGrupoMes['FORNECEDORES'][mes] = (totGrupoMes['FORNECEDORES'][mes] || 0) + val;
+        return;
+      }
       // Ajuste entrada explícito
       if (grupo === _GRUPO_AJUSTE_ENTRADA) {
         _diag.ajusteEntrada++;
@@ -6576,12 +6592,9 @@ if (document.readyState === 'loading') {
     const dExpKey = 'section|despesas';
     const dOpen = _expanded.has(dExpKey);
     // Cartão só entra no total se estiver selecionado (evita dupla contagem quando filtra por Inter)
-    // Cartão aparece em Despesas Op quando Banco Inter OU Cartão 2130 estiver no filtro
-    // (fatura do cartão é paga pelo Banco Inter, então faz parte do Resultado Operacional)
-    // O Saldo Bancário Acumulado usa cálculo direto separado (não afetado por este flag)
-    const _cartaoIncluir = (typeof _contaAceita === 'function') 
-      ? (_contaAceita('Cartão 2130') || _contaAceita('Banco Inter'))
-      : (currentConta === 'all' || currentConta === 'Cartão 2130' || currentConta === 'Banco Inter');
+    // Cartão de Crédito agora aparece como linha "Transferência p/ Cartão" dentro de FORNECEDORES
+    // Não usa mais totCartaoMes no cálculo (evita dupla contagem)
+    const _cartaoIncluir = false;
     // Total do header INCLUI cartão de crédito (se selecionado)
     let despHeadTot = 0; MONTHS.forEach(m => { despHeadTot += (totDespMes[m] || 0) + (_cartaoIncluir ? (totCartaoMes[m] || 0) : 0); });
     let dhCells = `<td style="padding:12px 14px;background:#fef2f2;color:#991b1b;font-weight:800;cursor:pointer" onclick="_toggleExpand('${dExpKey}')">
@@ -6685,34 +6698,6 @@ if (document.readyState === 'loading') {
     });
 
     // Cartão de crédito como grupo separado DENTRO de DESPESAS (aparece só se dOpen)
-    // Linha simples "Transferências p/ Cartão de Crédito" — sem detalhamento
-    if (dOpen) {
-      // Somar TODAS as saídas de transferência do Inter para o Cartão 2130
-      const transfCartao = {}; MONTHS.forEach(m => transfCartao[m] = 0);
-      let transfTotal = 0;
-      data.forEach(r => {
-        if (r.conta !== 'Banco Inter') return;
-        if (r.tipo !== '2. Contas a Pagar') return;
-        if (!(r.categoria || '').includes('Transferência')) return;
-        const forn = String(r.fornecedor || '');
-        if (!forn.includes('Cartão 2130')) return;
-        if (typeof currentConciliado !== 'undefined' && currentConciliado !== 'all' && r.conciliado !== currentConciliado) return;
-        const mes = r.mesPagto;
-        if (!MONTHS.includes(mes)) return;
-        const val = Math.abs(r.valorPago || 0);
-        transfCartao[mes] += val;
-        transfTotal += val;
-      });
-      if (transfTotal > 0) {
-        let cells = `<td style="padding:8px 14px;padding-left:36px;font-size:12.5px">💳 Transferências p/ Cartão de Crédito</td>`;
-        MONTHS.forEach(m => {
-          const v = transfCartao[m] || 0;
-          cells += `<td style="text-align:right;padding:8px;font-size:11.5px" class="${v > 0 ? 'value-neg' : 'value-zero'}">${v === 0 ? '—' : _fmt(v)}</td>`;
-        });
-        cells += `<td style="text-align:right;padding:8px 12px;font-weight:700" class="value-neg">${_fmt(transfTotal)}</td>`;
-        html += `<tr>${cells}</tr>`;
-      }
-    }
 
     // Total Despesas Operacionais (inclui cartão) — variável mantida para uso no Resultado
     const totDespComCartao = {}; MONTHS.forEach(m => totDespComCartao[m] = (totDespMes[m] || 0) + (_cartaoIncluir ? (totCartaoMes[m] || 0) : 0));
@@ -6980,14 +6965,12 @@ if (document.readyState === 'loading') {
       html += `<tr>${cells}</tr>`;
     };
     
-    // 1) Saldo Bancário Acumulado TOTAL (Inter + Itaú)
-    renderLinhaSaldo('🏦 Saldo Bancário Acumulado', ['Banco Inter', 'Itaú Unibanco'], '#d1fae5', '#065f46', 1639.62 + (-29052.14));
-    // 2) Saldo Banco Inter
+    // 1) Saldo Banco Inter (fixo)
     renderLinhaSaldo('   Saldo Banco Inter', ['Banco Inter'], '#f0fdf4', '#166534', 1639.62);
-    // 3) Saldo Banco Itaú
+    // 2) Saldo Banco Itaú (fixo)
     renderLinhaSaldo('   Saldo Banco Itaú', ['Itaú Unibanco'], '#f0fdf4', '#166534', -29052.14);
-    // 4) Saldo TOTAL final
-    renderLinhaSaldo('🏆 Saldo Total', ['Banco Inter', 'Itaú Unibanco'], '#a7f3d0', '#064e3b', 1639.62 + (-29052.14));
+    // 3) Saldo Total (Inter + Itaú)
+    renderLinhaSaldo('🏦 Saldo Total', ['Banco Inter', 'Itaú Unibanco'], '#a7f3d0', '#064e3b', 1639.62 + (-29052.14));
 
     document.getElementById('tableBody').innerHTML = html;
 
