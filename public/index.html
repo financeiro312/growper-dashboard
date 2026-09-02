@@ -692,9 +692,9 @@ body.scalia-mode .company-badge {
     <div class="nav-buttons">
       <button class="nav-btn active" data-section="main"><span class="nav-icon">📊</span><span>Principal</span></button>
       <button class="nav-btn" data-section="recebiveis"><span class="nav-icon">💰</span><span>Recebíveis</span></button>
-      <button class="nav-btn" data-section="card"><span class="nav-icon">💳</span><span>Cartão Crédito</span></button>
       <button class="nav-btn" data-section="kits"><span class="nav-icon">🎁</span><span>Orçamento de Kits</span></button>
       <button class="nav-btn" data-section="area"><span class="nav-icon">🏢</span><span>Por Área</span></button>
+      <button class="nav-btn" data-section="kpis"><span class="nav-icon">📊</span><span>KPI's Financeiro</span></button>
     </div>
   </div>
   <div class="nav-section">
@@ -1930,11 +1930,30 @@ function showDetailArea(dept, tipo, mes) {
 }
 
 // SECTION SWITCHER
+function renderKPIs() {
+  const main = document.getElementById('mainArea');
+  main.innerHTML = `
+    <div style="max-width:900px;margin:40px auto;padding:32px;background:white;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.06)">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+        <span style="font-size:32px">📊</span>
+        <h2 style="margin:0;font-size:22px;font-weight:700;color:#0f172a">KPI's Financeiros</h2>
+      </div>
+      <p style="color:#475569;line-height:1.6;font-size:14px;margin-bottom:20px">
+        Página em construção. Aguardando definição dos critérios de KPIs a serem monitorados.
+      </p>
+      <div style="padding:16px 20px;background:#f1f5f9;border-left:4px solid #3b82f6;border-radius:4px;font-size:13px;color:#334155">
+        <strong>Próximo passo:</strong> definir a lista de KPIs, fórmulas, frequência de cálculo (mensal / trimestral / anual), metas e visualização (número, gráfico, tabela).
+      </div>
+    </div>
+  `;
+}
+
 function showSection(section) {
   // Em modo Scalia, redirecionar Growper section → Scalia section
   if (currentCompany === 'scalia') {
     if (section === 'main') section = 'scaliaMain';
-    else if (section === 'card') section = 'scaliaCard';
+    else if (section === 'kpis') { renderKPIs(); return; }
+  if (section === 'card') section = 'scaliaCard';
     else if (section === 'kits') section = 'scaliaKits';
   }
   
@@ -1954,7 +1973,7 @@ function showSection(section) {
   currentSection = section;
   const titles = {
     main: 'Dashboard Principal', area: 'Análise por Área',
-    card: 'Cartão de Crédito', recebiveis: 'Recebíveis',
+    card: 'Cartão de Crédito', recebiveis: 'Recebíveis', kpis: "KPI's Financeiros",
     dre: 'DRE - Demonstração de Resultado', pjs: 'Análise de PJs',
     margem: 'Margem de Lucro', ticket: 'Ticket Médio',
     scaliaMain: 'Dashboard Principal', scaliaCard: 'Cartão de Crédito', scaliaKits: 'Orçamento de Kits', kits: 'Orçamento de Kits'
@@ -2677,323 +2696,143 @@ function showDetailCard(mes) {
   showDrillCategorias(monthItems, 'Cartão de Crédito', MONTH_NAMES[monthIndex] + ' • ' + currentYear);
 }
 
-// =================== AREA (PAREADO) ===================
+// =================== POR ÁREA (Departamento) ===================
+// Usa padrão do menu Principal: Caixa/Competência, mês a mês, expandindo Depto > Categoria > Fornecedor
 function renderArea() {
-  if (currentAreaTab === 'mensal') renderAreaMensal();
-  else if (currentAreaTab === 'trimestral') renderAreaTrimestral();
-  else renderAreaComparativo();
-}
-
-function renderAreaMensal() {
-  // Listagem de departamentos: usa TODOS os dados (sem filtro de conta)
-  // para garantir que todos os departamentos com gastos via Cartão também apareçam
-  const data = getRawData();
-  const allDepts = new Set();
-  data.forEach(r => { 
-    if (currentConciliado !== 'all' && r.conciliado !== currentConciliado) return;
-    if (r.departamento) allDepts.add(r.departamento); 
-  });
-
-  const areas = {};
-  Array.from(allDepts).forEach(dept => {
-    const match = dept.match(/^([RD])(\d+)\s*-?\s*(.*)$/);
-    if (match) {
-      const prefix = match[1], number = match[2], name = match[3].trim();
-      if (!areas[number]) areas[number] = { name, receita: null, despesa: null };
-      if (prefix === 'R') areas[number].receita = dept;
-      else areas[number].despesa = dept;
-      if (name && !areas[number].name) areas[number].name = name;
-    }
-  });
-
-  let html = '<div class="table-container"><table>';
-  html += '<thead><tr><th>Área / Departamento</th>';
-  MONTH_LABELS.forEach(m => html += '<th>' + m + '</th>');
-  html += '<th>Total</th></tr></thead><tbody>';
+  const container = document.getElementById('mainArea');
+  const data = (currentView === 'caixa') ? RAW_DATA_CAIXA : RAW_DATA_COMP;
   
-  let grandRec = {}, grandDesp = {};
-  MONTHS.forEach(m => { grandRec[m] = 0; grandDesp[m] = 0; });
-
-  Object.keys(areas).sort().forEach(num => {
-    const area = areas[num];
-    const recData = area.receita ? sumByDept(area.receita, 'receita') : {byMonth:{}, total:0};
-    const despData = area.despesa ? sumByDept(area.despesa, 'despesa') : {byMonth:{}, total:0};
-    if (recData.total === 0 && despData.total === 0) return;
-
-    html += '<tr class="section-header"><td>📊 Área ' + num + ' - ' + area.name + '</td>';
-    MONTHS.forEach(() => html += '<td></td>');
-    html += '<td></td></tr>';
-    
-    if (area.receita) {
-      let cells = '<td>📥 ' + area.receita + '</td>';
-      MONTHS.forEach(m => {
-        const v = recData.byMonth[m] || 0;
-        const cls = valueClass(v);
-        const onclick = v !== 0 ? "onclick=\"showDetailArea('" + area.receita + "','receita','" + m + "')\"" : '';
-        // Extrair conteúdo do onclick para data-action
-        const actionAttr = onclick ? ' data-action="' + onclick.replace(/onclick="/, '').replace(/"$/, '').replace(/'/g, '&apos;') + '"' : '';
-        cells += '<td' + actionAttr + (onclick ? ' style="cursor:pointer"' : '') + '><span class="value-cell ' + cls + '">' + (v !== 0 ? fmt(v) : '—') + '</span></td>';
-        grandRec[m] += v;
-      });
-      cells += '<td><span class="value-cell ' + valueClass(recData.total) + '" style="font-weight:700">' + (recData.total !== 0 ? fmt(recData.total) : '—') + '</span></td>';
-      html += '<tr class="cat-row">' + cells + '</tr>';
-    }
-    if (area.despesa) {
-      let cells = '<td>📤 ' + area.despesa + '</td>';
-      MONTHS.forEach(m => {
-        const v = despData.byMonth[m] || 0;
-        const cls = valueClass(v);
-        const onclick = v !== 0 ? "onclick=\"showDetailArea('" + area.despesa + "','despesa','" + m + "')\"" : '';
-        // Extrair conteúdo do onclick para data-action
-        const actionAttr = onclick ? ' data-action="' + onclick.replace(/onclick="/, '').replace(/"$/, '').replace(/'/g, '&apos;') + '"' : '';
-        cells += '<td' + actionAttr + (onclick ? ' style="cursor:pointer"' : '') + '><span class="value-cell ' + cls + '">' + (v !== 0 ? fmt(v) : '—') + '</span></td>';
-        grandDesp[m] += v;
-      });
-      cells += '<td><span class="value-cell ' + valueClass(despData.total) + '" style="font-weight:700">' + (despData.total !== 0 ? fmt(despData.total) : '—') + '</span></td>';
-      html += '<tr class="cat-row">' + cells + '</tr>';
-    }
-
-    let rcells = '<td>💰 Resultado Área ' + num + '</td>';
-    let areaTotal = 0;
-    MONTHS.forEach(m => {
-      const v = (recData.byMonth[m] || 0) + (despData.byMonth[m] || 0);
-      areaTotal += v;
-      rcells += '<td class="' + valueClass(v) + '">' + (v !== 0 ? fmtSigned(v) : '—') + '</td>';
-    });
-    rcells += '<td class="' + valueClass(areaTotal) + '" style="font-weight:700">' + fmtSigned(areaTotal) + '</td>';
-    html += '<tr class="area-result">' + rcells + '</tr>';
-    html += '<tr class="spacer"><td colspan="' + (MONTHS.length + 2) + '"></td></tr>';
-  });
-
-  let grcells = '<td>🏆 Resultado Total da Empresa</td>';
-  let grandTotal = 0;
-  MONTHS.forEach(m => {
-    const v = (grandRec[m] || 0) + (grandDesp[m] || 0);
-    grandTotal += v;
-    grcells += '<td class="' + valueClass(v) + '">' + (v !== 0 ? fmtSigned(v) : '—') + '</td>';
-  });
-  grcells += '<td class="' + valueClass(grandTotal) + '">' + fmtSigned(grandTotal) + '</td>';
-  html += '<tr class="result-row">' + grcells + '</tr>';
-  html += '</tbody></table></div>';
-
-  const totalRecAll = MONTHS.reduce((a,m) => a + (grandRec[m] || 0), 0);
-  const totalDespAll = MONTHS.reduce((a,m) => a + (grandDesp[m] || 0), 0);
-  html += '<div class="summary-container">';
-  html += '<div class="summary-item"><div class="summary-label">Receitas</div><div class="summary-value" style="color:var(--primary)">' + fmt(totalRecAll) + '</div></div>';
-  html += '<div class="summary-item"><div class="summary-label">Despesas</div><div class="summary-value" style="color:var(--secondary)">' + fmt(Math.abs(totalDespAll)) + '</div></div>';
-  html += '<div class="summary-item"><div class="summary-label">Resultado</div><div class="summary-value" style="color:' + (grandTotal >= 0 ? 'var(--primary)' : 'var(--secondary)') + '">' + fmtSigned(grandTotal) + '</div></div>';
-  html += '</div>';
-
-  document.getElementById('areaContent').innerHTML = html;
-}
-
-function renderAreaTrimestral() {
-  // Listagem de departamentos: usa TODOS os dados (sem filtro de conta)
-  // para garantir que todos os departamentos com gastos via Cartão também apareçam
-  const data = getRawData();
-  const filtered = data.filter(r => {
+  // Filtros
+  const rows = data.filter(r => {
+    if (typeof _contaAceita === 'function' && !_contaAceita(r.conta)) return false;
     if (currentConciliado !== 'all' && r.conciliado !== currentConciliado) return false;
     return true;
   });
   
-  const trimestres = {
-    'T1': { label: '1º Trimestre (Jan-Mar)', months: ['2026-01','2026-02','2026-03'] },
-    'T2': { label: '2º Trimestre (Abr-Jun)', months: ['2026-04','2026-05','2026-06'] },
-    'T3': { label: '3º Trimestre (Jul-Set)', months: ['2026-07','2026-08','2026-09'] },
-    'T4': { label: '4º Trimestre (Out-Dez)', months: ['2026-10','2026-11','2026-12'] }
-  };
-
-  const allDepts = new Set();
-  filtered.forEach(r => { if (r.departamento) allDepts.add(r.departamento); });
-
-  // Calcular para cada departamento o total por trimestre
-  const deptTrimestres = {};
-  Array.from(allDepts).forEach(dept => {
-    deptTrimestres[dept] = { T1: 0, T2: 0, T3: 0, T4: 0, total: 0 };
-    const isReceita = dept.startsWith('R');
-    const data = isReceita ? sumByDept(dept, 'receita') : sumByDept(dept, 'despesa');
-    Object.keys(trimestres).forEach(t => {
-      trimestres[t].months.forEach(m => {
-        deptTrimestres[dept][t] += data.byMonth[m] || 0;
-      });
-      deptTrimestres[dept].total += deptTrimestres[dept][t];
-    });
-  });
-
-  let html = '<div class="table-container"><table>';
-  html += '<thead><tr><th>Área / Departamento</th>';
-  Object.values(trimestres).forEach(t => html += '<th>' + t.label.split(' ')[0] + '</th>');
-  html += '<th>Total Anual</th><th>% do Total</th></tr></thead><tbody>';
-
-  // Agrupar por área (R/D pareado)
-  const areas = {};
-  Array.from(allDepts).forEach(dept => {
-    const match = dept.match(/^([RD])(\d+)\s*-?\s*(.*)$/);
-    if (match) {
-      const prefix = match[1], number = match[2], name = match[3].trim();
-      if (!areas[number]) areas[number] = { name, receita: null, despesa: null };
-      if (prefix === 'R') areas[number].receita = dept;
-      else areas[number].despesa = dept;
-      if (name && !areas[number].name) areas[number].name = name;
-    }
-  });
-
-  const totalDespAll = Object.values(deptTrimestres).filter((_, i) => Array.from(allDepts)[i].startsWith('D')).reduce((a,d) => a + Math.abs(d.total), 0);
-
-  Object.keys(areas).sort().forEach(num => {
-    const area = areas[num];
-    if (!area.receita && !area.despesa) return;
-    const recTotal = area.receita ? deptTrimestres[area.receita] : null;
-    const despTotal = area.despesa ? deptTrimestres[area.despesa] : null;
-    if ((!recTotal || recTotal.total === 0) && (!despTotal || despTotal.total === 0)) return;
-
-    html += '<tr class="section-header"><td>📊 Área ' + num + ' - ' + area.name + '</td>';
-    Object.keys(trimestres).forEach(() => html += '<td></td>');
-    html += '<td></td><td></td></tr>';
-
-    if (area.receita) {
-      let cells = '<td>📥 ' + area.receita + '</td>';
-      Object.keys(trimestres).forEach(t => cells += '<td>' + (recTotal[t] !== 0 ? fmt(recTotal[t]) : '—') + '</td>');
-      cells += '<td style="font-weight:700;color:var(--primary)">' + (recTotal.total !== 0 ? fmt(recTotal.total) : '—') + '</td>';
-      cells += '<td style="font-weight:600">—</td>';
-      html += '<tr class="cat-row">' + cells + '</tr>';
-    }
-    if (area.despesa) {
-      let cells = '<td>📤 ' + area.despesa + '</td>';
-      Object.keys(trimestres).forEach(t => cells += '<td>' + (despTotal[t] !== 0 ? fmt(despTotal[t]) : '—') + '</td>');
-      cells += '<td style="font-weight:700;color:var(--secondary)">' + (despTotal.total !== 0 ? fmt(despTotal.total) : '—') + '</td>';
-      const pct = totalDespAll > 0 ? (Math.abs(despTotal.total) / totalDespAll * 100) : 0;
-      cells += '<td style="font-weight:600">' + pct.toFixed(1) + '%</td>';
-      html += '<tr class="cat-row">' + cells + '</tr>';
-    }
-
-    // Variação T1→T2, T2→T3, etc.
-    if (area.despesa && despTotal.T1 !== 0) {
-      let vcells = '<td style="font-size:11px;color:var(--text-secondary);padding-left:32px">↳ Variação vs trim. anterior</td>';
-      const tris = ['T1', 'T2', 'T3', 'T4'];
-      for (let i = 0; i < 4; i++) {
-        if (i === 0) {
-          vcells += '<td style="font-size:11px;color:var(--text-light)">—</td>';
-        } else {
-          const atual = despTotal[tris[i]];
-          const anterior = despTotal[tris[i-1]];
-          if (anterior === 0 || atual === 0) {
-            vcells += '<td style="font-size:11px;color:var(--text-light)">—</td>';
-          } else {
-            const variacao = ((atual - anterior) / Math.abs(anterior)) * 100;
-            const cor = variacao > 0 ? 'var(--secondary)' : 'var(--primary)';
-            const seta = variacao > 0 ? '↑' : '↓';
-            vcells += '<td style="font-size:11px;color:' + cor + ';font-weight:600">' + seta + ' ' + Math.abs(variacao).toFixed(1) + '%</td>';
-          }
-        }
-      }
-      vcells += '<td style="font-size:11px;color:var(--text-light)">—</td><td></td>';
-      html += '<tr>' + vcells + '</tr>';
-    }
+  // Agrupar por Departamento > Categoria > Fornecedor (por mês)
+  const areaByDept = new Map();  // dept -> {tipo, totMes, categorias: Map<cat, {totMes, forns: Map<forn, {totMes, items}>}>}
+  rows.forEach(r => {
+    const dept = (r.departamento && String(r.departamento).trim()) || '(Sem Departamento)';
+    const catLimpa = String(r.categoria || '(Sem Categoria)');
+    const forn = String(r.fornecedor || '(Sem fornecedor)');
+    // Tipo pelo prefixo original: R = Receita, D = Despesa
+    const tipoRec = (r.departamento_tipo === 'R') || (r.tipo === '1. Contas a Receber');
+    const mes = (currentView === 'caixa') ? r.mesPagto : r.mesRegistro;
+    if (!MONTHS.includes(mes)) return;
+    const val = Math.abs(r.valorPago || r.valorConta || 0);
     
-    html += '<tr class="spacer"><td colspan="' + (Object.keys(trimestres).length + 3) + '"></td></tr>';
+    if (!areaByDept.has(dept)) {
+      areaByDept.set(dept, { tipo: tipoRec ? 'R' : 'D', totMes: {}, categorias: new Map() });
+      MONTHS.forEach(m => areaByDept.get(dept).totMes[m] = 0);
+    }
+    const dObj = areaByDept.get(dept);
+    dObj.totMes[mes] += val;
+    
+    if (!dObj.categorias.has(catLimpa)) {
+      dObj.categorias.set(catLimpa, { totMes: {}, forns: new Map() });
+      MONTHS.forEach(m => dObj.categorias.get(catLimpa).totMes[m] = 0);
+    }
+    const catObj = dObj.categorias.get(catLimpa);
+    catObj.totMes[mes] += val;
+    
+    if (!catObj.forns.has(forn)) {
+      catObj.forns.set(forn, { totMes: {}, items: [] });
+      MONTHS.forEach(m => catObj.forns.get(forn).totMes[m] = 0);
+    }
+    const fObj = catObj.forns.get(forn);
+    fObj.totMes[mes] += val;
+    fObj.items.push(r);
   });
-
-  html += '</tbody></table></div>';
-  document.getElementById('areaContent').innerHTML = html;
-}
-
-function renderAreaComparativo() {
-  const data = getRawData();
-  const filtered = filterData(data, false);
-  const allDepts = new Set();
-  filtered.forEach(r => { if (r.departamento) allDepts.add(r.departamento); });
-
-  // Custo por departamento (só despesas)
-  const deptCosts = {};
-  Array.from(allDepts).filter(d => d.startsWith('D')).forEach(dept => {
-    const data = sumByDept(dept, 'despesa');
-    if (Math.abs(data.total) > 0) deptCosts[dept] = { byMonth: data.byMonth, total: Math.abs(data.total) };
-  });
-
-  let html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px">';
-  html += '<div class="chart-container"><div class="chart-title">📊 Custo Mês a Mês por Área</div><div style="position:relative;height:380px"><canvas id="chartAreaMonthly"></canvas></div></div>';
-  html += '<div class="chart-container"><div class="chart-title">🥧 % de Custo por Área (Total Anual)</div><div style="position:relative;height:380px"><canvas id="chartAreaPie"></canvas></div></div>';
-  html += '</div>';
-
-  // Tabela com variação
-  html += '<div class="table-container"><table>';
-  html += '<thead><tr><th>Departamento</th>';
-  MONTH_LABELS.forEach(m => html += '<th>' + m + '</th>');
-  html += '<th>Total</th><th>% Total</th></tr></thead><tbody>';
-
-  const totalGeral = Object.values(deptCosts).reduce((a,d) => a + d.total, 0);
-
-  Object.entries(deptCosts).sort((a,b) => b[1].total - a[1].total).forEach(([dept, d]) => {
-    let cells = '<td>' + dept + '</td>';
+  
+  // Separar receitas e despesas (tipo R primeiro, depois D)
+  const receitas = [...areaByDept.entries()].filter(([_, d]) => d.tipo === 'R');
+  const despesas = [...areaByDept.entries()].filter(([_, d]) => d.tipo !== 'R');
+  
+  // Ordenar por total desc
+  const sumTotal = d => MONTHS.reduce((s, m) => s + (d.totMes[m] || 0), 0);
+  receitas.sort((a, b) => sumTotal(b[1]) - sumTotal(a[1]));
+  despesas.sort((a, b) => sumTotal(b[1]) - sumTotal(a[1]));
+  
+  // Renderizar
+  let html = `
+    <div style="padding:20px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <h2 style="margin:0;color:#0f172a">Por Área (Departamento)</h2>
+        <div style="display:flex;gap:8px">
+          <button onclick="_setView('caixa')" style="padding:6px 14px;border:1px solid ${currentView==='caixa'?'#10b981':'#d1d5db'};background:${currentView==='caixa'?'#10b981':'white'};color:${currentView==='caixa'?'white':'#374151'};border-radius:6px;cursor:pointer;font-family:Poppins;font-size:12px">Caixa</button>
+          <button onclick="_setView('comp')" style="padding:6px 14px;border:1px solid ${currentView==='comp'?'#10b981':'#d1d5db'};background:${currentView==='comp'?'#10b981':'white'};color:${currentView==='comp'?'white':'#374151'};border-radius:6px;cursor:pointer;font-family:Poppins;font-size:12px">Competência</button>
+        </div>
+      </div>
+      <div class="table-container">
+      <table>
+        <thead><tr>
+          <th style="min-width:220px;max-width:220px">Departamento / Categoria / Fornecedor</th>
+          ${MONTHS.map(m => `<th>${MONTH_NAMES[MONTHS.indexOf(m)]}</th>`).join('')}
+          <th>Total</th>
+        </tr></thead>
+        <tbody>`;
+  
+  const renderDept = (dept, dObj, corHeader) => {
+    const key = 'area_' + dept.replace(/\W/g, '_');
+    const open = _expanded.has(key);
+    const totGeral = sumTotal(dObj);
+    
+    // Linha do departamento
+    html += `<tr style="background:${corHeader};font-weight:700"><td style="padding:10px 14px;cursor:pointer;position:sticky;left:0;background:${corHeader};z-index:5" onclick="_toggleExpand('${key}')"><span style="display:inline-block;width:16px">${open?'▼':'▶'}</span> ${_esc(dept)}</td>`;
     MONTHS.forEach(m => {
-      const v = d.byMonth[m] || 0;
-      cells += '<td>' + (v !== 0 ? fmt(v) : '—') + '</td>';
+      const v = dObj.totMes[m] || 0;
+      html += `<td style="text-align:right;padding:10px 8px">${v === 0 ? '—' : _fmt(v)}</td>`;
     });
-    cells += '<td style="font-weight:700;color:var(--secondary)">' + fmt(d.total) + '</td>';
-    const pct = (d.total / totalGeral * 100);
-    cells += '<td style="font-weight:600">' + pct.toFixed(1) + '%</td>';
-    html += '<tr class="cat-row">' + cells + '</tr>';
-  });
-  html += '</tbody></table></div>';
-
-  document.getElementById('areaContent').innerHTML = html;
-
-  // Gráficos
-  setTimeout(() => {
-    const colors = ['#10b981','#3b82f6','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#84cc16','#f97316','#6366f1'];
+    html += `<td style="text-align:right;padding:10px 12px">${_fmt(totGeral)}</td></tr>`;
     
-    new Chart(document.getElementById('chartAreaMonthly'), {
-      type: 'bar',
-      data: {
-        labels: MONTH_LABELS.map(l => l.toUpperCase()),
-        datasets: Object.entries(deptCosts).map(([dept, d], i) => ({
-          label: dept.length > 25 ? dept.substring(0, 25) + '...' : dept,
-          data: MONTHS.map(m => Math.abs(d.byMonth[m] || 0)),
-          backgroundColor: colors[i % colors.length],
-          borderRadius: 4
-        }))
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { position: 'bottom', labels: { font: { family: 'Poppins', size: 10 }, boxWidth: 12 } } },
-        scales: { y: { stacked: false, ticks: { callback: v => 'R$ ' + (v/1000).toFixed(0) + 'k' } } }
-      }
+    if (!open) return;
+    
+    // Categorias
+    [...dObj.categorias.entries()].sort((a, b) => sumTotal(b[1]) - sumTotal(a[1])).forEach(([cat, catObj], ci) => {
+      const catKey = key + '_c' + ci;
+      const catOpen = _expanded.has(catKey);
+      const catTot = sumTotal(catObj);
+      html += `<tr><td style="padding:6px 14px;padding-left:44px;cursor:pointer" onclick="_toggleExpand('${catKey}')"><span style="display:inline-block;width:14px">${catOpen?'▼':'▶'}</span> ${_esc(cat)}</td>`;
+      MONTHS.forEach(m => {
+        const v = catObj.totMes[m] || 0;
+        html += `<td style="text-align:right;padding:6px 8px;font-size:11.5px">${v === 0 ? '—' : _fmt(v)}</td>`;
+      });
+      html += `<td style="text-align:right;padding:6px 12px;font-size:11.5px;font-weight:600">${_fmt(catTot)}</td></tr>`;
+      
+      if (!catOpen) return;
+      
+      // Fornecedores
+      [...catObj.forns.entries()].sort((a, b) => sumTotal(b[1]) - sumTotal(a[1])).forEach(([forn, fObj]) => {
+        const fTot = sumTotal(fObj);
+        html += `<tr><td style="padding:5px 14px;padding-left:80px;font-size:11px;color:#6b7280">${_esc(forn)}</td>`;
+        MONTHS.forEach(m => {
+          const v = fObj.totMes[m] || 0;
+          html += `<td style="text-align:right;padding:5px 8px;font-size:11px;color:#6b7280">${v === 0 ? '—' : _fmt(v)}</td>`;
+        });
+        html += `<td style="text-align:right;padding:5px 12px;font-size:11px;font-weight:500">${_fmt(fTot)}</td></tr>`;
+      });
     });
-
-    new Chart(document.getElementById('chartAreaPie'), {
-      type: 'doughnut',
-      data: {
-        labels: Object.keys(deptCosts).map(d => d.length > 30 ? d.substring(0, 30) + '...' : d),
-        datasets: [{ data: Object.values(deptCosts).map(d => d.total), backgroundColor: colors, borderWidth: 2, borderColor: 'white' }]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { position: 'right', labels: { font: { family: 'Poppins', size: 11 }, boxWidth: 12 } } }
-      }
-    });
-  }, 100);
+  };
+  
+  // Header RECEITAS
+  if (receitas.length > 0) {
+    html += `<tr class="section-header"><td colspan="${MONTHS.length+2}" style="background:#dcfce7;color:#166534;padding:12px 14px;font-weight:800">📥 RECEITAS</td></tr>`;
+    receitas.forEach(([dept, dObj]) => renderDept(dept, dObj, '#f0fdf4'));
+  }
+  
+  // Header DESPESAS
+  if (despesas.length > 0) {
+    html += `<tr class="section-header"><td colspan="${MONTHS.length+2}" style="background:#fef2f2;color:#991b1b;padding:12px 14px;font-weight:800">📤 DESPESAS</td></tr>`;
+    despesas.forEach(([dept, dObj]) => renderDept(dept, dObj, '#fef2f2'));
+  }
+  
+  html += `</tbody></table></div></div>`;
+  container.innerHTML = html;
 }
 
-// =================== CARTÃO (Dept → Cat → Total mês a mês) ===================
-// Helper: nome de exibição da categoria (permite renomear no dashboard sem alterar a fonte)
-window._RENOMEAR_CATEGORIA = {
-  'Receita de Prestação de Serviços (Mensalidades Clientes)': 'Mensalidades Clientes',
-  'Receita de Prestação de Serviços (Mensalidade Inadimplentes)': 'Mensalidades Inadimplentes',
-  'Receita de Prestação de Serviços (Taxa de Implementação)': 'Taxa de Implementação',
-};
-window._nomeExibicao = function(cat) {
-  if (!cat) return '';
-  const s = String(cat).trim();
-  // 1) tenta match exato
-  if (window._RENOMEAR_CATEGORIA[s]) return window._RENOMEAR_CATEGORIA[s];
-  // 2) tenta com prefixo removido
-  const semPrefixo = s.replace(/^[\d.]+\s+/, '');
-  if (window._RENOMEAR_CATEGORIA[semPrefixo]) return window._RENOMEAR_CATEGORIA[semPrefixo];
-  return s;
-};
+function _setView(v) { currentView = v; renderArea(); }
 
-// Helper: limpa nome de departamento — remove código/ID numérico e prefixo D001/R011
+
 function _limparDepto(dept) {
   if (!dept) return 'Sem Departamento';
   let s = String(dept).trim();
@@ -6890,34 +6729,29 @@ if (document.readyState === 'loading') {
       html += `<tr>${cCells}</tr>`;
 
       if (cOpen) {
-        // Agrupar cartão por DEPARTAMENTO (grupo) → depois expansível para CATEGORIAS
-        // Ex: FORNECEDORES > Software e Sistemas, Serv Terceiros, etc.
-        const cardByGrupo = new Map();  // grupo -> Map<categoria, {byMonth, total, items}>
+        // Agrupar cartão por DEPARTAMENTO real (da Omie) → categorias
+        // Departamento vem do campo r.departamento na view v_raw_data_caixa
+        const cardByDept = new Map();  // dept -> Map<categoria, {byMonth, total, items}>
         cartao.items.forEach(it => {
           const catLimpa = _limparCategoria(it.categoria || '') || '(sem categoria)';
-          const grupo = _classificar(catLimpa, it.departamento) || 'OUTROS';
-          if (!cardByGrupo.has(grupo)) cardByGrupo.set(grupo, new Map());
-          const gMap = cardByGrupo.get(grupo);
-          if (!gMap.has(catLimpa)) gMap.set(catLimpa, { byMonth: {}, total: 0, items: [] });
-          const cat = gMap.get(catLimpa);
+          const dept = (it.departamento && String(it.departamento).trim()) || '(sem departamento)';
+          if (!cardByDept.has(dept)) cardByDept.set(dept, new Map());
+          const dMap = cardByDept.get(dept);
+          if (!dMap.has(catLimpa)) dMap.set(catLimpa, { byMonth: {}, total: 0, items: [] });
+          const cat = dMap.get(catLimpa);
           cat.byMonth[it.mes] = (cat.byMonth[it.mes] || 0) + it.valor;
           cat.total += it.valor;
           cat.items.push(it);
         });
         
-        // Ordenar grupos pela _ORDEM_GRUPOS_DESPESA se existir, senão por total desc
-        const _ordemGrp = (typeof _ORDEM_GRUPOS_DESPESA !== 'undefined') ? _ORDEM_GRUPOS_DESPESA : null;
-        const grupos = Array.from(cardByGrupo.keys()).sort((a, b) => {
-          if (_ordemGrp) {
-            const ia = _ordemGrp.indexOf(a); const ib = _ordemGrp.indexOf(b);
-            if (ia >= 0 && ib >= 0) return ia - ib;
-            if (ia >= 0) return -1; if (ib >= 0) return 1;
-          }
+        // Ordenar departamentos por total (maior primeiro)
+        const grupos = Array.from(cardByDept.keys()).sort((a, b) => {
           let ta = 0, tb = 0;
-          cardByGrupo.get(a).forEach(v => ta += v.total);
-          cardByGrupo.get(b).forEach(v => tb += v.total);
+          cardByDept.get(a).forEach(v => ta += v.total);
+          cardByDept.get(b).forEach(v => tb += v.total);
           return tb - ta;
         });
+        const cardByGrupo = cardByDept;
         
         grupos.forEach((grupo, gIdx) => {
           const gMap = cardByGrupo.get(grupo);
