@@ -6055,6 +6055,18 @@ if (document.readyState === 'loading') {
 
   // ============ Estado de expansão persistente ============
   const _expanded = new Set();
+  // Mapa de renomeação de categorias para exibição no dashboard
+  const _NOMES_EXIB = {
+    'Receita de Prestação de Serviços (Mensalidades Clientes)': 'Mensalidades Clientes',
+    'Receita de Prestação de Serviços (Taxa Implementação)': 'Taxa de Implementação',
+    'Receita de Prestação de Serviços (Mensalidade Inadimplentes)': 'Mensalidade Inadimplentes',
+    'Receita de Prestação de Serviços (Projetos)': 'Projetos e Consultorias',
+    'Receita de Prestação de Serviços (Vendas Tik Tok)': 'Vendas Tik Tok',
+    'Receita de Prestação de Serviços (Bonificações de Plataformas)': 'Bonificações de Plataformas'
+  };
+  function _nomeExibicao(cat) {
+    return _NOMES_EXIB[cat] || cat || '';
+  }
   window._toggleExpand = function(key) {
     if (_expanded.has(key)) _expanded.delete(key);
     else _expanded.add(key);
