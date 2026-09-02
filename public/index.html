@@ -6058,7 +6058,12 @@ if (document.readyState === 'loading') {
   window._toggleExpand = function(key) {
     if (_expanded.has(key)) _expanded.delete(key);
     else _expanded.add(key);
-    if (typeof refreshCurrent === 'function') refreshCurrent();
+    // Renderiza DIRETAMENTE a versão window (tem closure sobre _expanded)
+    if (currentSection === 'main' && typeof window.renderMain === 'function') {
+      window.renderMain();
+    } else if (typeof refreshCurrent === 'function') {
+      refreshCurrent();
+    }
   };
 
   // ============ Drill-down modal (lista lançamentos) ============
