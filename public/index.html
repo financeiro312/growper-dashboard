@@ -6373,17 +6373,12 @@ if (document.readyState === 'loading') {
         return;
       }
       // Saída de Transferência do Banco Inter → Cartão 2130 = FORNECEDORES (pagamento da fatura)
-      // Isso faz a linha aparecer dentro do grupo FORNECEDORES em vez de Ajustes
+      // Aparece dentro de FORNECEDORES em vez de Ajustes Financeiros
       if (r.conta === 'Banco Inter' && r.tipo === '2. Contas a Pagar' 
           && catLimpa.includes('Transferência') 
           && String(r.fornecedor || '').includes('Cartão 2130')) {
         const grpF = despesasPorGrupo.get('FORNECEDORES');
-        const catKey = 'Transferência p/ Cartão de Crédito';
-        if (!grpF.has(catKey)) grpF.set(catKey, { byMonth: {}, total: 0, items: [], forns: new Map() });
-        const g = grpF.get(catKey);
-        g.byMonth[mes] = (g.byMonth[mes] || 0) + val;
-        g.total += val;
-        g.items.push(r);
+        _addItem(grpF, 'Transferência p/ Cartão de Crédito', mes, val, r);
         totDespMes[mes] += val;
         totGrupoMes['FORNECEDORES'][mes] = (totGrupoMes['FORNECEDORES'][mes] || 0) + val;
         return;
@@ -7179,55 +7174,6 @@ if (document.readyState === 'loading') {
     document.getElementById('pjsContent').innerHTML = html;
   };
 
-  window.renderCard = function() {
-    const MONTHS = _getMonths();
-    const MONTH_LABELS = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
-    const MONTH_NAMES = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
-    const rows = _applyFilters(RAW_DATA_COMP).filter(r => r.conta === 'Cartão 2130');
-    if (rows.length === 0) {
-      document.getElementById('cardContent').innerHTML = '<div class="empty-state"><div class="title">Sem lançamentos no Cartão 2130</div></div>';
-      return;
-    }
-    const porCat = new Map();
-    const totalMes = {}; MONTHS.forEach(m => totalMes[m] = 0);
-    let grand = 0;
-    rows.forEach(r => {
-      const mes = _getMes(r, (typeof currentSection !== 'undefined' ? currentSection : 'main'));
-      if (!MONTHS.includes(mes)) return;
-      const val = Math.abs(r.valorPago || 0);
-      if (val === 0) return;
-      const cat = r.categoria || '(sem categoria)';
-      if (!porCat.has(cat)) porCat.set(cat, { byMonth: {}, total: 0, items: [] });
-      const g = porCat.get(cat);
-      g.byMonth[mes] = (g.byMonth[mes] || 0) + val;
-      g.total += val;
-      g.items.push({ ...r, val, mes });
-      totalMes[mes] += val;
-      grand += val;
-    });
-    let html = '<div class="table-container"><table>';
-    html += '<thead><tr><th>Categoria</th>' + MONTH_LABELS.map(m => `<th style="text-align:right">${m}</th>`).join('') + '<th style="text-align:right">Total</th></tr></thead><tbody>';
-    Array.from(porCat.entries()).sort((a,b) => b[1].total - a[1].total).forEach(([cat, g], idx) => {
-      let cells = `<td style="padding:10px 14px">${_esc(_limparCategoria(cat))}</td>`;
-      MONTHS.forEach(m => {
-        const v = g.byMonth[m] || 0;
-        if (v > 0) {
-          const ck = 'card2_' + idx + '_' + m;
-          _drillCache[ck] = { titulo: cat, subtitulo: MONTH_NAMES[MONTHS.indexOf(m)] + ' • Cartão 2130', items: g.items.filter(it => it.mes === m) };
-          cells += `<td onclick="_showLancamentos('${ck}')" style="text-align:right;padding:10px 8px;cursor:pointer" class="value-neg">${_fmt(v)}</td>`;
-        } else {
-          cells += `<td style="text-align:right;padding:10px 8px" class="value-zero">—</td>`;
-        }
-      });
-      cells += `<td style="text-align:right;padding:10px 12px;font-weight:700" class="value-neg">${_fmt(g.total)}</td>`;
-      html += `<tr class="cat-row">${cells}</tr>`;
-    });
-    let totCells = '<td style="padding:14px;font-weight:800">TOTAL FATURA</td>';
-    MONTHS.forEach(m => totCells += `<td style="text-align:right;padding:14px 8px;font-weight:800" class="value-neg">${totalMes[m] === 0 ? '—' : _fmt(totalMes[m])}</td>`);
-    totCells += `<td style="text-align:right;padding:14px 12px;font-weight:800" class="value-neg">${_fmt(grand)}</td>`;
-    html += `<tr class="result-row">${totCells}</tr></tbody></table></div>`;
-    document.getElementById('cardContent').innerHTML = html;
-  };
 
   // =====================================================================================
   // RECEBÍVEIS com status pago/inadimplente/parcial
