@@ -2024,7 +2024,13 @@ function showSection(section) {
 }
 
 function refreshCurrent() {
-  if (currentSection === 'main') renderMain();
+  if (currentSection === 'main') { 
+    // Chama a versão window (tem closure sobre _expanded)
+    if (typeof window.renderMain === 'function') window.renderMain();
+    else renderMain();
+    return;
+  }
+  if (currentSection === 'main-dummy') renderMain();
   else if (currentSection === 'area') renderArea();
   else if (currentSection === 'card') renderCard();
   else if (currentSection === 'recebiveis') renderRecebiveis();
