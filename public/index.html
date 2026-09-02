@@ -1707,34 +1707,26 @@ function sumByDept(deptName, tipo) {
 }
 
 function sumCartao() {
-  // CARTÃO DE CRÉDITO = soma de todas as despesas no Cartão 2130 (por mês de pagamento)
-  // Bate com a planilha conciliada / imagem de fatura mensal
-  
-  // Se filtro != 'all' e != 'Banco Inter', retorna vazio (cartão é do Inter)
-  if (currentConta !== 'all' && currentConta !== 'Banco Inter') {
-    const empty = {}; MONTHS.forEach(m => empty[m] = 0);
-    return { byMonth: empty, total: 0, items: [], detalhes: [] };
-  }
-  
+  // CARTÃO DE CRÉDITO no menu Principal = Transferências do Inter → Cartão (fatura paga)
+  // Sem detalhamento por lançamento; para detalhes ver menu Cartão de Crédito
   const data = getRawData();
-  const filtered = data.filter(r => {
-    if (r.conta !== 'Cartão 2130') return false;
-    if (r.tipo !== '2. Contas a Pagar') return false;
-    if (currentConciliado !== 'all' && r.conciliado !== currentConciliado) return false;
-    return true;
-  });
-  
   const result = {}; MONTHS.forEach(m => result[m] = 0);
-  let total = 0; const items = [];
-  filtered.forEach(r => {
+  let total = 0;
+  const items = [];
+  data.forEach(r => {
+    if (r.conta !== 'Banco Inter') return;
+    if (r.tipo !== '2. Contas a Pagar') return;
+    if (!(r.categoria || '').includes('Transferência')) return;
+    const forn = String(r.fornecedor || '');
+    if (!forn.includes('Cartão 2130')) return;
+    if (currentConciliado !== 'all' && r.conciliado !== currentConciliado) return;
     const mes = r.mesPagto;
     if (!MONTHS.includes(mes)) return;
-    const val = Math.abs(r.valorPago);  // valorPago vem negativo pra CP
-    result[mes] = (result[mes] || 0) + val;
+    const val = Math.abs(r.valorPago);
+    result[mes] += val;
     total += val;
     items.push({ ...r, val, mes });
   });
-  
   return { byMonth: result, total, items, detalhes: items };
 }
 
@@ -2844,131 +2836,109 @@ function _limparDepto(dept) {
 }
 
 function renderCard() {
-  // CARTÃO DE CRÉDITO — análise gerencial por departamento
-  // Usa os lançamentos detalhados do Cartão 2130 (despesas que entraram no cartão)
-  // Total mensal = soma dos lançamentos por mês de pagamento (visão de competência da fatura)
-  const cartao = sumCartao();
-  const lancamentos = cartao.detalhes || [];
+  const container = document.getElementById('mainArea');
+  const data = (currentView === 'caixa') ? RAW_DATA_CAIXA : RAW_DATA_COMP;
   
-  if (lancamentos.length === 0) {
-    document.getElementById('cardContent').innerHTML = emptyState('⏳', 'Aguardando importação dos lançamentos do cartão', 'No momento não há lançamentos do cartão de crédito disponíveis.');
-    return;
-  }
-  
-  // Group: Dept → Categoria → Fornecedor → Lançamentos
-  const byDept = {};
-  lancamentos.forEach(item => {
-    const dept = _limparDepto(item.departamento);
-    const cat = item.categoria || 'Sem categoria';
-    const forn = item.fornecedor || 'Sem identificação';
-    
-    if (!byDept[dept]) byDept[dept] = { byMonth: {}, total: 0, byCat: {} };
-    if (!byDept[dept].byCat[cat]) byDept[dept].byCat[cat] = { byMonth: {}, total: 0, byForn: {} };
-    if (!byDept[dept].byCat[cat].byForn[forn]) byDept[dept].byCat[cat].byForn[forn] = { byMonth: {}, total: 0, items: [] };
-    
-    MONTHS.forEach(m => {
-      if (item.mes === m) {
-        byDept[dept].byMonth[m] = (byDept[dept].byMonth[m] || 0) + item.val;
-        byDept[dept].byCat[cat].byMonth[m] = (byDept[dept].byCat[cat].byMonth[m] || 0) + item.val;
-        byDept[dept].byCat[cat].byForn[forn].byMonth[m] = (byDept[dept].byCat[cat].byForn[forn].byMonth[m] || 0) + item.val;
-      }
-    });
-    byDept[dept].total += item.val;
-    byDept[dept].byCat[cat].total += item.val;
-    byDept[dept].byCat[cat].byForn[forn].total += item.val;
-    byDept[dept].byCat[cat].byForn[forn].items.push(item);
+  // Filtrar lançamentos DO Cartão 2130
+  const rows = data.filter(r => {
+    if (r.conta !== 'Cartão 2130') return false;
+    if (r.tipo !== '2. Contas a Pagar') return false;
+    if (currentConciliado !== 'all' && r.conciliado !== currentConciliado) return false;
+    return true;
   });
   
-  let html = `<div class="table-container"><table>
-    <thead><tr><th style="min-width:280px">Departamento / Categoria / Fornecedor / Lançamento</th>${MONTH_LABELS.map(m => `<th>${m}</th>`).join('')}<th>Total</th></tr></thead>
-    <tbody>`;
-  
-  // Totais gerais
-  const totalGeral = { byMonth: {}, total: 0 };
-  MONTHS.forEach(m => totalGeral.byMonth[m] = 0);
-  
-  // Ordenar departamentos por total decrescente (maior consumidor primeiro)
-  const deptOrd = Object.entries(byDept).sort((a,b) => a[0].localeCompare(b[0]));
-  
-  deptOrd.forEach(([dept, dInfo], idxD) => {
-    const deptKey = 'card|d' + idxD;
-    const deptOpen = expandedRows.has(deptKey);
+  // Agrupar por Departamento > Categoria (por mês)
+  const cardByDept = new Map();
+  rows.forEach(r => {
+    const dept = (r.departamento && String(r.departamento).trim()) || '(Sem Departamento)';
+    const cat = String(r.categoria || '(Sem Categoria)');
+    const mes = (currentView === 'caixa') ? r.mesPagto : r.mesRegistro;
+    if (!MONTHS.includes(mes)) return;
+    const val = Math.abs(r.valorPago || r.valorConta || 0);
     
-    // === NÍVEL 1: Departamento ===
-    let dCells = `<td style="font-weight:700"><span onclick="toggleExpand('${deptKey}')" style="display:inline-block;width:16px;cursor:pointer;color:var(--primary);font-weight:700;user-select:none">${deptOpen ? '▼' : '▶'}</span><span onclick="toggleExpand('${deptKey}')" style="cursor:pointer">🏢 ${dept}</span></td>`;
-    MONTHS.forEach(m => {
-      const v = dInfo.byMonth[m] || 0;
-      totalGeral.byMonth[m] += v;
-      const cls = valueClass(v);
-      dCells += `<td><span class="value-cell ${cls}" style="font-weight:700">${v !== 0 ? fmt(v) : '—'}</span></td>`;
-    });
-    dCells += `<td><span class="value-cell ${valueClass(dInfo.total)}" style="font-weight:700">${fmt(dInfo.total)}</span></td>`;
-    html += `<tr class="dept-header">${dCells}</tr>`;
-    totalGeral.total += dInfo.total;
-    
-    // === NÍVEL 2: Categoria (se departamento aberto) ===
-    if (deptOpen) {
-      const catOrd = Object.entries(dInfo.byCat).sort((a,b) => a[0].localeCompare(b[0]));
-      catOrd.forEach(([cat, cInfo], idxC) => {
-        const catKey = 'card|d' + idxD + '|c' + idxC;
-        const catOpen = expandedRows.has(catKey);
-        
-        let cCells = `<td style="padding-left:32px;font-size:12px;background:#fef3c7"><span onclick="toggleExpand('${catKey}')" style="display:inline-block;width:14px;cursor:pointer;color:var(--primary);font-weight:700;user-select:none;font-size:10px">${catOpen ? '▼' : '▶'}</span> <span onclick="toggleExpand('${catKey}')" style="cursor:pointer">${cat}</span></td>`;
-        MONTHS.forEach(m => {
-          const v = cInfo.byMonth[m] || 0;
-          const cls = valueClass(v);
-          cCells += `<td style="background:#fef3c7"><span class="value-cell ${cls}" style="font-size:11px;font-weight:600">${v !== 0 ? fmt(v) : '—'}</span></td>`;
-        });
-        cCells += `<td style="background:#fef3c7"><span class="value-cell ${valueClass(cInfo.total)}" style="font-size:11px;font-weight:700">${fmt(cInfo.total)}</span></td>`;
-        html += `<tr>${cCells}</tr>`;
-        
-        // === NÍVEL 3: Fornecedor (direto, sem expansão — clique no valor abre lançamentos) ===
-        if (catOpen) {
-          const fornOrd = Object.entries(cInfo.byForn).sort((a,b) => a[0].localeCompare(b[0]));
-          fornOrd.forEach(([forn, fInfo], idxF) => {
-            let fCells = `<td style="padding-left:56px;font-size:11.5px;background:#fffbeb;color:var(--text-secondary)">${forn}</td>`;
-            MONTHS.forEach(m => {
-              const v = fInfo.byMonth[m] || 0;
-              const cls = valueClass(v);
-              const monthItems = fInfo.items.filter(it => it.mes === m);
-              let action = '';
-              let cursor = '';
-              if (v !== 0 && monthItems.length > 0) {
-                const cacheKey = 'd_card_' + idxD + '_' + idxC + '_' + idxF + '_' + m;
-                drillCache[cacheKey] = { fornec: forn, mes: m, items: monthItems };
-                action = ` data-action="showFornecedorLancsCached('${cacheKey}')"`;
-                cursor = ';cursor:pointer';
-              }
-              fCells += `<td${action} style="background:#fffbeb${cursor}"><span class="value-cell ${cls}" style="font-size:10.5px">${v !== 0 ? fmt(v) : '—'}</span></td>`;
-            });
-            fCells += `<td style="background:#fffbeb"><span class="value-cell ${valueClass(fInfo.total)}" style="font-size:10.5px;font-weight:600">${fmt(fInfo.total)}</span></td>`;
-            html += `<tr>${fCells}</tr>`;
-          });
-        }
-      });
+    if (!cardByDept.has(dept)) {
+      cardByDept.set(dept, { totMes: {}, categorias: new Map() });
+      MONTHS.forEach(m => cardByDept.get(dept).totMes[m] = 0);
     }
+    const dObj = cardByDept.get(dept);
+    dObj.totMes[mes] += val;
+    
+    if (!dObj.categorias.has(cat)) {
+      dObj.categorias.set(cat, { totMes: {}, items: [] });
+      MONTHS.forEach(m => dObj.categorias.get(cat).totMes[m] = 0);
+    }
+    const catObj = dObj.categorias.get(cat);
+    catObj.totMes[mes] += val;
+    catObj.items.push(r);
   });
   
-  // Linha de TOTAL FATURA
-  let totCells = `<td style="font-weight:800">💳 TOTAL FATURA</td>`;
+  const sumTotal = d => MONTHS.reduce((s, m) => s + (d.totMes[m] || 0), 0);
+  const depts = [...cardByDept.entries()].sort((a, b) => sumTotal(b[1]) - sumTotal(a[1]));
+  
+  // Totalização geral por mês
+  const totGeral = {}; MONTHS.forEach(m => totGeral[m] = 0);
+  depts.forEach(([_, d]) => MONTHS.forEach(m => totGeral[m] += (d.totMes[m] || 0)));
+  const totFinal = MONTHS.reduce((s, m) => s + totGeral[m], 0);
+  
+  let html = `
+    <div style="padding:20px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <h2 style="margin:0;color:#0f172a">💳 Cartão de Crédito</h2>
+        <div style="display:flex;gap:8px">
+          <button onclick="_setViewCard('caixa')" style="padding:6px 14px;border:1px solid ${currentView==='caixa'?'#10b981':'#d1d5db'};background:${currentView==='caixa'?'#10b981':'white'};color:${currentView==='caixa'?'white':'#374151'};border-radius:6px;cursor:pointer;font-family:Poppins;font-size:12px">Caixa</button>
+          <button onclick="_setViewCard('comp')" style="padding:6px 14px;border:1px solid ${currentView==='comp'?'#10b981':'#d1d5db'};background:${currentView==='comp'?'#10b981':'white'};color:${currentView==='comp'?'white':'#374151'};border-radius:6px;cursor:pointer;font-family:Poppins;font-size:12px">Competência</button>
+        </div>
+      </div>
+      <div class="table-container">
+      <table>
+        <thead><tr>
+          <th style="min-width:220px;max-width:220px">Departamento / Categoria</th>
+          ${MONTHS.map(m => `<th>${MONTH_NAMES[MONTHS.indexOf(m)]}</th>`).join('')}
+          <th>Total</th>
+        </tr></thead>
+        <tbody>`;
+  
+  // Linha TOTAL GERAL (destaque no topo)
+  html += `<tr style="background:#fef2f2;font-weight:800"><td style="padding:12px 14px;color:#991b1b;position:sticky;left:0;background:#fef2f2;z-index:5">📊 TOTAL FATURA</td>`;
   MONTHS.forEach(m => {
-    const v = totalGeral.byMonth[m] || 0;
-    const cls = valueClass(v);
-    totCells += `<td><span class="value-cell ${cls}" style="font-weight:800">${v !== 0 ? fmt(v) : '—'}</span></td>`;
+    const v = totGeral[m] || 0;
+    html += `<td style="text-align:right;padding:12px 8px;color:#991b1b">${v === 0 ? '—' : _fmt(v)}</td>`;
   });
-  totCells += `<td><span class="value-cell ${valueClass(totalGeral.total)}" style="font-weight:800">${fmt(totalGeral.total)}</span></td>`;
-  html += `<tr class="result-row">${totCells}</tr>`;
-  html += `</tbody></table></div>`;
+  html += `<td style="text-align:right;padding:12px 12px;color:#991b1b">${_fmt(totFinal)}</td></tr>`;
   
-  // Summary
-  html += `<div class="summary-container">
-    <div class="summary-item"><div class="summary-label">Total Fatura (período)</div><div class="summary-value" style="color:var(--accent)">${fmt(Math.abs(totalGeral.total))}</div></div>
-    <div class="summary-item"><div class="summary-label">Média Mensal</div><div class="summary-value">${fmt(Math.abs(totalGeral.total) / MONTHS.filter(m => totalGeral.byMonth[m] !== 0).length || 0)}</div></div>
-    <div class="summary-item"><div class="summary-label">Departamentos Ativos</div><div class="summary-value">${Object.keys(byDept).length}</div></div>
-  </div>`;
+  // Departamentos
+  depts.forEach(([dept, dObj]) => {
+    const key = 'cardnew_' + dept.replace(/\W/g, '_');
+    const open = _expanded.has(key);
+    const totDept = sumTotal(dObj);
+    
+    html += `<tr style="background:#fafafa;font-weight:700"><td style="padding:10px 14px;cursor:pointer;position:sticky;left:0;background:#fafafa;z-index:5" onclick="_toggleExpand('${key}')"><span style="display:inline-block;width:16px">${open?'▼':'▶'}</span> ${_esc(dept)}</td>`;
+    MONTHS.forEach(m => {
+      const v = dObj.totMes[m] || 0;
+      html += `<td style="text-align:right;padding:10px 8px">${v === 0 ? '—' : _fmt(v)}</td>`;
+    });
+    html += `<td style="text-align:right;padding:10px 12px">${_fmt(totDept)}</td></tr>`;
+    
+    if (!open) return;
+    
+    // Categorias
+    [...dObj.categorias.entries()].sort((a, b) => sumTotal(b[1]) - sumTotal(a[1])).forEach(([cat, catObj]) => {
+      const catTot = sumTotal(catObj);
+      html += `<tr><td style="padding:6px 14px;padding-left:52px;font-size:11.5px">${_esc(cat)}</td>`;
+      MONTHS.forEach(m => {
+        const v = catObj.totMes[m] || 0;
+        html += `<td style="text-align:right;padding:6px 8px;font-size:11.5px">${v === 0 ? '—' : _fmt(v)}</td>`;
+      });
+      html += `<td style="text-align:right;padding:6px 12px;font-size:11.5px;font-weight:600">${_fmt(catTot)}</td></tr>`;
+    });
+  });
   
-  document.getElementById('cardContent').innerHTML = html;
+  html += `</tbody></table></div></div>`;
+  container.innerHTML = html;
 }
+
+function _setViewCard(v) { currentView = v; renderCard(); }
+
 
 function showDetailCardCat(dept, cat, mes) {
   const cartao = sumCartao();
@@ -6715,88 +6685,32 @@ if (document.readyState === 'loading') {
     });
 
     // Cartão de crédito como grupo separado DENTRO de DESPESAS (aparece só se dOpen)
-    if (dOpen && cartao.total > 0) {
-      const cExpKey = 'sec|cartao';
-      const cOpen = _expanded.has(cExpKey);
-      let cCells = `<td style="padding:10px 14px;padding-left:20px;background:#fef7f7;color:#7f1d1d;font-weight:700;cursor:pointer" onclick="_toggleExpand('${cExpKey}')">
-        <span style="display:inline-block;width:16px">${cOpen ? '▼' : '▶'}</span> 💳 CARTÃO DE CRÉDITO
-      </td>`;
-      MONTHS.forEach(m => {
-        const v = totCartaoMes[m] || 0;
-        cCells += `<td style="text-align:right;padding:10px 8px;background:#fef7f7;color:#7f1d1d;font-weight:700" class="value-neg">${v === 0 ? '—' : _fmt(v)}</td>`;
+    // Linha simples "Transferências p/ Cartão de Crédito" — sem detalhamento
+    if (dOpen) {
+      // Somar TODAS as saídas de transferência do Inter para o Cartão 2130
+      const transfCartao = {}; MONTHS.forEach(m => transfCartao[m] = 0);
+      let transfTotal = 0;
+      data.forEach(r => {
+        if (r.conta !== 'Banco Inter') return;
+        if (r.tipo !== '2. Contas a Pagar') return;
+        if (!(r.categoria || '').includes('Transferência')) return;
+        const forn = String(r.fornecedor || '');
+        if (!forn.includes('Cartão 2130')) return;
+        if (typeof currentConciliado !== 'undefined' && currentConciliado !== 'all' && r.conciliado !== currentConciliado) return;
+        const mes = r.mesPagto;
+        if (!MONTHS.includes(mes)) return;
+        const val = Math.abs(r.valorPago || 0);
+        transfCartao[mes] += val;
+        transfTotal += val;
       });
-      cCells += `<td style="text-align:right;padding:10px 12px;background:#fef7f7;color:#7f1d1d;font-weight:700" class="value-neg">${_fmt(cartao.total)}</td>`;
-      html += `<tr>${cCells}</tr>`;
-
-      if (cOpen) {
-        // Agrupar cartão por DEPARTAMENTO real (da Omie) → categorias
-        // Departamento vem do campo r.departamento na view v_raw_data_caixa
-        const cardByDept = new Map();  // dept -> Map<categoria, {byMonth, total, items}>
-        cartao.items.forEach(it => {
-          const catLimpa = _limparCategoria(it.categoria || '') || '(sem categoria)';
-          const dept = (it.departamento && String(it.departamento).trim()) || '(sem departamento)';
-          if (!cardByDept.has(dept)) cardByDept.set(dept, new Map());
-          const dMap = cardByDept.get(dept);
-          if (!dMap.has(catLimpa)) dMap.set(catLimpa, { byMonth: {}, total: 0, items: [] });
-          const cat = dMap.get(catLimpa);
-          cat.byMonth[it.mes] = (cat.byMonth[it.mes] || 0) + it.valor;
-          cat.total += it.valor;
-          cat.items.push(it);
+      if (transfTotal > 0) {
+        let cells = `<td style="padding:8px 14px;padding-left:36px;font-size:12.5px">💳 Transferências p/ Cartão de Crédito</td>`;
+        MONTHS.forEach(m => {
+          const v = transfCartao[m] || 0;
+          cells += `<td style="text-align:right;padding:8px;font-size:11.5px" class="${v > 0 ? 'value-neg' : 'value-zero'}">${v === 0 ? '—' : _fmt(v)}</td>`;
         });
-        
-        // Ordenar departamentos por total (maior primeiro)
-        const grupos = Array.from(cardByDept.keys()).sort((a, b) => {
-          let ta = 0, tb = 0;
-          cardByDept.get(a).forEach(v => ta += v.total);
-          cardByDept.get(b).forEach(v => tb += v.total);
-          return tb - ta;
-        });
-        const cardByGrupo = cardByDept;
-        
-        grupos.forEach((grupo, gIdx) => {
-          const gMap = cardByGrupo.get(grupo);
-          const grpKey = 'card_grp_' + gIdx;
-          const grpOpen = _expanded.has(grpKey);
-          
-          // Total do grupo por mês
-          const grpTot = { byMonth: {}, total: 0 };
-          MONTHS.forEach(m => grpTot.byMonth[m] = 0);
-          gMap.forEach(cat => {
-            MONTHS.forEach(m => grpTot.byMonth[m] += (cat.byMonth[m] || 0));
-            grpTot.total += cat.total;
-          });
-          
-          // Linha do grupo (departamento) — expansível
-          let grpCells = `<td style="padding:8px 14px;padding-left:52px;font-weight:600;color:#7f1d1d;cursor:pointer" onclick="_toggleExpand('${grpKey}')">
-            <span style="display:inline-block;width:14px">${grpOpen ? '▼' : '▶'}</span> ${_esc(grupo)}
-          </td>`;
-          MONTHS.forEach(m => {
-            const v = grpTot.byMonth[m] || 0;
-            grpCells += `<td style="text-align:right;padding:8px;font-size:11.5px;font-weight:600" class="${v > 0 ? 'value-neg' : 'value-zero'}">${v === 0 ? '—' : _fmt(v)}</td>`;
-          });
-          grpCells += `<td style="text-align:right;padding:8px 12px;font-weight:700" class="value-neg">${_fmt(grpTot.total)}</td>`;
-          html += `<tr class="cat-row">${grpCells}</tr>`;
-          
-          // Se grupo expandido, mostrar categorias
-          if (grpOpen) {
-            Array.from(gMap.entries()).sort((a, b) => b[1].total - a[1].total).forEach(([catNome, cat], cIdx) => {
-              const catKey = grpKey + '_cat_' + cIdx;
-              let cells = `<td style="padding:6px 14px;padding-left:84px;font-size:11.5px" title="${_esc(catNome)}">${_esc(catNome)}</td>`;
-              MONTHS.forEach(m => {
-                const v = cat.byMonth[m] || 0;
-                if (v > 0) {
-                  const ck = catKey + '_' + m;
-                  _drillCache[ck] = { titulo: catNome, subtitulo: MONTH_NAMES[MONTHS.indexOf(m)] + ' • Cartão 2130 • ' + grupo, items: cat.items.filter(it => it.mes === m) };
-                  cells += `<td onclick="_showLancamentos('${ck}')" style="text-align:right;padding:6px;cursor:pointer;font-size:11px" class="value-neg">${_fmt(v)}</td>`;
-                } else {
-                  cells += `<td style="text-align:right;padding:6px;font-size:11px" class="value-zero">—</td>`;
-                }
-              });
-              cells += `<td style="text-align:right;padding:6px 12px;font-size:11px" class="value-neg">${_fmt(cat.total)}</td>`;
-              html += `<tr class="cat-row">${cells}</tr>`;
-            });
-          }
-        });
+        cells += `<td style="text-align:right;padding:8px 12px;font-weight:700" class="value-neg">${_fmt(transfTotal)}</td>`;
+        html += `<tr>${cells}</tr>`;
       }
     }
 
@@ -7037,62 +6951,43 @@ if (document.readyState === 'loading') {
     html += `<tr style="background:#ecfdf5">${sfCells}</tr>`;
     } // fim if (mcOpen)
 
-    // Saldo Bancário Acumulado — CÁLCULO DIRETO da view v_raw_data_caixa
-    // Bate exatamente com o extrato Omie porque:
-    //   1) Saldo inicial = soma dos saldos iniciais 01/01/2026 das contas selecionadas
-    //   2) Movimento mensal = soma DIRETA de valorPago das contas selecionadas
-    //   3) Saldo acumulado = saldo inicial + soma cumulativa dos movimentos
-    // NÃO depende de classificação (receita/despesa/ajuste/aplicação) que pode divergir
-    const _SALDOS_INICIAIS = {
-      'Banco Inter': 1639.62,
-      'Itaú Unibanco': -29052.14,
-      'Cartão 2130': 0,
-      'Banco Inter (Aplicação)': 36181.00,
-      'Investimentos Banco Inter': 0,
-      'Investimentos Itaú Unibanco': 0,
-      'Nubank': 0,
-      'Caixinha': 0
-    };
-    // Saldo inicial consolidado das contas selecionadas
-    // Contas de APLICAÇÃO/INVESTIMENTO NÃO entram no Saldo Bancário Acumulado
-    // (elas têm o próprio bloco "Aplicações Financeiras" com seu saldo separado)
-    const _CONTAS_APLICACAO = new Set(['Banco Inter (Aplicação)', 'Investimentos Banco Inter', 'Investimentos Itaú Unibanco']);
-    let saldoIniConsol = 0;
-    let contasParaSaldo = new Set();
-    if (typeof currentContasSet !== 'undefined' && currentContasSet.size > 0) {
-      currentContasSet.forEach(c => { if (!_CONTAS_APLICACAO.has(c)) contasParaSaldo.add(c); });
-    } else {
-      if (currentConta === 'all') Object.keys(_SALDOS_INICIAIS).forEach(k => { if (!_CONTAS_APLICACAO.has(k)) contasParaSaldo.add(k); });
-      else if (!_CONTAS_APLICACAO.has(currentConta)) contasParaSaldo.add(currentConta);
-    }
-    contasParaSaldo.forEach(c => { saldoIniConsol += _SALDOS_INICIAIS[c] || 0; });
+    // Saldos Bancários — FIXOS (não afetados por filtro de conta)
+    // Sempre mostra: Total (Inter+Itaú), Inter, Itaú
+    const _SALDOS_INICIAIS_FIX = { 'Banco Inter': 1639.62, 'Itaú Unibanco': -29052.14 };
     
-    // Movimento REAL por mês (soma direta de valorPago, sem classificação)
-    const movRealMes = {}; MONTHS.forEach(m => movRealMes[m] = 0);
+    // Calcula saldo mês a mês por conta (respeitando só o filtro de conciliado)
+    const movPorConta = { 'Banco Inter': {}, 'Itaú Unibanco': {} };
+    MONTHS.forEach(m => { movPorConta['Banco Inter'][m] = 0; movPorConta['Itaú Unibanco'][m] = 0; });
     data.forEach(r => {
-      if (!contasParaSaldo.has(r.conta)) return;
+      if (r.conta !== 'Banco Inter' && r.conta !== 'Itaú Unibanco') return;
       if (typeof currentConciliado !== 'undefined' && currentConciliado !== 'all' && r.conciliado !== currentConciliado) return;
       const mes = r.mesPagto;
       if (!MONTHS.includes(mes)) return;
-      movRealMes[mes] += (r.valorPago || 0);
+      movPorConta[r.conta][mes] += (r.valorPago || 0);
     });
     
-    let sbCells = `<td style="padding:12px 14px;font-weight:800;color:#065f46">🏦 Saldo Bancário Acumulado</td>`;
-    let saldo = saldoIniConsol;
-    MONTHS.forEach(m => {
-      saldo += movRealMes[m];
-      sbCells += `<td style="text-align:right;padding:12px 8px;font-weight:800" class="${_cls(saldo)}">${_fmtSigned(saldo)}</td>`;
-    });
-    sbCells += `<td style="text-align:right;padding:12px 12px;font-weight:800" class="${_cls(saldo)}">${_fmtSigned(saldo)}</td>`;
-    html += `<tr style="background:#d1fae5">${sbCells}</tr>`;
+    // Renderiza uma linha de saldo (para dada conta, com saldo inicial)
+    const renderLinhaSaldo = (nome, contas, bg, cor, ini) => {
+      let cells = `<td style="padding:12px 14px;font-weight:800;color:${cor};background:${bg}">${nome}</td>`;
+      let saldoAcum = ini;
+      MONTHS.forEach(m => {
+        let movMes = 0;
+        contas.forEach(c => { movMes += movPorConta[c][m] || 0; });
+        saldoAcum += movMes;
+        cells += `<td style="text-align:right;padding:12px 8px;font-weight:800;background:${bg}" class="${_cls(saldoAcum)}">${_fmtSigned(saldoAcum)}</td>`;
+      });
+      cells += `<td style="text-align:right;padding:12px 12px;font-weight:800;background:${bg}" class="${_cls(saldoAcum)}">${_fmtSigned(saldoAcum)}</td>`;
+      html += `<tr>${cells}</tr>`;
+    };
     
-    // Log para diagnóstico
-    console.log('[Saldo Bancário]', {
-      contasSelecionadas: [...contasParaSaldo],
-      saldoInicial: saldoIniConsol,
-      movMensal: movRealMes,
-      saldoFinal: saldo
-    });
+    // 1) Saldo Bancário Acumulado TOTAL (Inter + Itaú)
+    renderLinhaSaldo('🏦 Saldo Bancário Acumulado', ['Banco Inter', 'Itaú Unibanco'], '#d1fae5', '#065f46', 1639.62 + (-29052.14));
+    // 2) Saldo Banco Inter
+    renderLinhaSaldo('   Saldo Banco Inter', ['Banco Inter'], '#f0fdf4', '#166534', 1639.62);
+    // 3) Saldo Banco Itaú
+    renderLinhaSaldo('   Saldo Banco Itaú', ['Itaú Unibanco'], '#f0fdf4', '#166534', -29052.14);
+    // 4) Saldo TOTAL final
+    renderLinhaSaldo('🏆 Saldo Total', ['Banco Inter', 'Itaú Unibanco'], '#a7f3d0', '#064e3b', 1639.62 + (-29052.14));
 
     document.getElementById('tableBody').innerHTML = html;
 
