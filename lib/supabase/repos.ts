@@ -94,9 +94,9 @@ export async function upsertMovimentos(itens: Lancamento[]): Promise<number> {
         observacao: m.observacao,
         atualizado_em: new Date().toISOString(),
       };
-      // IMPORTANTE: só grava departamento se vier valor (não sobrescreve com null)
-      // Movimentos financeiros da Omie não trazem departamento — ele vem via título (upsertTitulos)
-      // e é copiado pra movimentos_financeiros por trigger/UPDATE.
+      // IMPORTANTE: só grava departamento quando vier valor (não sobrescreve com null)
+      // Movimentos financeiros da Omie não trazem departamento — ele vem via título
+      // e é preenchido automaticamente por trigger no Supabase (fill_departamento_from_titulo)
       if (m.departamentoCodigo) linha.departamento_codigo = m.departamentoCodigo;
       if (m.departamentoNome) linha.departamento_nome = m.departamentoNome;
       return linha;
@@ -107,19 +107,6 @@ export async function upsertMovimentos(itens: Lancamento[]): Promise<number> {
   const linhasUnicas = Array.from(unicas.values());
 
   await upsertBatch(sb, 'movimentos_financeiros', linhasUnicas, 'id_movimento');
-  
-  // Após upsert, popular departamento cruzando com titulos (para movimentos sem departamento)
-  await sb.rpc('exec_sql' as any, {}).catch(() => {}); // no-op se não existir
-  try {
-    await sb.from('movimentos_financeiros').select('id_movimento').limit(1); // warmup
-    const { error: updErr } = await sb.rpc('sync_departamento_from_titulos' as any, {} as any);
-    if (updErr) {
-      // Fallback: executar UPDATE via raw SQL (limitado no supabase-js)
-      // Usar endpoint direto quando disponível — aqui só logamos
-      console.warn('[upsertMovimentos] sync_departamento_from_titulos não disponível:', updErr.message);
-    }
-  } catch {}
-  
   return linhasUnicas.length;
 }
 
