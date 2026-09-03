@@ -6695,6 +6695,12 @@ if (document.readyState === 'loading') {
     let saldoOpAcum = 0;
     let saldoOpFinal = 0;
     MONTHS.forEach(m => {
+      const anoMes = String(m).slice(0, 7);
+      // Jan-Mai 2026: sem informação; começa a acumular a partir de Junho
+      if (anoMes < '2026-06') {
+        soCells += `<td style="text-align:right;padding:14px 8px;font-weight:800;background:#d1fae5;color:#94a3b8">—</td>`;
+        return;
+      }
       const resMes = (totRecMes[m] || 0) - (totDespComCartao[m] || 0);
       saldoOpAcum += resMes;
       saldoOpFinal = saldoOpAcum;
