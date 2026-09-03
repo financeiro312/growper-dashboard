@@ -6471,14 +6471,14 @@ if (document.readyState === 'loading') {
       let hCells = `<td style="padding:12px 14px;background:#f0fdf4;color:#166534;font-weight:800;cursor:pointer" onclick="_toggleExpand('${rExpKey}')">
         <span style="display:inline-block;width:16px">${rOpen ? '▼' : '▶'}</span> 📥 RECEITAS OPERACIONAIS
       </td>`;
-      let recProjTot = 0;
       MONTHS.forEach(m => {
         const v = totRecMes[m] || 0;
         hCells += `<td style="text-align:right;padding:12px 8px;background:#f0fdf4;color:#166534;font-weight:800" class="value-pos">${v === 0 ? '—' : _fmt(v)}</td>`;
         if (projetadoVisible[m]) {
-          const pv = getProjetado('rec_op_total', m);
-          recProjTot += pv;
-          hCells += `<td style="text-align:right;padding:8px 6px;background:#fef9c3"><input type="number" step="0.01" value="${pv || ''}" onchange="setProjetadoValue('rec_op_total','${m}',parseFloat(this.value)||0); if(window.renderMain) window.renderMain();" placeholder="—" style="width:100%;max-width:90px;padding:2px 3px;border:1px solid #fde047;border-radius:3px;background:#fffef0;font-family:Poppins;font-size:11px;text-align:right;outline:none;box-sizing:border-box"/></td>`;
+          // Soma projetados de TODAS categorias de receita
+          let pvSoma = 0;
+          [...receitas.keys()].forEach(cat => pvSoma += getProjetado('cat_rec|'+cat, m));
+          hCells += `<td style="text-align:right;padding:12px 6px;background:#fef9c3;font-weight:800;color:#166534;font-size:12.5px">${pvSoma === 0 ? '—' : _fmt(pvSoma)}</td>`;
         }
       });
       hCells += `<td style="text-align:right;padding:12px 12px;background:#f0fdf4;color:#166534;font-weight:800" class="value-pos">${_fmt(recGrandTot)}</td>`;
@@ -6516,6 +6516,11 @@ if (document.readyState === 'loading') {
           MONTHS.forEach(m => {
             const v = sgTotMes[m] || 0;
             sgCells += `<td style="text-align:right;padding:10px 8px;background:#ecfdf5;color:#065f46;font-weight:700" class="value-pos">${v === 0 ? '—' : _fmt(v)}</td>`;
+            if (projetadoVisible[m]) {
+              let pvSoma = 0;
+              [...sgMap.keys()].forEach(cat => pvSoma += getProjetado('cat_rec|'+cat, m));
+              sgCells += `<td style="text-align:right;padding:10px 6px;background:#fef9c3;font-weight:700;color:#065f46;font-size:12px">${pvSoma === 0 ? '—' : _fmt(pvSoma)}</td>`;
+            }
           });
           sgCells += `<td style="text-align:right;padding:10px 12px;background:#ecfdf5;color:#065f46;font-weight:700" class="value-pos">${_fmt(sgTotal)}</td>`;
           html += `<tr>${sgCells}</tr>`;
@@ -6552,6 +6557,11 @@ if (document.readyState === 'loading') {
               cells += `<td onclick="_showLancamentos('${ck}')" style="text-align:right;padding:8px;cursor:pointer;font-size:11.5px" class="value-pos">${_fmt(v)}</td>`;
             } else {
               cells += `<td style="text-align:right;padding:8px;font-size:11.5px" class="value-zero">—</td>`;
+            }
+            if (projetadoVisible[m]) {
+              const pKey = 'cat_rec|' + cat;
+              const pv = getProjetado(pKey, m);
+              cells += `<td style="padding:4px 6px;background:#fef9c3"><input type="number" step="0.01" value="${pv || ''}" onchange="setProjetadoValue('${pKey.replace(/'/g,"\\'")}','${m}',parseFloat(this.value)||0); if(window.renderMain) window.renderMain();" placeholder="—" style="width:100%;max-width:90px;padding:2px 3px;border:1px solid #fde047;border-radius:3px;background:#fffef0;font-family:Poppins;font-size:10.5px;text-align:right;outline:none;box-sizing:border-box"/></td>`;
             }
           });
           cells += `<td style="text-align:right;padding:8px 12px;font-weight:700" class="value-pos">${_fmt(g.total)}</td>`;
@@ -6617,8 +6627,13 @@ if (document.readyState === 'loading') {
       const v = (totDespMes[m] || 0) + (_cartaoIncluir ? (totCartaoMes[m] || 0) : 0);
       dhCells += `<td style="text-align:right;padding:12px 8px;background:#fef2f2;color:#991b1b;font-weight:800" class="value-neg">${v === 0 ? '—' : _fmt(v)}</td>`;
       if (projetadoVisible[m]) {
-        const pv = getProjetado('desp_op_total', m);
-        dhCells += `<td style="text-align:right;padding:8px 6px;background:#fef9c3"><input type="number" step="0.01" value="${pv || ''}" onchange="setProjetadoValue('desp_op_total','${m}',parseFloat(this.value)||0); if(window.renderMain) window.renderMain();" placeholder="—" style="width:100%;max-width:90px;padding:2px 3px;border:1px solid #fde047;border-radius:3px;background:#fffef0;font-family:Poppins;font-size:11px;text-align:right;outline:none;box-sizing:border-box"/></td>`;
+        // Soma projetados de TODAS categorias de despesa em todos os grupos
+        let pvSoma = 0;
+        _ORDEM_GRUPOS_DESPESA.forEach(grp => {
+          const catsGrp = despesasPorGrupo.get(grp);
+          if (catsGrp) [...catsGrp.keys()].forEach(cat => pvSoma += getProjetado('cat_desp|'+grp+'|'+cat, m));
+        });
+        dhCells += `<td style="text-align:right;padding:12px 6px;background:#fef9c3;font-weight:800;color:#991b1b;font-size:12.5px">${pvSoma === 0 ? '—' : _fmt(pvSoma)}</td>`;
       }
     });
     dhCells += `<td style="text-align:right;padding:12px 12px;background:#fef2f2;color:#991b1b;font-weight:800" class="value-neg">${_fmt(despHeadTot)}</td>`;
@@ -6640,6 +6655,12 @@ if (document.readyState === 'loading') {
       MONTHS.forEach(m => {
         const v = totGrupoMes[grupo][m] || 0;
         sgCells += `<td style="text-align:right;padding:10px 8px;background:#fef7f7;color:#7f1d1d;font-weight:700" class="value-neg">${v === 0 ? '—' : _fmt(v)}</td>`;
+        if (projetadoVisible[m]) {
+          let pvSoma = 0;
+          const catsGrp = despesasPorGrupo.get(grupo);
+          if (catsGrp) [...catsGrp.keys()].forEach(cat => pvSoma += getProjetado('cat_desp|'+grupo+'|'+cat, m));
+          sgCells += `<td style="text-align:right;padding:10px 6px;background:#fef9c3;font-weight:700;color:#7f1d1d;font-size:12px">${pvSoma === 0 ? '—' : _fmt(pvSoma)}</td>`;
+        }
       });
       sgCells += `<td style="text-align:right;padding:10px 12px;background:#fef7f7;color:#7f1d1d;font-weight:700" class="value-neg">${_fmt(grpTot)}</td>`;
       html += `<tr>${sgCells}</tr>`;
@@ -6677,6 +6698,11 @@ if (document.readyState === 'loading') {
               cells += `<td onclick="_showLancamentos('${ck}')" style="text-align:right;padding:8px;cursor:pointer;font-size:11.5px" class="value-neg">${_fmt(v)}</td>`;
             } else {
               cells += `<td style="text-align:right;padding:8px;font-size:11.5px" class="value-zero">—</td>`;
+            }
+            if (projetadoVisible[m]) {
+              const pKey = 'cat_desp|' + grupo + '|' + cat;
+              const pv = getProjetado(pKey, m);
+              cells += `<td style="padding:4px 6px;background:#fef9c3"><input type="number" step="0.01" value="${pv || ''}" onchange="setProjetadoValue('${pKey.replace(/'/g,"\\'")}','${m}',parseFloat(this.value)||0); if(window.renderMain) window.renderMain();" placeholder="—" style="width:100%;max-width:90px;padding:2px 3px;border:1px solid #fde047;border-radius:3px;background:#fffef0;font-family:Poppins;font-size:10.5px;text-align:right;outline:none;box-sizing:border-box"/></td>`;
             }
           });
           cells += `<td style="text-align:right;padding:8px 12px;font-weight:700" class="value-neg">${_fmt(g.total)}</td>`;
@@ -6742,8 +6768,14 @@ if (document.readyState === 'loading') {
       const v = (totRecMes[m] || 0) - (totDespComCartao[m] || 0);
       rCellsNew += `<td style="text-align:right;padding:14px 8px;font-weight:800;font-size:13px;background:#eff6ff" class="${_cls(v)}">${v === 0 ? '—' : _fmtSigned(v)}</td>`;
       if (projetadoVisible[m]) {
-        const recP = getProjetado('rec_op_total', m);
-        const despP = getProjetado('desp_op_total', m);
+        // Soma projetados das categorias
+        let recP = 0;
+        [...receitas.keys()].forEach(cat => recP += getProjetado('cat_rec|'+cat, m));
+        let despP = 0;
+        _ORDEM_GRUPOS_DESPESA.forEach(grp => {
+          const catsGrp = despesasPorGrupo.get(grp);
+          if (catsGrp) [...catsGrp.keys()].forEach(cat => despP += getProjetado('cat_desp|'+grp+'|'+cat, m));
+        });
         const resP = recP - despP;
         rCellsNew += `<td style="text-align:right;padding:14px 6px;font-weight:800;background:#fef9c3;color:${resP>=0?'#166534':'#991b1b'};font-size:12.5px">${(recP===0 && despP===0) ? '—' : _fmtSigned(resP)}</td>`;
       }
@@ -6778,8 +6810,13 @@ if (document.readyState === 'loading') {
       } else {
         const resMes = (totRecMes[m] || 0) - (totDespComCartao[m] || 0);
         saldoOpAcum += resMes;
-        const recP = getProjetado('rec_op_total', m);
-        const despP = getProjetado('desp_op_total', m);
+        let recP = 0;
+        [...receitas.keys()].forEach(cat => recP += getProjetado('cat_rec|'+cat, m));
+        let despP = 0;
+        _ORDEM_GRUPOS_DESPESA.forEach(grp => {
+          const catsGrp = despesasPorGrupo.get(grp);
+          if (catsGrp) [...catsGrp.keys()].forEach(cat => despP += getProjetado('cat_desp|'+grp+'|'+cat, m));
+        });
         saldoOpProjAcum += (recP - despP);
       }
       saldoOpFinal = saldoOpAcum;
