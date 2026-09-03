@@ -726,7 +726,29 @@ body.scalia-mode .company-badge {
       <div class="header-title" id="headerTitle"><span class="company-badge" id="companyBadge" onclick="backToSelector()" title="Clique para trocar de empresa"><span class="cb-icon">📊</span><span id="companyName">Growper Digital</span></span><span id="sectionTitle">Dashboard Principal</span></div>
       <div class="header-controls">
 
-<select id="selYear"><option value="2026">2026</option><option value="2025">2025</option></select>
+<select id="selYear" onchange="if(typeof _onYearChange==='function')_onYearChange(this.value)"><option value="2026">2026</option><option value="2025">2025</option></select>
+        <div id="selMesWrap" style="position:relative;display:inline-block">
+          <button type="button" id="selMesBtn" onclick="_toggleMesDropdown(event)" 
+            style="padding:8px 14px;background:white;border:1px solid #d1d5db;border-radius:6px;font-family:Poppins;font-size:13px;cursor:pointer;min-width:110px;text-align:left;display:flex;align-items:center;justify-content:space-between;gap:8px">
+            <span id="selMesLabel">Mês: Todos</span>
+            <span style="color:#6b7280">▾</span>
+          </button>
+          <div id="selMesDropdown" style="display:none;position:absolute;top:100%;left:0;margin-top:4px;background:white;border:1px solid #d1d5db;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.1);z-index:100;min-width:140px">
+            <div onclick="_selecionarMes('all')" style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid #e5e7eb;font-weight:600" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background='white'">Todos</div>
+            <div onclick="_selecionarMes('2026-01')" style="padding:6px 12px;cursor:pointer;font-size:13px" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background='white'">Janeiro</div>
+            <div onclick="_selecionarMes('2026-02')" style="padding:6px 12px;cursor:pointer;font-size:13px" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background='white'">Fevereiro</div>
+            <div onclick="_selecionarMes('2026-03')" style="padding:6px 12px;cursor:pointer;font-size:13px" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background='white'">Março</div>
+            <div onclick="_selecionarMes('2026-04')" style="padding:6px 12px;cursor:pointer;font-size:13px" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background='white'">Abril</div>
+            <div onclick="_selecionarMes('2026-05')" style="padding:6px 12px;cursor:pointer;font-size:13px" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background='white'">Maio</div>
+            <div onclick="_selecionarMes('2026-06')" style="padding:6px 12px;cursor:pointer;font-size:13px" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background='white'">Junho</div>
+            <div onclick="_selecionarMes('2026-07')" style="padding:6px 12px;cursor:pointer;font-size:13px" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background='white'">Julho</div>
+            <div onclick="_selecionarMes('2026-08')" style="padding:6px 12px;cursor:pointer;font-size:13px" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background='white'">Agosto</div>
+            <div onclick="_selecionarMes('2026-09')" style="padding:6px 12px;cursor:pointer;font-size:13px" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background='white'">Setembro</div>
+            <div onclick="_selecionarMes('2026-10')" style="padding:6px 12px;cursor:pointer;font-size:13px" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background='white'">Outubro</div>
+            <div onclick="_selecionarMes('2026-11')" style="padding:6px 12px;cursor:pointer;font-size:13px" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background='white'">Novembro</div>
+            <div onclick="_selecionarMes('2026-12')" style="padding:6px 12px;cursor:pointer;font-size:13px" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background='white'">Dezembro</div>
+          </div>
+        </div>
         <div id="selContaWrap" style="position:relative;display:inline-block">
           <button type="button" id="selContaBtn" onclick="_toggleContaDropdown(event)" 
             style="padding:8px 14px;background:white;border:1px solid #d1d5db;border-radius:6px;font-family:Poppins;font-size:13px;cursor:pointer;min-width:170px;text-align:left;display:flex;align-items:center;justify-content:space-between;gap:8px">
@@ -2154,12 +2176,16 @@ function showSection(section) {
   const selConta = document.getElementById('selConta');
   const selConciliado = document.getElementById('selConciliado');
   
-  // CARTÃO DE CRÉDITO ou KITS: filtros minimalistas
-  if (section === 'card' || section === 'scaliaKits' || section === 'kits') {
+  const selContaWrap = document.getElementById('selContaWrap');
+  
+  // CARTÃO DE CRÉDITO, KITS ou RH: filtros minimalistas
+  if (section === 'card' || section === 'scaliaKits' || section === 'kits' || section === 'rh' || section === 'kpis' || section === 'recebiveis') {
     viewBtns.classList.add('hidden');
     if (selConta) selConta.style.display = 'none';
     if (selConciliado) selConciliado.style.display = 'none';
+    if (selContaWrap) selContaWrap.style.display = 'none';
   } else {
+    if (selContaWrap) selContaWrap.style.display = '';
     // Restaurar filtros nos outros menus
     if (selConta) selConta.style.display = '';
     if (selConciliado) selConciliado.style.display = '';
@@ -2198,6 +2224,32 @@ function showSection(section) {
     refreshCurrent();
   }
 }
+
+// Filtro de mês global (afeta Menu Principal, Cartão, Áreas, RH)
+window._mesFiltroGlobal = 'all';
+window._toggleMesDropdown = function(e) {
+  if (e) e.stopPropagation();
+  const dd = document.getElementById('selMesDropdown');
+  if (dd) dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+};
+window._selecionarMes = function(mes) {
+  window._mesFiltroGlobal = mes;
+  const labels = {'all':'Mês: Todos','2026-01':'Janeiro','2026-02':'Fevereiro','2026-03':'Março','2026-04':'Abril','2026-05':'Maio','2026-06':'Junho','2026-07':'Julho','2026-08':'Agosto','2026-09':'Setembro','2026-10':'Outubro','2026-11':'Novembro','2026-12':'Dezembro'};
+  const lbl = document.getElementById('selMesLabel');
+  if (lbl) lbl.textContent = labels[mes] || 'Mês: Todos';
+  const dd = document.getElementById('selMesDropdown');
+  if (dd) dd.style.display = 'none';
+  // Atualiza MONTHS_VISIBLE que renderMain usa
+  window._MONTHS_VISIBLE = mes === 'all' ? null : [mes];
+  if (typeof refreshCurrent === 'function') refreshCurrent();
+};
+document.addEventListener('click', function(e) {
+  const wrap = document.getElementById('selMesWrap');
+  if (wrap && !wrap.contains(e.target)) {
+    const dd = document.getElementById('selMesDropdown');
+    if (dd) dd.style.display = 'none';
+  }
+});
 
 function refreshCurrent() {
   if (currentSection === 'main') renderMain();
@@ -3094,10 +3146,16 @@ function renderCard() {
   const sumTot = obj => MONTHS.reduce((s, m) => s + (obj.totMes[m] || 0), 0);
   // Ordem manual dos departamentos no cartão (regra do usuário)
   const _ORDEM_DEPT_CARTAO = {
-    'Performance': 1, 'CS': 2, 'Tecnologia': 3, 'Criação': 4,
-    'People e Recrutamento': 5, 'People & Recrutamento': 5, 'People': 5, 'Recrutamento': 5,
-    'Administrativo': 6, 'Financeiro': 7, 'Escala': 8, 'Scalia': 8,
-    'Obrigações Tributárias': 9, 'Despesas Não Operacionais': 10
+    'Performance': 1, 
+    'CS': 2, 
+    'Tecnologia': 3, 
+    'Criação': 4,
+    'Financeiro': 5,
+    'Escala': 6, 'Scalia': 6,
+    'Obrigações Tributárias': 7,
+    'Despesas Não Operacionais': 8,
+    'Administrativo Geral': 9, 'Administrativo': 9,
+    'People e Recrutamento': 10, 'People & Recrutamento': 10, 'People': 10, 'Recrutamento': 10
   };
   const depts = [...cardByDept.entries()].sort((a, b) => {
     const oa = _ORDEM_DEPT_CARTAO[a[0]] || 999;
@@ -3136,9 +3194,9 @@ function renderCard() {
     html += `<tr style="background:#fafafa;font-weight:700"><td style="padding:10px 14px;cursor:pointer;position:sticky;left:0;background:#fafafa;z-index:5" onclick="_toggleExpand('${dKey}')"><span style="display:inline-block;width:16px">${dOpen?'▼':'▶'}</span> ${_esc(dept)}</td>`;
     MONTHS.forEach(m => {
       const v = dObj.totMes[m] || 0;
-      html += `<td style="text-align:right;padding:10px 8px">${v === 0 ? '—' : _fmt(v)}</td>`;
+      html += `<td style="text-align:right;padding:10px 8px">${v === 0 ? '—' : 'R$ ' + _fmt(v)}</td>`;
     });
-    html += `<td style="text-align:right;padding:10px 12px">${_fmt(totDept)}</td></tr>`;
+    html += `<td style="text-align:right;padding:10px 12px">R$ ${_fmt(totDept)}</td></tr>`;
     
     if (!dOpen) return;
     
@@ -3149,9 +3207,9 @@ function renderCard() {
       html += `<tr><td style="padding:6px 14px;padding-left:44px;cursor:pointer;font-size:12px" onclick="_toggleExpand('${cKey}')"><span style="display:inline-block;width:14px">${cOpen?'▼':'▶'}</span> ${_esc(cat)}</td>`;
       MONTHS.forEach(m => {
         const v = catObj.totMes[m] || 0;
-        html += `<td style="text-align:right;padding:6px 8px;font-size:11.5px">${v === 0 ? '—' : _fmt(v)}</td>`;
+        html += `<td style="text-align:right;padding:6px 8px;font-size:11.5px">${v === 0 ? '—' : 'R$ ' + _fmt(v)}</td>`;
       });
-      html += `<td style="text-align:right;padding:6px 12px;font-size:11.5px;font-weight:600">${_fmt(totCat)}</td></tr>`;
+      html += `<td style="text-align:right;padding:6px 12px;font-size:11.5px;font-weight:600">R$ ${_fmt(totCat)}</td></tr>`;
       
       if (!cOpen) return;
       
@@ -3160,9 +3218,9 @@ function renderCard() {
         html += `<tr><td style="padding:5px 14px;padding-left:80px;font-size:11px;color:#6b7280">${_esc(forn)}</td>`;
         MONTHS.forEach(m => {
           const v = fObj.totMes[m] || 0;
-          html += `<td style="text-align:right;padding:5px 8px;font-size:11px;color:#6b7280">${v === 0 ? '—' : _fmt(v)}</td>`;
+          html += `<td style="text-align:right;padding:5px 8px;font-size:11px;color:#6b7280">${v === 0 ? '—' : 'R$ ' + _fmt(v)}</td>`;
         });
-        html += `<td style="text-align:right;padding:5px 12px;font-size:11px;font-weight:500">${_fmt(totF)}</td></tr>`;
+        html += `<td style="text-align:right;padding:5px 12px;font-size:11px;font-weight:500">R$ ${_fmt(totF)}</td></tr>`;
       });
     });
   });
@@ -3171,9 +3229,9 @@ function renderCard() {
   html += `<tr style="background:#fef2f2;font-weight:800"><td style="padding:12px 14px;color:#991b1b;position:sticky;left:0;background:#fef2f2;z-index:5">📊 TOTAL FATURA</td>`;
   MONTHS.forEach(m => {
     const v = totGeral[m] || 0;
-    html += `<td style="text-align:right;padding:12px 8px;color:#991b1b">${v === 0 ? '—' : _fmt(v)}</td>`;
+    html += `<td style="text-align:right;padding:12px 8px;color:#991b1b">${v === 0 ? '—' : 'R$ ' + _fmt(v)}</td>`;
   });
-  html += `<td style="text-align:right;padding:12px 12px;color:#991b1b">${_fmt(totFinal)}</td></tr>`;
+  html += `<td style="text-align:right;padding:12px 12px;color:#991b1b">R$ ${_fmt(totFinal)}</td></tr>`;
   
   html += `</tbody></table></div></div>`;
   container.innerHTML = html;
@@ -6198,8 +6256,9 @@ if (document.readyState === 'loading') {
     });
   }
 
-  // ============ Estado de expansão persistente ============
-  const _expanded = new Set();
+  // ============ Estado de expansão persistente (SHARED com global) ============
+  if (!window._expanded) window._expanded = new Set();
+  const _expanded = window._expanded;
   // Mapa de renomeação de categorias para exibição no dashboard
   const _NOMES_EXIB = {
     'Receita de Prestação de Serviços (Mensalidades Clientes)': 'Mensalidades Clientes',
