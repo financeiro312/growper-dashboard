@@ -707,7 +707,7 @@ body.scalia-mode .company-badge {
   <div class="nav-section">
     <div class="nav-label">Análise de Dados</div>
     <div class="nav-buttons">
-      <button class="nav-btn" data-section="pjs"><span class="nav-icon">🧑‍💼</span><span>PJs</span></button>
+      <button class="nav-btn" data-section="pjs"><span class="nav-icon">🏢</span><span>Áreas</span></button>
       <button class="nav-btn" data-section="margem"><span class="nav-icon">📈</span><span>Margem Lucro</span></button>
       <button class="nav-btn" data-section="ticket"><span class="nav-icon">🎫</span><span>Ticket Médio</span></button>
     </div>
@@ -2839,8 +2839,6 @@ function _limparDepto(dept) {
 function renderCard() {
   const container = document.getElementById('mainArea');
   const data = (currentView === 'caixa') ? RAW_DATA_CAIXA : RAW_DATA_COMP;
-  
-  // Filtrar lançamentos DO Cartão 2130
   const rows = data.filter(r => {
     if (r.conta !== 'Cartão 2130') return false;
     if (r.tipo !== '2. Contas a Pagar') return false;
@@ -2848,11 +2846,12 @@ function renderCard() {
     return true;
   });
   
-  // Agrupar por Departamento > Categoria (por mês)
+  // Agrupar: Depto > Categoria > Fornecedor > por mês
   const cardByDept = new Map();
   rows.forEach(r => {
     const dept = (r.departamento && String(r.departamento).trim()) || '(Sem Departamento)';
     const cat = String(r.categoria || '(Sem Categoria)');
+    const forn = String(r.fornecedor || '(Sem Fornecedor)');
     const mes = (currentView === 'caixa') ? r.mesPagto : r.mesRegistro;
     if (!MONTHS.includes(mes)) return;
     const val = Math.abs(r.valorPago || r.valorConta || 0);
@@ -2865,20 +2864,26 @@ function renderCard() {
     dObj.totMes[mes] += val;
     
     if (!dObj.categorias.has(cat)) {
-      dObj.categorias.set(cat, { totMes: {}, items: [] });
+      dObj.categorias.set(cat, { totMes: {}, forns: new Map() });
       MONTHS.forEach(m => dObj.categorias.get(cat).totMes[m] = 0);
     }
     const catObj = dObj.categorias.get(cat);
     catObj.totMes[mes] += val;
-    catObj.items.push(r);
+    
+    if (!catObj.forns.has(forn)) {
+      catObj.forns.set(forn, { totMes: {}, items: [] });
+      MONTHS.forEach(m => catObj.forns.get(forn).totMes[m] = 0);
+    }
+    const fObj = catObj.forns.get(forn);
+    fObj.totMes[mes] += val;
+    fObj.items.push(r);
   });
   
-  const sumTotal = d => MONTHS.reduce((s, m) => s + (d.totMes[m] || 0), 0);
-  const depts = [...cardByDept.entries()].sort((a, b) => sumTotal(b[1]) - sumTotal(a[1]));
+  const sumTot = obj => MONTHS.reduce((s, m) => s + (obj.totMes[m] || 0), 0);
+  const depts = [...cardByDept.entries()].sort((a, b) => sumTot(b[1]) - sumTot(a[1]));
   
-  // Totalização geral por mês
   const totGeral = {}; MONTHS.forEach(m => totGeral[m] = 0);
-  depts.forEach(([_, d]) => MONTHS.forEach(m => totGeral[m] += (d.totMes[m] || 0)));
+  depts.forEach(([_, d]) => MONTHS.forEach(m => totGeral[m] += d.totMes[m]));
   const totFinal = MONTHS.reduce((s, m) => s + totGeral[m], 0);
   
   let html = `
@@ -2893,13 +2898,13 @@ function renderCard() {
       <div class="table-container">
       <table>
         <thead><tr>
-          <th style="min-width:220px;max-width:220px">Departamento / Categoria</th>
+          <th style="min-width:260px">Departamento / Categoria / Fornecedor</th>
           ${MONTHS.map(m => `<th>${MONTH_NAMES[MONTHS.indexOf(m)]}</th>`).join('')}
           <th>Total</th>
         </tr></thead>
         <tbody>`;
   
-  // Linha TOTAL GERAL (destaque no topo)
+  // Total fatura no topo
   html += `<tr style="background:#fef2f2;font-weight:800"><td style="padding:12px 14px;color:#991b1b;position:sticky;left:0;background:#fef2f2;z-index:5">📊 TOTAL FATURA</td>`;
   MONTHS.forEach(m => {
     const v = totGeral[m] || 0;
@@ -2907,36 +2912,51 @@ function renderCard() {
   });
   html += `<td style="text-align:right;padding:12px 12px;color:#991b1b">${_fmt(totFinal)}</td></tr>`;
   
-  // Departamentos
   depts.forEach(([dept, dObj]) => {
-    const key = 'cardnew_' + dept.replace(/\W/g, '_');
-    const open = _expanded.has(key);
-    const totDept = sumTotal(dObj);
+    const dKey = 'cardnew_d_' + dept.replace(/\W/g, '_');
+    const dOpen = _expanded.has(dKey);
+    const totDept = sumTot(dObj);
     
-    html += `<tr style="background:#fafafa;font-weight:700"><td style="padding:10px 14px;cursor:pointer;position:sticky;left:0;background:#fafafa;z-index:5" onclick="_toggleExpand('${key}')"><span style="display:inline-block;width:16px">${open?'▼':'▶'}</span> ${_esc(dept)}</td>`;
+    html += `<tr style="background:#fafafa;font-weight:700"><td style="padding:10px 14px;cursor:pointer;position:sticky;left:0;background:#fafafa;z-index:5" onclick="_toggleExpand('${dKey}')"><span style="display:inline-block;width:16px">${dOpen?'▼':'▶'}</span> ${_esc(dept)}</td>`;
     MONTHS.forEach(m => {
       const v = dObj.totMes[m] || 0;
       html += `<td style="text-align:right;padding:10px 8px">${v === 0 ? '—' : _fmt(v)}</td>`;
     });
     html += `<td style="text-align:right;padding:10px 12px">${_fmt(totDept)}</td></tr>`;
     
-    if (!open) return;
+    if (!dOpen) return;
     
-    // Categorias
-    [...dObj.categorias.entries()].sort((a, b) => sumTotal(b[1]) - sumTotal(a[1])).forEach(([cat, catObj]) => {
-      const catTot = sumTotal(catObj);
-      html += `<tr><td style="padding:6px 14px;padding-left:52px;font-size:11.5px">${_esc(cat)}</td>`;
+    [...dObj.categorias.entries()].sort((a, b) => sumTot(b[1]) - sumTot(a[1])).forEach(([cat, catObj]) => {
+      const cKey = dKey + '_c_' + cat.replace(/\W/g, '_');
+      const cOpen = _expanded.has(cKey);
+      const totCat = sumTot(catObj);
+      html += `<tr><td style="padding:6px 14px;padding-left:44px;cursor:pointer;font-size:12px" onclick="_toggleExpand('${cKey}')"><span style="display:inline-block;width:14px">${cOpen?'▼':'▶'}</span> ${_esc(cat)}</td>`;
       MONTHS.forEach(m => {
         const v = catObj.totMes[m] || 0;
         html += `<td style="text-align:right;padding:6px 8px;font-size:11.5px">${v === 0 ? '—' : _fmt(v)}</td>`;
       });
-      html += `<td style="text-align:right;padding:6px 12px;font-size:11.5px;font-weight:600">${_fmt(catTot)}</td></tr>`;
+      html += `<td style="text-align:right;padding:6px 12px;font-size:11.5px;font-weight:600">${_fmt(totCat)}</td></tr>`;
+      
+      if (!cOpen) return;
+      
+      [...catObj.forns.entries()].sort((a, b) => sumTot(b[1]) - sumTot(a[1])).forEach(([forn, fObj]) => {
+        const totF = sumTot(fObj);
+        html += `<tr><td style="padding:5px 14px;padding-left:80px;font-size:11px;color:#6b7280">${_esc(forn)}</td>`;
+        MONTHS.forEach(m => {
+          const v = fObj.totMes[m] || 0;
+          html += `<td style="text-align:right;padding:5px 8px;font-size:11px;color:#6b7280">${v === 0 ? '—' : _fmt(v)}</td>`;
+        });
+        html += `<td style="text-align:right;padding:5px 12px;font-size:11px;font-weight:500">${_fmt(totF)}</td></tr>`;
+      });
     });
   });
   
   html += `</tbody></table></div></div>`;
   container.innerHTML = html;
 }
+
+function _setViewCard(v) { currentView = v; renderCard(); }
+
 
 function _setViewCard(v) { currentView = v; renderCard(); }
 
@@ -3369,25 +3389,19 @@ function getValorMes(cliente, mes) {
 }
 
 function renderRecebiveis() {
-  if (!recebiveisData) loadRecebiveis();
-  
-  let html = '<div style="display:flex;gap:8px;margin-bottom:24px;border-bottom:1px solid var(--border)">';
-  const tabs = [
-    { id: 'tabela', label: '📋 Tabela' },
-    { id: 'indicadores', label: '📊 Indicadores' }
-  ];
-  tabs.forEach(t => {
-    const active = currentRecTab2 === t.id;
-    html += `<button onclick="setRecTab2('${t.id}')" style="padding:10px 18px;border:none;background:transparent;color:${active ? 'var(--primary)' : 'var(--text-secondary)'};font-family:Poppins;font-size:13px;font-weight:${active ? '600' : '500'};cursor:pointer;border-bottom:2px solid ${active ? 'var(--primary)' : 'transparent'}">${t.label}</button>`;
-  });
-  html += '</div>';
-  
-  html += '<div id="recebiveisSubContent"></div>';
-  document.getElementById('recebiveisContent').innerHTML = html;
-  
-  if (currentRecTab2 === 'tabela') renderRecTabela();
-  else renderRecIndicadores();
+  const container = document.getElementById('mainArea') || document.getElementById('recebiveisContent');
+  const html = `
+    <div style="min-height:70vh;display:flex;align-items:center;justify-content:center;padding:40px">
+      <div style="max-width:520px;padding:40px;background:white;border-radius:14px;box-shadow:0 4px 20px rgba(0,0,0,0.08);text-align:center">
+        <div style="font-size:56px;margin-bottom:20px">🚧</div>
+        <h2 style="margin:0 0 12px;font-size:24px;font-weight:800;color:#0f172a">Menu em Construção</h2>
+        <p style="color:#64748b;line-height:1.6;font-size:14px;margin:0">Este menu está sendo reformulado. Em breve traremos a nova versão de Recebíveis com melhorias.</p>
+      </div>
+    </div>
+  `;
+  if (container) container.innerHTML = html;
 }
+
 
 function setRecTab2(tab) {
   currentRecTab2 = tab;
@@ -3993,244 +4007,145 @@ function renderDRE() {
 
 // =================== PJs (07.01 mês a mês: Dept→Cat→Colaborador) ===================
 function renderPJs() {
-  if (currentPjTab === 'custo') renderPJsCusto();
-  else renderPJsLucro();
-}
-
-function renderPJsCusto() {
-  const data = getRawData();
-  const filtered = filterData(data, false).filter(r =>
-    r.categoria && r.categoria.startsWith('07.01') && r.tipo === '2. Contas a Pagar'
-  );
-
-  if (filtered.length === 0) {
-    document.getElementById('pjsContent').innerHTML = emptyState('⏳', 'Sem dados de PJs', 'Nenhum lançamento na categoria "07.01 Remuneração Operacional PJ" encontrado.');
-    return;
-  }
-
-  // Group: dept → categoria → colaborador
-  const grouped = {};
-  filtered.forEach(r => {
-    const dept = _limparDepto(r.departamento);
-    const cat = r.categoria;
-    const colab = r.fornecedor || 'Sem identificação';
-    const mes = getMesKey(r);
+  // Menu ÁREAS: mesmo padrão do Principal, mas por departamento com Receitas e Despesas
+  const container = document.getElementById('mainArea') || document.getElementById('pjsContent');
+  if (!container) return;
+  const data = (currentView === 'caixa') ? RAW_DATA_CAIXA : RAW_DATA_COMP;
+  
+  // Filtrar: todas as contas correntes (Inter + Itaú + Cartão), ignorar aplicações
+  const rows = data.filter(r => {
+    if (currentConciliado !== 'all' && r.conciliado !== currentConciliado) return false;
+    if (r.conta === 'Banco Inter (Aplicação)' || r.conta === 'Investimentos Banco Inter' || r.conta === 'Investimentos Itaú Unibanco') return false;
+    return true;
+  });
+  
+  // Nome do depto sem prefixo, e tipo derivado do prefixo original (R = Receita, D = Despesa)
+  const _cleanDept = raw => String(raw || '').replace(/^[RD]\d+\s*-\s*/, '').replace(/^\d+\s+/, '').trim() || '(Sem Departamento)';
+  const _deptTipo = raw => {
+    const s = String(raw || '').replace(/^\d+\s+/, '');
+    if (/^R/.test(s)) return 'R';
+    if (/^D/.test(s)) return 'D';
+    return '';
+  };
+  
+  // Agrupar: Depto (nome limpo) -> {receita: {totMes, cats}, despesa: {totMes, cats}}
+  // Uma mesma "área" pode ter R e D (ex: Performance)
+  const areas = new Map();
+  rows.forEach(r => {
+    const raw = r.departamento || '';
+    const tipo = r.departamento_tipo || _deptTipo(raw);
+    if (tipo !== 'R' && tipo !== 'D') return;  // ignora movimentos sem R/D
+    const nome = _cleanDept(raw);
+    const cat = String(r.categoria || '(Sem Categoria)');
+    const forn = String(r.fornecedor || '(Sem Fornecedor)');
+    const mes = (currentView === 'caixa') ? r.mesPagto : r.mesRegistro;
     if (!MONTHS.includes(mes)) return;
+    const val = Math.abs(r.valorPago || r.valorConta || 0);
     
-    if (!grouped[dept]) grouped[dept] = {};
-    if (!grouped[dept][cat]) grouped[dept][cat] = {};
-    if (!grouped[dept][cat][colab]) grouped[dept][cat][colab] = { byMonth: {}, total: 0 };
-    grouped[dept][cat][colab].byMonth[mes] = (grouped[dept][cat][colab].byMonth[mes] || 0) + getVal(r);
-    grouped[dept][cat][colab].total += getVal(r);
+    if (!areas.has(nome)) areas.set(nome, { R: null, D: null });
+    const a = areas.get(nome);
+    if (!a[tipo]) { a[tipo] = { totMes: {}, cats: new Map() }; MONTHS.forEach(m => a[tipo].totMes[m] = 0); }
+    const bloco = a[tipo];
+    bloco.totMes[mes] += val;
+    if (!bloco.cats.has(cat)) { bloco.cats.set(cat, { totMes: {}, forns: new Map() }); MONTHS.forEach(m => bloco.cats.get(cat).totMes[m] = 0); }
+    const cObj = bloco.cats.get(cat);
+    cObj.totMes[mes] += val;
+    if (!cObj.forns.has(forn)) { cObj.forns.set(forn, { totMes: {} }); MONTHS.forEach(m => cObj.forns.get(forn).totMes[m] = 0); }
+    cObj.forns.get(forn).totMes[mes] += val;
   });
-
-  let html = `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:24px">
-    <h3 style="font-size:14px;margin-bottom:8px">ℹ️ Análise de PJs - Categoria 07.01</h3>
-    <p style="font-size:12px;color:var(--text-secondary);line-height:1.6">
-      Mostra apenas lançamentos da categoria <strong>"07.01 Remuneração Operacional PJ"</strong>, organizados por Departamento → Categoria → Colaborador.
-    </p>
-  </div>`;
-
-  html += `<div class="table-container"><table>
-    <thead><tr><th>Departamento / Categoria / Colaborador</th>${MONTH_LABELS.map(m=>`<th>${m}</th>`).join('')}<th>Total</th></tr></thead>
-    <tbody>`;
-
-  let grandTotal = {byMonth: {}, total: 0};
-  MONTHS.forEach(m => grandTotal.byMonth[m] = 0);
-
-  Object.entries(grouped).sort().forEach(([dept, cats]) => {
-    let deptTotal = {byMonth: {}, total: 0};
-    MONTHS.forEach(m => deptTotal.byMonth[m] = 0);
-    Object.values(cats).forEach(colabs => {
-      Object.values(colabs).forEach(c => {
-        MONTHS.forEach(m => deptTotal.byMonth[m] += c.byMonth[m] || 0);
-        deptTotal.total += c.total;
-      });
+  
+  const sumTot = obj => MONTHS.reduce((s, m) => s + (obj.totMes[m] || 0), 0);
+  
+  // Ordenar áreas por soma total (R+D)
+  const areasList = [...areas.entries()].sort((a, b) => {
+    const ta = (a[1].R ? sumTot(a[1].R) : 0) + (a[1].D ? sumTot(a[1].D) : 0);
+    const tb = (b[1].R ? sumTot(b[1].R) : 0) + (b[1].D ? sumTot(b[1].D) : 0);
+    return tb - ta;
+  });
+  
+  let html = `
+    <div style="padding:20px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <h2 style="margin:0;color:#0f172a">🏢 Áreas</h2>
+        <div style="display:flex;gap:8px">
+          <button onclick="_setViewPJ('caixa')" style="padding:6px 14px;border:1px solid ${currentView==='caixa'?'#10b981':'#d1d5db'};background:${currentView==='caixa'?'#10b981':'white'};color:${currentView==='caixa'?'white':'#374151'};border-radius:6px;cursor:pointer;font-family:Poppins;font-size:12px">Caixa</button>
+          <button onclick="_setViewPJ('comp')" style="padding:6px 14px;border:1px solid ${currentView==='comp'?'#10b981':'#d1d5db'};background:${currentView==='comp'?'#10b981':'white'};color:${currentView==='comp'?'white':'#374151'};border-radius:6px;cursor:pointer;font-family:Poppins;font-size:12px">Competência</button>
+        </div>
+      </div>
+      <div class="table-container">
+      <table>
+        <thead><tr>
+          <th style="min-width:260px">Área / Categoria / Fornecedor</th>
+          ${MONTHS.map(m => `<th>${MONTH_NAMES[MONTHS.indexOf(m)]}</th>`).join('')}
+          <th>Total</th>
+        </tr></thead>
+        <tbody>`;
+  
+  const renderBloco = (aKey, bloco, tipo, corBg, corTxt, label) => {
+    if (!bloco) return;
+    const bKey = aKey + '_' + tipo;
+    const bOpen = _expanded.has(bKey);
+    const totB = sumTot(bloco);
+    html += `<tr style="background:${corBg};font-weight:600"><td style="padding:7px 14px;padding-left:36px;cursor:pointer;color:${corTxt};font-size:12px" onclick="_toggleExpand('${bKey}')"><span style="display:inline-block;width:14px">${bOpen?'▼':'▶'}</span> ${label}</td>`;
+    MONTHS.forEach(m => {
+      const v = bloco.totMes[m] || 0;
+      html += `<td style="text-align:right;padding:7px 8px;color:${corTxt};font-size:11.5px">${v === 0 ? '—' : _fmt(v)}</td>`;
     });
-
-    html += `<tr class="dept-header"><td>🏢 ${dept}</td>`;
-    MONTHS.forEach(m => { const v = deptTotal.byMonth[m] || 0; html += `<td>${v !== 0 ? fmt(v) : '—'}</td>`; });
-    html += `<td>${fmt(deptTotal.total)}</td></tr>`;
-
-    Object.entries(cats).sort().forEach(([cat, colabs]) => {
-      // Linha categoria
-      let catTotal = {byMonth: {}, total: 0};
-      MONTHS.forEach(m => catTotal.byMonth[m] = 0);
-      Object.values(colabs).forEach(c => {
-        MONTHS.forEach(m => catTotal.byMonth[m] += c.byMonth[m] || 0);
-        catTotal.total += c.total;
+    html += `<td style="text-align:right;padding:7px 12px;color:${corTxt};font-weight:700">${_fmt(totB)}</td></tr>`;
+    if (!bOpen) return;
+    
+    [...bloco.cats.entries()].sort((a, b) => sumTot(b[1]) - sumTot(a[1])).forEach(([cat, cObj]) => {
+      const cKey = bKey + '_c_' + cat.replace(/\W/g, '_');
+      const cOpen = _expanded.has(cKey);
+      const totC = sumTot(cObj);
+      html += `<tr><td style="padding:5px 14px;padding-left:64px;font-size:11.5px;cursor:pointer" onclick="_toggleExpand('${cKey}')"><span style="display:inline-block;width:14px">${cOpen?'▼':'▶'}</span> ${_esc(cat)}</td>`;
+      MONTHS.forEach(m => {
+        const v = cObj.totMes[m] || 0;
+        html += `<td style="text-align:right;padding:5px 8px;font-size:11px">${v === 0 ? '—' : _fmt(v)}</td>`;
       });
-
-      html += `<tr class="cat-row"><td>📁 ${cat}</td>`;
-      MONTHS.forEach(m => { const v = catTotal.byMonth[m] || 0; html += `<td>${v !== 0 ? fmt(v) : '—'}</td>`; });
-      html += `<td style="font-weight:600">${fmt(catTotal.total)}</td></tr>`;
-
-      // Linhas colaboradores
-      Object.entries(colabs).sort((a,b) => Math.abs(b[1].total) - Math.abs(a[1].total)).forEach(([colab, data]) => {
-        html += `<tr class="sub-row"><td>👤 ${colab}</td>`;
+      html += `<td style="text-align:right;padding:5px 12px;font-size:11px;font-weight:600">${_fmt(totC)}</td></tr>`;
+      if (!cOpen) return;
+      [...cObj.forns.entries()].sort((a, b) => sumTot(b[1]) - sumTot(a[1])).forEach(([forn, fObj]) => {
+        const totF = sumTot(fObj);
+        html += `<tr><td style="padding:4px 14px;padding-left:96px;font-size:10.5px;color:#6b7280">${_esc(forn)}</td>`;
         MONTHS.forEach(m => {
-          const v = data.byMonth[m] || 0;
-          const cls = valueClass(v);
-          const onclick = v !== 0 ? `onclick='showDetailPJ(${JSON.stringify(colab)},"${m}")'` : '';
-          const _act2 = onclick ? ' data-action="' + onclick.replace(/onclick="/, '').replace(/"$/, '').replace(/'/g, '&apos;') + '"' : '';
-        html += `<td${_act2} ${onclick ? 'style="cursor:pointer"' : ''}><span class="value-cell ${cls}">${v !== 0 ? fmt(v) : '—'}</span></td>`;
+          const v = fObj.totMes[m] || 0;
+          html += `<td style="text-align:right;padding:4px 8px;font-size:10.5px;color:#6b7280">${v === 0 ? '—' : _fmt(v)}</td>`;
         });
-        html += `<td>${fmt(data.total)}</td></tr>`;
+        html += `<td style="text-align:right;padding:4px 12px;font-size:10.5px">${_fmt(totF)}</td></tr>`;
       });
-
-      MONTHS.forEach(m => grandTotal.byMonth[m] += catTotal.byMonth[m] || 0);
-      grandTotal.total += catTotal.total;
     });
-  });
-
-  let totCells = `<td>TOTAL GERAL PJs</td>`;
-  MONTHS.forEach(m => { const v = grandTotal.byMonth[m] || 0; totCells += `<td>${v !== 0 ? fmt(v) : '—'}</td>`; });
-  totCells += `<td>${fmt(grandTotal.total)}</td>`;
-  html += `<tr class="result-row">${totCells}</tr>`;
-  html += `</tbody></table></div>`;
-
-  const numPJs = new Set();
-  filtered.forEach(r => numPJs.add(r.fornecedor));
-  html += `<div class="summary-container">
-    <div class="summary-item"><div class="summary-label">Total PJs</div><div class="summary-value">${numPJs.size}</div></div>
-    <div class="summary-item"><div class="summary-label">Custo Total</div><div class="summary-value" style="color:var(--secondary)">${fmt(Math.abs(grandTotal.total))}</div></div>
-    <div class="summary-item"><div class="summary-label">Custo Médio/PJ</div><div class="summary-value">${fmt(Math.abs(grandTotal.total) / numPJs.size)}</div></div>
-  </div>`;
-
-  document.getElementById('pjsContent').innerHTML = html;
-}
-
-function renderPJsLucro() {
-  const data = getRawData();
-  const filtered = filterData(data, false);
-
-  // Calcular lucro total da empresa
-  let receitaTotal = 0, custoTotal = 0;
-  filtered.forEach(r => {
-    const mes = getMesKey(r);
-    if (!MONTHS.includes(mes)) return;
-    const val = getVal(r);
-    if (r.tipo === '1. Contas a Receber') receitaTotal += val;
-    else if (r.tipo === '2. Contas a Pagar') custoTotal += val;
-  });
-  const lucroEmpresa = receitaTotal + custoTotal;
-
-  // Identificar áreas pareadas R/D
-  const allDepts = new Set();
-  filtered.forEach(r => { if (r.departamento) allDepts.add(r.departamento); });
-  const areas = {};
-  Array.from(allDepts).forEach(dept => {
-    const match = dept.match(/^([RD])(\d+)\s*-?\s*(.*)$/);
-    if (match) {
-      const prefix = match[1], number = match[2], name = match[3].trim();
-      if (!areas[number]) areas[number] = { name, receita: null, despesa: null };
-      if (prefix === 'R') areas[number].receita = dept;
-      else areas[number].despesa = dept;
-      if (name && !areas[number].name) areas[number].name = name;
+  };
+  
+  areasList.forEach(([area, obj]) => {
+    const aKey = 'area_' + area.replace(/\W/g, '_');
+    const aOpen = _expanded.has(aKey);
+    
+    // Total operacional da área por mês = Receita - Despesa
+    const totOp = {}; MONTHS.forEach(m => totOp[m] = 0);
+    if (obj.R) MONTHS.forEach(m => totOp[m] += obj.R.totMes[m] || 0);
+    if (obj.D) MONTHS.forEach(m => totOp[m] -= obj.D.totMes[m] || 0);
+    const totOpAno = MONTHS.reduce((s, m) => s + totOp[m], 0);
+    
+    // Cabeçalho da área
+    html += `<tr style="background:#e0f2fe;font-weight:800"><td style="padding:11px 14px;cursor:pointer;position:sticky;left:0;background:#e0f2fe;z-index:5;color:#075985" onclick="_toggleExpand('${aKey}')"><span style="display:inline-block;width:16px">${aOpen?'▼':'▶'}</span> 🏢 ${_esc(area)}</td>`;
+    MONTHS.forEach(m => {
+      const v = totOp[m];
+      html += `<td style="text-align:right;padding:11px 8px;color:${v >= 0 ? '#065f46' : '#991b1b'}">${v === 0 ? '—' : _fmtSigned(v)}</td>`;
+    });
+    html += `<td style="text-align:right;padding:11px 12px;color:${totOpAno >= 0 ? '#065f46' : '#991b1b'};font-weight:800">${_fmtSigned(totOpAno)}</td></tr>`;
+    
+    if (aOpen) {
+      renderBloco(aKey, obj.R, 'R', '#dcfce7', '#166534', '📥 Receitas');
+      renderBloco(aKey, obj.D, 'D', '#fef2f2', '#991b1b', '📤 Despesas');
     }
   });
-
-  // Calcular receita e custo por área
-  const areaData = {};
-  Object.entries(areas).forEach(([num, area]) => {
-    const rec = area.receita ? sumByDept(area.receita, 'receita').total : 0;
-    const desp = area.despesa ? sumByDept(area.despesa, 'despesa').total : 0;
-    areaData[num] = { ...area, receita: rec, despesa: desp, lucro: rec + desp, hasReceita: rec > 0 };
-  });
-
-  // Custo total da empresa (despesas)
-  const custoTotalEmpresa = Object.values(areaData).reduce((a,d) => a + Math.abs(d.despesa), 0);
-
-  let html = '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:24px">';
-  html += '<h3 style="font-size:14px;margin-bottom:8px">ℹ️ Faturamento + Lucro por Pessoa</h3>';
-  html += '<p style="font-size:12px;color:var(--text-secondary);line-height:1.6">';
-  html += '<strong>Áreas com receita direta (Performance, CS, Comercial):</strong> Receita real da área, lucro proporcional ao custo da pessoa<br>';
-  html += '<strong>Áreas sem receita direta (Tech, Criação, Finance):</strong> Lucro atribuído via rateio proporcional ao custo total da empresa<br>';
-  html += '<strong>Lucro da Empresa:</strong> ' + fmtSigned(lucroEmpresa) + ' • Custo Total: ' + fmt(Math.abs(custoTotalEmpresa));
-  html += '</p></div>';
-
-  // Filtrar PJs (07.01)
-  const pjFiltered = filtered.filter(r => r.categoria && r.categoria.startsWith('07.01') && r.tipo === '2. Contas a Pagar');
-  if (pjFiltered.length === 0) {
-    html += emptyState('⏳', 'Sem dados de PJs', 'Nenhum lançamento em 07.01.');
-    document.getElementById('pjsContent').innerHTML = html;
-    return;
-  }
-
-  // Agrupar PJs por departamento
-  const pjsByDept = {};
-  pjFiltered.forEach(r => {
-    const dept = _limparDepto(r.departamento);
-    if (!pjsByDept[dept]) pjsByDept[dept] = {};
-    const pj = r.fornecedor || 'Sem identificação';
-    if (!pjsByDept[dept][pj]) pjsByDept[dept][pj] = 0;
-    pjsByDept[dept][pj] += getVal(r);
-  });
-
-  html += '<div class="table-container"><table>';
-  html += '<thead><tr><th>Área / PJ</th><th>Custo (PJ)</th><th>Receita da Área</th><th>Lucro da Área</th><th>% Custo na Área</th><th>Lucro Atribuído</th><th>Tipo Cálculo</th></tr></thead><tbody>';
-
-  Object.entries(pjsByDept).sort().forEach(([dept, pjs]) => {
-    const match = dept.match(/^D(\d+)/);
-    const areaNum = match ? match[1] : null;
-    const area = areaNum ? areaData[areaNum] : null;
-    const hasReceita = area && area.hasReceita;
-    
-    const custoArea = area ? Math.abs(area.despesa) : 0;
-    const receitaArea = area ? area.receita : 0;
-    const lucroArea = area ? area.lucro : 0;
-
-    // Header do departamento
-    html += '<tr class="section-header"><td>🏢 ' + dept + (hasReceita ? ' (com receita direta)' : ' (rateio)') + '</td>';
-    html += '<td>' + fmt(custoArea) + '</td>';
-    html += '<td>' + (hasReceita ? fmt(receitaArea) : '—') + '</td>';
-    html += '<td style="color:' + (lucroArea >= 0 ? 'var(--primary)' : 'var(--secondary)') + '">' + (hasReceita ? fmtSigned(lucroArea) : '—') + '</td>';
-    html += '<td>—</td><td>—</td><td></td></tr>';
-
-    // Cada PJ da área
-    Object.entries(pjs).sort((a,b) => Math.abs(b[1]) - Math.abs(a[1])).forEach(([pj, custoPj]) => {
-      const custoPjAbs = Math.abs(custoPj);
-      let lucroAtribuido = 0;
-      let tipoCalc = '';
-      let pctArea = 0;
-
-      if (hasReceita && custoArea > 0) {
-        // Rateio dentro da área
-        pctArea = (custoPjAbs / custoArea) * 100;
-        lucroAtribuido = lucroArea * (custoPjAbs / custoArea);
-        tipoCalc = '<span style="background:#d1fae5;color:var(--primary-dark);padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600">Direto</span>';
-      } else if (custoTotalEmpresa > 0) {
-        // Rateio proporcional ao custo total da empresa
-        pctArea = (custoPjAbs / custoTotalEmpresa) * 100;
-        lucroAtribuido = lucroEmpresa * (custoPjAbs / custoTotalEmpresa);
-        tipoCalc = '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600">Rateio</span>';
-      }
-
-      html += '<tr class="cat-row">';
-      html += '<td>👤 ' + pj + '</td>';
-      html += '<td style="color:var(--secondary)">' + fmt(custoPjAbs) + '</td>';
-      html += '<td>—</td>';
-      html += '<td>—</td>';
-      html += '<td>' + pctArea.toFixed(1) + '%</td>';
-      html += '<td style="color:' + (lucroAtribuido >= 0 ? 'var(--primary)' : 'var(--secondary)') + ';font-weight:700">' + fmtSigned(lucroAtribuido) + '</td>';
-      html += '<td>' + tipoCalc + '</td>';
-      html += '</tr>';
-    });
-    html += '<tr class="spacer"><td colspan="7"></td></tr>';
-  });
-
-  html += '</tbody></table></div>';
-
-  html += '<div class="summary-container">';
-  html += '<div class="summary-item"><div class="summary-label">Lucro da Empresa</div><div class="summary-value" style="color:' + (lucroEmpresa >= 0 ? 'var(--primary)' : 'var(--secondary)') + '">' + fmtSigned(lucroEmpresa) + '</div></div>';
-  html += '<div class="summary-item"><div class="summary-label">Custo Total</div><div class="summary-value" style="color:var(--secondary)">' + fmt(Math.abs(custoTotalEmpresa)) + '</div></div>';
-  html += '<div class="summary-item"><div class="summary-label">Margem</div><div class="summary-value">' + (receitaTotal > 0 ? (lucroEmpresa / receitaTotal * 100).toFixed(1) + '%' : '—') + '</div></div>';
-  html += '</div>';
-
-  document.getElementById('pjsContent').innerHTML = html;
+  
+  html += `</tbody></table></div></div>`;
+  container.innerHTML = html;
 }
 
-
+function _setViewPJ(v) { currentView = v; renderPJs(); }
 
 function showDetailPJ(colab, mes) {
   const data = getRawData();
@@ -4426,7 +4341,13 @@ function showMargemDetail(m, receita, cd, ci, trib, distr) {
 function renderTicket() {
   const data = getRawData();
   const filtered = filterData(data, false).filter(r =>
-    r.tipo === '1. Contas a Receber' && r.categoria && r.categoria.startsWith('01.01')
+    r.tipo === '1. Contas a Receber' && r.categoria && (
+      r.categoria.includes('Mensalidades Clientes') ||
+      r.categoria.includes('Mensalidade Inadimplentes') ||
+      r.categoria.includes('Mensalidades Inadimplentes') ||
+      r.categoria.includes('Taxa de Implementação') ||
+      r.categoria.includes('Taxa Implementação')
+    )
   );
 
   const byMonth = {};
@@ -4445,7 +4366,7 @@ function renderTicket() {
 
   const valid = MONTHS.filter(m => ticketByMonth[m] > 0);
   if (valid.length === 0) {
-    document.getElementById('ticketContent').innerHTML = emptyState('⏳', 'Sem dados de mensalidades', 'Nenhum lançamento na categoria "01.01 Mensalidades Clientes" encontrado.');
+    document.getElementById('ticketContent').innerHTML = emptyState('⏳', 'Sem dados de mensalidades', 'Nenhum lançamento nas categorias Mensalidades Clientes, Inadimplentes ou Taxa de Implementação encontrado.');
     return;
   }
 
@@ -6153,22 +6074,22 @@ if (document.readyState === 'loading') {
   
   // Sub-grupos dentro de RECEITAS (Diretas vs Estratégicas)
   const _SUBGRUPO_RECEITA = {
-    'Receita de Prestação de Serviços (Mensalidades Clientes)': 'Receitas Diretas',
-    'Receita de Prestação de Serviços (Taxa de Implementação)': 'Receitas Diretas',
-    'Receita de Prestação de Serviços (Mensalidade Inadimplentes)': 'Receitas Diretas',
-    'Receita de Prestação de Serviço - Taxa de Implementação': 'Receitas Diretas',
-    'Receita de Projetos e Consultorias': 'Receitas Diretas',
-    'Receita de Vendas Tik Tok': 'Receitas Diretas',
-    'Bonificações de Plataformas': 'Receitas Estratégicas',
-    'Estratégia direto na conta': 'Receitas Estratégicas',
-    'Estratégia recrutamento': 'Receitas Estratégicas',
-    'Outras Receitas Operacionais': 'Receitas Diretas',
-    'Rendimentos de Aplicações': 'Receitas Estratégicas',
+    'Receita de Prestação de Serviços (Mensalidades Clientes)': 'RECEITAS DIRETAS',
+    'Receita de Prestação de Serviços (Taxa de Implementação)': 'RECEITAS DIRETAS',
+    'Receita de Prestação de Serviços (Mensalidade Inadimplentes)': 'RECEITAS DIRETAS',
+    'Receita de Prestação de Serviço - Taxa de Implementação': 'RECEITAS DIRETAS',
+    'Receita de Projetos e Consultorias': 'RECEITAS DIRETAS',
+    'Receita de Vendas Tik Tok': 'RECEITAS DIRETAS',
+    'Bonificações de Plataformas': 'RECEITAS ESTRATÉGICAS',
+    'Estratégia direto na conta': 'RECEITAS ESTRATÉGICAS',
+    'Estratégia recrutamento': 'RECEITAS ESTRATÉGICAS',
+    'Outras Receitas Operacionais': 'RECEITAS DIRETAS',
+    'Rendimentos de Aplicações': 'RECEITAS ESTRATÉGICAS',
   };
-  const _ORDEM_SUBGRUPOS_RECEITA = ['Receitas Diretas', 'Receitas Estratégicas'];
+  const _ORDEM_SUBGRUPOS_RECEITA = ['RECEITAS DIRETAS', 'RECEITAS ESTRATÉGICAS'];
   
   function _subgrupoReceita(cat) {
-    return _SUBGRUPO_RECEITA[cat] || 'Receitas Diretas';
+    return _SUBGRUPO_RECEITA[cat] || 'RECEITAS DIRETAS';
   }
   const _GRUPO_AJUSTE_ENTRADA = 'AJUSTE_ENTRADA';
   const _GRUPO_AJUSTE_SAIDA = 'AJUSTE_SAIDA';
@@ -6205,7 +6126,7 @@ if (document.readyState === 'loading') {
     // ==== DESPESAS — FORNECEDORES ====
     'Influenciadores / Talentos': 'FORNECEDORES',
     'Editores de Vídeo': 'FORNECEDORES',
-    'Devolução de Empréstimo Bancário': 'FORNECEDORES',
+    'Devolução de Empréstimo Bancário': 'EMPRÉSTIMOS',
     'Prestadores de Serviços - Pontual': 'FORNECEDORES',
     'Aluguel de Equipamentos Operacionais': 'FORNECEDORES',
     'Aluguel': 'FORNECEDORES',
@@ -6256,6 +6177,7 @@ if (document.readyState === 'loading') {
     'FORNECEDORES',
     'VARIÁVEIS',
     'INVESTIMENTOS',
+    'EMPRÉSTIMOS',   // novo — logo acima de IMPOSTOS
     'IMPOSTOS',
     'DISTRIBUIÇÃO DOS SÓCIOS',
     'SCALIA',
@@ -6386,6 +6308,20 @@ if (document.readyState === 'loading') {
       }
       // Movimentos de contas de aplicação/investimento: pulam - vão pro bloco Aplicações Financeiras próprio
       if (r.conta === 'Banco Inter (Aplicação)' || r.conta === 'Investimentos Banco Inter' || r.conta === 'Investimentos Itaú Unibanco') {
+        return;
+      }
+
+      // Saída de Transferência do Banco Inter → Cartão 2130 vira CATEGORIA "Cartão de Crédito Inter" em FORNECEDORES
+      // (mostra apenas o valor transferido do pagamento da fatura do cartão)
+      if (r.conta === 'Banco Inter' && r.tipo === '2. Contas a Pagar' 
+          && catLimpa === 'Saída de Transferência'
+          && String(r.fornecedor || '').indexOf('Transf. Banco Inter >> Cartão 2130') >= 0) {
+        const grpF = despesasPorGrupo.get('FORNECEDORES');
+        if (grpF) {
+          _addItem(grpF, 'Cartão de Crédito Inter', mes, val, r);
+          totDespMes[mes] += val;
+          if (totGrupoMes['FORNECEDORES']) totGrupoMes['FORNECEDORES'][mes] = (totGrupoMes['FORNECEDORES'][mes] || 0) + val;
+        }
         return;
       }
 
@@ -6634,9 +6570,9 @@ if (document.readyState === 'loading') {
       if (gOpen) {
         (function(){
           const _ORDEM_FORNEC = grupo === 'FORNECEDORES' ? {
-            'Influenciadores / Talentos': 1,
-            'Editores de Vídeo': 2,
-            'Devolução de Empréstimo Bancário': 3,
+            'Cartão de Crédito Inter': 1,
+            'Influenciadores / Talentos': 2,
+            'Editores de Vídeo': 3,
             'Aluguel': 4,
             'Prestadores de Serviços - Pontual': 5,
           } : null;
