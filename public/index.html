@@ -699,6 +699,12 @@ body.scalia-mode .company-badge {
     </div>
   </div>
   <div class="nav-section">
+    <div class="nav-label">Departamento Pessoal</div>
+    <div class="nav-buttons">
+      <button class="nav-btn" data-section="rh"><span class="nav-icon">👥</span><span>RH</span></button>
+    </div>
+  </div>
+  <div class="nav-section">
     <div class="nav-label">Contabilidade</div>
     <div class="nav-buttons">
       <button class="nav-btn" data-section="dre"><span class="nav-icon">📋</span><span>DRE</span></button>
@@ -765,6 +771,7 @@ body.scalia-mode .company-badge {
 </div>
     <div id="cardSection" class="hidden"><div id="cardContent"></div></div>
     <div id="recebiveisSection" class="hidden"><div id="recebiveisContent"></div></div>
+    <div id="rhSection" class="hidden"><div id="rhContent"></div></div>
     <div id="kpisSection" class="hidden"><div id="kpisContent"></div></div>
     <div id="dreSection" class="hidden"><div id="dreContent"></div></div>
     <div id="pjsSection" class="hidden">
@@ -1938,6 +1945,102 @@ function renderKPIs() {
   `;
 }
 
+// =====================================================================================
+// MENU RH — Folha de pagamento dos prestadores PJ
+// Lista fornecedores da categoria "Remuneração Operacional PJ"
+// Cada linha = prestador, cada coluna = mês, valores editáveis
+// Total por mês (fechamento folha) e total anual por prestador
+// =====================================================================================
+function _getRHValor(fornecedor, mes) {
+  try {
+    const saved = localStorage.getItem('rh_folha_v1');
+    if (!saved) return 0;
+    const data = JSON.parse(saved);
+    return data[fornecedor + '|' + mes] || 0;
+  } catch(e) { return 0; }
+}
+function _setRHValor(fornecedor, mes, val) {
+  try {
+    const saved = localStorage.getItem('rh_folha_v1');
+    const data = saved ? JSON.parse(saved) : {};
+    const k = fornecedor + '|' + mes;
+    if (!val || val === 0) delete data[k];
+    else data[k] = val;
+    localStorage.setItem('rh_folha_v1', JSON.stringify(data));
+  } catch(e) {}
+}
+
+function renderRH() {
+  const container = document.getElementById('rhContent');
+  if (!container) return;
+  
+  // Buscar prestadores únicos da categoria "Remuneração Operacional PJ"
+  const data = RAW_DATA_CAIXA || [];
+  const prestadores = new Set();
+  data.forEach(r => {
+    if (r.tipo !== '2. Contas a Pagar') return;
+    const cat = String(r.categoria || '');
+    if (!cat.includes('Remuneração')) return;
+    if (!cat.includes('PJ') && !cat.includes('Operacional')) return;
+    const forn = String(r.fornecedor || '').trim();
+    if (!forn) return;
+    prestadores.add(forn);
+  });
+  
+  const listaPrestadores = [...prestadores].sort((a, b) => a.localeCompare(b));
+  const MONTH_LABELS = ['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
+  const MONTHS_LOCAL = ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'];
+  
+  const _fmt = v => (v || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  
+  // Calcular totais mês a mês
+  const totMes = {};
+  MONTHS_LOCAL.forEach(m => totMes[m] = 0);
+  listaPrestadores.forEach(p => {
+    MONTHS_LOCAL.forEach(m => totMes[m] += _getRHValor(p, m));
+  });
+  const totGeral = MONTHS_LOCAL.reduce((s, m) => s + totMes[m], 0);
+  
+  let html = `<div style="padding:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h2 style="margin:0;color:#0f172a">👥 RH — Folha de Pagamento PJ</h2>
+      <div style="font-size:12px;color:#64748b">${listaPrestadores.length} prestadores</div>
+    </div>
+    <div class="table-container">
+    <table>
+      <thead>
+        <tr>
+          <th style="text-align:left;padding:10px 14px;min-width:280px;position:sticky;left:0;background:#f9fafb;z-index:3">Prestador</th>
+          ${MONTH_LABELS.map(m => `<th style="text-align:right;padding:10px 8px;min-width:100px">${m}</th>`).join('')}
+          <th style="text-align:right;padding:10px 12px;background:#f3f4f6;font-weight:800">TOTAL ANO</th>
+        </tr>
+      </thead>
+      <tbody>`;
+  
+  listaPrestadores.forEach((p, idx) => {
+    const totAno = MONTHS_LOCAL.reduce((s, m) => s + _getRHValor(p, m), 0);
+    const bg = idx % 2 === 0 ? '#ffffff' : '#fafafa';
+    html += `<tr style="background:${bg}"><td style="padding:8px 14px;font-size:12px;position:sticky;left:0;background:${bg};z-index:2" title="${_esc(p)}">${_esc(p)}</td>`;
+    MONTHS_LOCAL.forEach(m => {
+      const v = _getRHValor(p, m);
+      html += `<td style="padding:4px 6px"><input type="number" step="0.01" value="${v || ''}" onchange="_setRHValor('${p.replace(/'/g, "\\'")}','${m}',parseFloat(this.value)||0); renderRH();" placeholder="—" style="width:100%;max-width:95px;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;background:white;font-family:Poppins;font-size:11.5px;text-align:right;outline:none;box-sizing:border-box"/></td>`;
+    });
+    html += `<td style="text-align:right;padding:8px 12px;font-weight:700;background:#f3f4f6;font-size:12px">${totAno === 0 ? '—' : _fmt(totAno)}</td></tr>`;
+  });
+  
+  // Linha de TOTAL / Fechamento da Folha
+  html += `<tr style="background:#dbeafe;font-weight:800"><td style="padding:12px 14px;font-size:13px;color:#1e40af;position:sticky;left:0;background:#dbeafe;z-index:2">💼 FECHAMENTO DA FOLHA</td>`;
+  MONTHS_LOCAL.forEach(m => {
+    const v = totMes[m];
+    html += `<td style="text-align:right;padding:12px 8px;font-weight:800;color:#1e40af;font-size:12.5px">${v === 0 ? '—' : _fmt(v)}</td>`;
+  });
+  html += `<td style="text-align:right;padding:12px 12px;font-weight:800;color:#1e40af;background:#bfdbfe">${_fmt(totGeral)}</td></tr>`;
+  
+  html += `</tbody></table></div></div>`;
+  container.innerHTML = html;
+}
+
+
 
 function showSection(section) {
   // Em modo Scalia, redirecionar Growper section → Scalia section
@@ -1956,7 +2059,7 @@ function showSection(section) {
   if (btn) btn.classList.add('active');
   
   // Esconder TODAS as seções (Growper + Scalia)
-  ['mainSection','areaSection','cardSection','recebiveisSection','kpisSection','dreSection','pjsSection','margemSection','ticketSection','scaliaMainSection2','scaliaCardSection2','scaliaKitsSection2'].forEach(id => {
+  ['mainSection','areaSection','cardSection','recebiveisSection','kpisSection','rhSection','dreSection','pjsSection','margemSection','ticketSection','scaliaMainSection2','scaliaCardSection2','scaliaKitsSection2'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add('hidden');
   });
@@ -2024,6 +2127,7 @@ function showSection(section) {
 function refreshCurrent() {
   if (currentSection === 'main') renderMain();
   else if (currentSection === 'kpis') renderKPIs();
+  else if (currentSection === 'rh') renderRH();
   else if (currentSection === 'area') renderArea();
   else if (currentSection === 'card') renderCard();
   else if (currentSection === 'recebiveis') renderRecebiveis();
