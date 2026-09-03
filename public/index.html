@@ -2838,7 +2838,7 @@ function _limparDepto(dept) {
 // Helpers globais para menus que estão no escopo global (renderCard, renderPJs)
 // Reutiliza window._esc etc. se já existirem, senão cria
 const _esc = window._esc || (s => String(s || '').replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c])));
-const _fmt = window._fmt || (v => v.toLocaleString('pt-BR', {minimumFractionDigits: 0, maximumFractionDigits: 0}));
+const _fmt = (v => (v || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2}));
 const _fmtSigned = window._fmtSigned || (v => (v >= 0 ? '' : '-') + _fmt(Math.abs(v)));
 // _expanded: usa o Set global que window._toggleExpand modifica (definido no escopo interno)
 const _expanded = window._expanded || new Set();
@@ -2911,14 +2911,6 @@ function renderCard() {
         </tr></thead>
         <tbody>`;
   
-  // Total fatura no topo
-  html += `<tr style="background:#fef2f2;font-weight:800"><td style="padding:12px 14px;color:#991b1b;position:sticky;left:0;background:#fef2f2;z-index:5">📊 TOTAL FATURA</td>`;
-  MONTHS.forEach(m => {
-    const v = totGeral[m] || 0;
-    html += `<td style="text-align:right;padding:12px 8px;color:#991b1b">${v === 0 ? '—' : _fmt(v)}</td>`;
-  });
-  html += `<td style="text-align:right;padding:12px 12px;color:#991b1b">${_fmt(totFinal)}</td></tr>`;
-  
   depts.forEach(([dept, dObj]) => {
     const dKey = 'cardnew_d_' + dept.replace(/\W/g, '_');
     const dOpen = _expanded.has(dKey);
@@ -2957,6 +2949,14 @@ function renderCard() {
       });
     });
   });
+  
+  // 📊 TOTAL FATURA no FINAL, abaixo de todos os departamentos
+  html += `<tr style="background:#fef2f2;font-weight:800"><td style="padding:12px 14px;color:#991b1b;position:sticky;left:0;background:#fef2f2;z-index:5">📊 TOTAL FATURA</td>`;
+  MONTHS.forEach(m => {
+    const v = totGeral[m] || 0;
+    html += `<td style="text-align:right;padding:12px 8px;color:#991b1b">${v === 0 ? '—' : _fmt(v)}</td>`;
+  });
+  html += `<td style="text-align:right;padding:12px 12px;color:#991b1b">${_fmt(totFinal)}</td></tr>`;
   
   html += `</tbody></table></div></div>`;
   container.innerHTML = html;
