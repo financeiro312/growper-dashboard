@@ -765,6 +765,7 @@ body.scalia-mode .company-badge {
 </div>
     <div id="cardSection" class="hidden"><div id="cardContent"></div></div>
     <div id="recebiveisSection" class="hidden"><div id="recebiveisContent"></div></div>
+    <div id="kpisSection" class="hidden"><div id="kpisContent"></div></div>
     <div id="dreSection" class="hidden"><div id="dreContent"></div></div>
     <div id="pjsSection" class="hidden">
   <div style="display:flex;gap:8px;margin-bottom:24px;border-bottom:1px solid var(--border)">
@@ -1924,22 +1925,19 @@ function showDetailArea(dept, tipo, mes) {
 
 // SECTION SWITCHER
 function renderKPIs() {
-  const main = document.getElementById('mainArea');
-  main.innerHTML = `
-    <div style="max-width:900px;margin:40px auto;padding:32px;background:white;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.06)">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
-        <span style="font-size:32px">📊</span>
-        <h2 style="margin:0;font-size:22px;font-weight:700;color:#0f172a">KPI's Financeiros</h2>
-      </div>
-      <p style="color:#475569;line-height:1.6;font-size:14px;margin-bottom:20px">
-        Página em construção. Aguardando definição dos critérios de KPIs a serem monitorados.
-      </p>
-      <div style="padding:16px 20px;background:#f1f5f9;border-left:4px solid #3b82f6;border-radius:4px;font-size:13px;color:#334155">
-        <strong>Próximo passo:</strong> definir a lista de KPIs, fórmulas, frequência de cálculo (mensal / trimestral / anual), metas e visualização (número, gráfico, tabela).
+  const container = document.getElementById('kpisContent') || document.getElementById('mainArea');
+  if (!container) return;
+  container.innerHTML = `
+    <div style="min-height:70vh;display:flex;align-items:center;justify-content:center;padding:40px">
+      <div style="max-width:520px;padding:40px;background:white;border-radius:14px;box-shadow:0 4px 20px rgba(0,0,0,0.08);text-align:center">
+        <div style="font-size:56px;margin-bottom:20px">🚧</div>
+        <h2 style="margin:0 0 12px;font-size:24px;font-weight:800;color:#0f172a">Menu em Construção</h2>
+        <p style="color:#64748b;line-height:1.6;font-size:14px;margin:0">Este menu está sendo reformulado. Em breve traremos a nova versão de KPI's Financeiros.</p>
       </div>
     </div>
   `;
 }
+
 
 function showSection(section) {
   // Em modo Scalia, redirecionar Growper section → Scalia section
@@ -1958,7 +1956,7 @@ function showSection(section) {
   if (btn) btn.classList.add('active');
   
   // Esconder TODAS as seções (Growper + Scalia)
-  ['mainSection','areaSection','cardSection','recebiveisSection','dreSection','pjsSection','margemSection','ticketSection','scaliaMainSection2','scaliaCardSection2','scaliaKitsSection2'].forEach(id => {
+  ['mainSection','areaSection','cardSection','recebiveisSection','kpisSection','dreSection','pjsSection','margemSection','ticketSection','scaliaMainSection2','scaliaCardSection2','scaliaKitsSection2'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add('hidden');
   });
@@ -2025,6 +2023,7 @@ function showSection(section) {
 
 function refreshCurrent() {
   if (currentSection === 'main') renderMain();
+  else if (currentSection === 'kpis') renderKPIs();
   else if (currentSection === 'area') renderArea();
   else if (currentSection === 'card') renderCard();
   else if (currentSection === 'recebiveis') renderRecebiveis();
@@ -2837,7 +2836,7 @@ function _limparDepto(dept) {
 }
 
 function renderCard() {
-  const container = document.getElementById('mainArea');
+  const container = document.getElementById('cardContent') || document.getElementById('mainArea');
   const data = (currentView === 'caixa') ? RAW_DATA_CAIXA : RAW_DATA_COMP;
   const rows = data.filter(r => {
     if (r.conta !== 'Cartão 2130') return false;
@@ -3389,7 +3388,7 @@ function getValorMes(cliente, mes) {
 }
 
 function renderRecebiveis() {
-  const container = document.getElementById('mainArea') || document.getElementById('recebiveisContent');
+  const container = document.getElementById('recebiveisContent') || document.getElementById('mainArea');
   const html = `
     <div style="min-height:70vh;display:flex;align-items:center;justify-content:center;padding:40px">
       <div style="max-width:520px;padding:40px;background:white;border-radius:14px;box-shadow:0 4px 20px rgba(0,0,0,0.08);text-align:center">
@@ -4008,7 +4007,7 @@ function renderDRE() {
 // =================== PJs (07.01 mês a mês: Dept→Cat→Colaborador) ===================
 function renderPJs() {
   // Menu ÁREAS: mesmo padrão do Principal, mas por departamento com Receitas e Despesas
-  const container = document.getElementById('mainArea') || document.getElementById('pjsContent');
+  const container = document.getElementById('pjsContent') || document.getElementById('mainArea');
   if (!container) return;
   const data = (currentView === 'caixa') ? RAW_DATA_CAIXA : RAW_DATA_COMP;
   
