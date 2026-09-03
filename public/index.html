@@ -6196,11 +6196,16 @@ if (document.readyState === 'loading') {
     const isReceita = _CLASSIFICACAO[catLimpa] === _GRUPO_RECEITAS;
     if (dep.includes('scalia') && !isReceita) return _GRUPO_SCALIA;
 
-    // EXCEÇÃO: GRANVILLE em "Prestadores de Serviços - Pontual" → FORNECEDORES
+    // EXCEÇÃO: fornecedores específicos em "Prestadores de Serviços - Pontual" → FORNECEDORES
     // (regra manual do usuário — outros fornecedores dessa categoria seguem em VARIÁVEIS)
-    if (catLimpa === 'Prestadores de Serviços - Pontual' 
-        && String(fornecedor || '').toUpperCase().includes('GRANVILLE')) {
-      return 'FORNECEDORES';
+    if (catLimpa === 'Prestadores de Serviços - Pontual') {
+      const f = String(fornecedor || '').toUpperCase();
+      if (f.includes('GRANVILLE') 
+          || f.includes('KAUE KENDY') 
+          || f.includes('FOGAROLLI')
+          || f.includes('BOREALIS')) {
+        return 'FORNECEDORES';
+      }
     }
 
     const g = _CLASSIFICACAO[catLimpa];
