@@ -6190,16 +6190,21 @@ if (document.readyState === 'loading') {
     'SCALIA',
   ];
 
-  function _classificar(catLimpa, departamento) {
+  function _classificar(catLimpa, departamento, fornecedor) {
     // Regra Scalia por departamento tem prioridade sobre mapa fixo
-    // (exceto receitas — receitas continuam receitas mesmo se vierem do dept Scalia)
     const dep = String(departamento || '').toLowerCase();
     const isReceita = _CLASSIFICACAO[catLimpa] === _GRUPO_RECEITAS;
     if (dep.includes('scalia') && !isReceita) return _GRUPO_SCALIA;
 
+    // EXCEÇÃO: GRANVILLE em "Prestadores de Serviços - Pontual" → FORNECEDORES
+    // (regra manual do usuário — outros fornecedores dessa categoria seguem em VARIÁVEIS)
+    if (catLimpa === 'Prestadores de Serviços - Pontual' 
+        && String(fornecedor || '').toUpperCase().includes('GRANVILLE')) {
+      return 'FORNECEDORES';
+    }
+
     const g = _CLASSIFICACAO[catLimpa];
     if (g) return g;
-    // Categorias não mapeadas: para AJUSTES (aparecem em Movimentações de Caixa > Ajustes Financeiros)
     return _GRUPO_AJUSTE_SAIDA;
   }
 
@@ -6304,7 +6309,7 @@ if (document.readyState === 'loading') {
         return;
       }
 
-      const grupo = _classificar(catLimpa, r.departamento);
+      const grupo = _classificar(catLimpa, r.departamento, r.fornecedor);
 
       // Receitas (só se _isReceber for verdadeiro)
       if (grupo === _GRUPO_RECEITAS && _isReceber(r.tipo)) {
@@ -7313,7 +7318,7 @@ if (document.readyState === 'loading') {
         totCartaoMes[mes] += val;
         return;
       }
-      const grupo = _classificar(catLimpa, r.departamento);
+      const grupo = _classificar(catLimpa, r.departamento, r.fornecedor);
 
       if (grupo === _GRUPO_RECEITAS) {
         _add(receitas, catLimpa, mes, val);
@@ -7450,7 +7455,7 @@ if (document.readyState === 'loading') {
       .filter(r => MONTHS.includes(_getMes(r, 'main')) && Math.abs(r[valKey] || 0) > 0)
       .map(r => {
         const catLimpa = _limparCategoria(r.categoria || '');
-        const grupo = _classificar(catLimpa, r.departamento);
+        const grupo = _classificar(catLimpa, r.departamento, r.fornecedor);
         const isCartao = r.tipo === '2. Contas a Pagar' && r.conta === 'Cartão 2130';
         return {
           data: r.dataPagto || '',
