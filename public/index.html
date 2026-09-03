@@ -6679,8 +6679,11 @@ if (document.readyState === 'loading') {
     // Construir HTML — cabeçalho com toggle Projetado por mês
     const thead = document.getElementById('tableHead');
     let theadHtml = '<tr><th style="text-align:left;padding:10px 14px">Descrição</th>';
-    MONTH_LABELS.forEach((mLabel, idx) => {
-      const mes = MONTHS[idx];
+    // Iterar em MONTHS filtrado e pegar label pelo índice REAL do mês no ano
+    MONTHS.forEach(mes => {
+      // Extrair mês (01-12) do formato 'YYYY-MM'
+      const monthNum = parseInt(mes.split('-')[1], 10);
+      const mLabel = MONTH_LABELS[monthNum - 1];
       const vis = projetadoVisible[mes];
       const btnIcon = vis ? '◀' : '▶';
       theadHtml += `<th style="text-align:right;padding:10px 8px">${mLabel.toUpperCase()}<button onclick="toggleProjetadoMes('${mes}')" title="${vis?'Ocultar':'Mostrar'} projetado" style="margin-left:6px;width:18px;height:18px;border:1px solid ${vis?'#f59e0b':'#d1d5db'};background:${vis?'#fef9c3':'white'};color:${vis?'#92400e':'#6b7280'};border-radius:4px;font-weight:700;font-size:11px;cursor:pointer;line-height:1;padding:0;font-family:Poppins">${btnIcon}</button></th>`;
@@ -6699,7 +6702,7 @@ if (document.readyState === 'loading') {
         const v = byMonth[m] || 0;
         if (v > 0) {
           const ck = prefixKey + '_' + m;
-          _drillCache[ck] = { titulo: categoriaNome, subtitulo: MONTH_NAMES[MONTHS.indexOf(m)], items: null, _lazyGroup: prefixKey, _lazyMonth: m };
+          _drillCache[ck] = { titulo: categoriaNome, subtitulo: MONTH_NAMES[parseInt(m.split('-')[1],10)-1], items: null, _lazyGroup: prefixKey, _lazyMonth: m };
           const cls = isNeg ? 'value-neg' : 'value-pos';
           cells += `<td onclick="_showLancamentos('${ck}')" style="text-align:right;padding:8px;cursor:pointer;font-size:11.5px" class="${cls}">${_fmt(v)}</td>`;
         } else {
@@ -6836,7 +6839,7 @@ if (document.readyState === 'loading') {
             const v = g.byMonth[m] || 0;
             if (v > 0) {
               const ck = key + '_' + m;
-              _drillCache[ck] = { titulo: cat, subtitulo: MONTH_NAMES[MONTHS.indexOf(m)], items: g.items.filter(it => it.mes === m) };
+              _drillCache[ck] = { titulo: cat, subtitulo: MONTH_NAMES[parseInt(m.split('-')[1],10)-1], items: g.items.filter(it => it.mes === m) };
               cells += `<td onclick="_showLancamentos('${ck}')" style="text-align:right;padding:8px;cursor:pointer;font-size:11.5px" class="value-pos">${_fmt(v)}</td>`;
             } else {
               cells += `<td style="text-align:right;padding:8px;font-size:11.5px" class="value-zero">—</td>`;
@@ -6868,7 +6871,7 @@ if (document.readyState === 'loading') {
                 const v = fG.byMonth[m] || 0;
                 if (v > 0) {
                   const fck = fKey + '_' + m;
-                  _drillCache[fck] = { titulo: fName, subtitulo: MONTH_NAMES[MONTHS.indexOf(m)] + ' • ' + cat, items: fG.items.filter(it => it.mes === m) };
+                  _drillCache[fck] = { titulo: fName, subtitulo: MONTH_NAMES[parseInt(m.split('-')[1],10)-1] + ' • ' + cat, items: fG.items.filter(it => it.mes === m) };
                   fCells += `<td onclick="_showLancamentos('${fck}')" style="text-align:right;padding:6px;cursor:pointer;font-size:11px" class="value-pos">${_fmt(v)}</td>`;
                 } else {
                   fCells += `<td style="text-align:right;padding:6px;font-size:11px" class="value-zero">—</td>`;
@@ -6977,7 +6980,7 @@ if (document.readyState === 'loading') {
             const v = g.byMonth[m] || 0;
             if (v > 0) {
               const ck = key + '_' + m;
-              _drillCache[ck] = { titulo: cat, subtitulo: MONTH_NAMES[MONTHS.indexOf(m)] + ' • ' + grupo, items: g.items.filter(it => it.mes === m) };
+              _drillCache[ck] = { titulo: cat, subtitulo: MONTH_NAMES[parseInt(m.split('-')[1],10)-1] + ' • ' + grupo, items: g.items.filter(it => it.mes === m) };
               cells += `<td onclick="_showLancamentos('${ck}')" style="text-align:right;padding:8px;cursor:pointer;font-size:11.5px" class="value-neg">${_fmt(v)}</td>`;
             } else {
               cells += `<td style="text-align:right;padding:8px;font-size:11.5px" class="value-zero">—</td>`;
@@ -7009,7 +7012,7 @@ if (document.readyState === 'loading') {
                 const v = fG.byMonth[m] || 0;
                 if (v > 0) {
                   const fck = fKey + '_' + m;
-                  _drillCache[fck] = { titulo: fName, subtitulo: MONTH_NAMES[MONTHS.indexOf(m)] + ' • ' + cat, items: fG.items.filter(it => it.mes === m) };
+                  _drillCache[fck] = { titulo: fName, subtitulo: MONTH_NAMES[parseInt(m.split('-')[1],10)-1] + ' • ' + cat, items: fG.items.filter(it => it.mes === m) };
                   fCells += `<td onclick="_showLancamentos('${fck}')" style="text-align:right;padding:6px;cursor:pointer;font-size:11px" class="value-neg">${_fmt(v)}</td>`;
                 } else {
                   fCells += `<td style="text-align:right;padding:6px;font-size:11px" class="value-zero">—</td>`;
@@ -7274,7 +7277,7 @@ if (document.readyState === 'loading') {
               const v = g.byMonth[m] || 0;
               if (v > 0) {
                 const ck = key + '_' + m;
-                _drillCache[ck] = { titulo: cat, subtitulo: MONTH_NAMES[MONTHS.indexOf(m)] + ' • Ajuste (Entrada)', items: g.items.filter(it => it.mes === m) };
+                _drillCache[ck] = { titulo: cat, subtitulo: MONTH_NAMES[parseInt(m.split('-')[1],10)-1] + ' • Ajuste (Entrada)', items: g.items.filter(it => it.mes === m) };
                 cells += `<td onclick="_showLancamentos('${ck}')" style="text-align:right;padding:6px;cursor:pointer;font-size:11.5px" class="value-pos">${_fmt(v)}</td>`;
               } else {
                 cells += `<td style="text-align:right;padding:6px;font-size:11.5px" class="value-zero">—</td>`;
@@ -7297,7 +7300,7 @@ if (document.readyState === 'loading') {
               const v = g.byMonth[m] || 0;
               if (v > 0) {
                 const ck = key + '_' + m;
-                _drillCache[ck] = { titulo: cat, subtitulo: MONTH_NAMES[MONTHS.indexOf(m)] + ' • Ajuste (Saída)', items: g.items.filter(it => it.mes === m) };
+                _drillCache[ck] = { titulo: cat, subtitulo: MONTH_NAMES[parseInt(m.split('-')[1],10)-1] + ' • Ajuste (Saída)', items: g.items.filter(it => it.mes === m) };
                 cells += `<td onclick="_showLancamentos('${ck}')" style="text-align:right;padding:6px;cursor:pointer;font-size:11.5px" class="value-neg">${_fmt(-v)}</td>`;
               } else {
                 cells += `<td style="text-align:right;padding:6px;font-size:11.5px" class="value-zero">—</td>`;
