@@ -1996,7 +1996,6 @@ function renderRH() {
   const container = document.getElementById('rhContent');
   if (!container) return;
   
-  // Buscar prestadores da categoria "Remuneração Operacional PJ"
   const data = RAW_DATA_CAIXA || [];
   const prestadores = new Set();
   data.forEach(r => {
@@ -2009,106 +2008,94 @@ function renderRH() {
   });
   const listaPrestadores = [...prestadores].sort((a, b) => a.localeCompare(b));
   
-  const MONTH_LABELS = ['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
-  const MONTHS_LOCAL = ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'];
+  const MONTH_LABELS_ALL = ['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
+  const MONTHS_ALL = ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'];
+  
+  // FILTRO GLOBAL DE MÊS (do header)
+  const MONTHS_VIS = (window._MONTHS_VISIBLE && window._MONTHS_VISIBLE.length > 0) 
+    ? window._MONTHS_VISIBLE : MONTHS_ALL;
+  const showAll = MONTHS_VIS.length === 12;
   
   const _fmtLocal = v => (v || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
   const _escLocal = s => String(s || '').replace(/[<>&"']/g, ch => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[ch]));
   
-  // Filtro de mês (estado no window)
-  if (!window._rhMesFiltro) window._rhMesFiltro = 'all';
-  const mesFiltro = window._rhMesFiltro;
-  
-  // Meses visíveis
-  const mesesVisiveis = mesFiltro === 'all' ? MONTHS_LOCAL : [mesFiltro];
-  const labelsVisiveis = mesFiltro === 'all' ? MONTH_LABELS : [MONTH_LABELS[MONTHS_LOCAL.indexOf(mesFiltro)]];
-  
-  // Totais mês a mês (folha)
+  // Totais mês a mês (folha) — sempre calculado sobre TODOS os meses
   const totMes = {};
-  MONTHS_LOCAL.forEach(m => totMes[m] = 0);
+  MONTHS_ALL.forEach(m => totMes[m] = 0);
   listaPrestadores.forEach(p => {
-    MONTHS_LOCAL.forEach(m => totMes[m] += _getRHValor(p, m));
+    MONTHS_ALL.forEach(m => totMes[m] += _getRHValor(p, m));
   });
   
-  // Faturamento mês a mês: soma de todas as receitas operacionais (contas a receber)
-  // Considerar só Banco Inter e Itaú (contas correntes)
+  // Faturamento mês a mês
   const fatMes = {};
-  MONTHS_LOCAL.forEach(m => fatMes[m] = 0);
+  MONTHS_ALL.forEach(m => fatMes[m] = 0);
   data.forEach(r => {
     if (r.tipo !== '1. Contas a Receber') return;
     if (r.conta !== 'Banco Inter' && r.conta !== 'Itaú Unibanco') return;
     const cat = String(r.categoria || '');
-    // Excluir ajustes e transferências (só receitas operacionais)
     if (cat.includes('Ajuste')) return;
     if (cat.includes('Transferência')) return;
     const mes = r.mesPagto;
-    if (MONTHS_LOCAL.includes(mes)) fatMes[mes] += Math.abs(r.valorPago || 0);
+    if (MONTHS_ALL.includes(mes)) fatMes[mes] += Math.abs(r.valorPago || 0);
   });
   
   let html = `<div style="padding:20px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px">
-      <h2 style="margin:0;color:#0f172a">👥 RH — Folha de Pagamento PJ 2026</h2>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-        <span style="font-size:11px;color:#64748b;margin-right:6px">Filtrar mês:</span>
-        <button onclick="window._rhMesFiltro='all'; renderRH();" style="padding:5px 12px;border:1px solid ${mesFiltro==='all'?'#10b981':'#d1d5db'};background:${mesFiltro==='all'?'#10b981':'white'};color:${mesFiltro==='all'?'white':'#374151'};border-radius:6px;cursor:pointer;font-family:Poppins;font-size:11px">Todos</button>`;
-  MONTHS_LOCAL.forEach((m, i) => {
-    const isActive = mesFiltro === m;
-    html += `<button onclick="window._rhMesFiltro='${m}'; renderRH();" style="padding:5px 10px;border:1px solid ${isActive?'#10b981':'#d1d5db'};background:${isActive?'#10b981':'white'};color:${isActive?'white':'#374151'};border-radius:6px;cursor:pointer;font-family:Poppins;font-size:11px">${MONTH_LABELS[i]}</button>`;
-  });
-  html += `</div></div>
-    <div style="font-size:11px;color:#64748b;margin-bottom:12px">${listaPrestadores.length} prestadores • Limite folha ≤ 30% do faturamento</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h2 style="margin:0;color:#0f172a">👥 RH — Folha de Pagamento PJ</h2>
+      <div style="font-size:11px;color:#64748b">${listaPrestadores.length} prestadores • Limite folha ≤ 30% do faturamento</div>
+    </div>
     <div class="table-container">
     <table>
       <thead>
         <tr>
           <th style="text-align:left;padding:10px 14px;min-width:280px;position:sticky;left:0;background:#f9fafb;z-index:3">Prestador</th>
-          ${labelsVisiveis.map(m => `<th style="text-align:right;padding:10px 8px;min-width:110px">${m}</th>`).join('')}
-          ${mesFiltro === 'all' ? '<th style="text-align:right;padding:10px 12px;background:#f3f4f6;font-weight:800">TOTAL ANO</th>' : ''}
+          ${MONTHS_VIS.map(m => `<th style="text-align:right;padding:10px 8px;min-width:110px">${MONTH_LABELS_ALL[MONTHS_ALL.indexOf(m)]}</th>`).join('')}
+          ${showAll ? '<th style="text-align:right;padding:10px 12px;background:#f3f4f6;font-weight:800">TOTAL ANO</th>' : ''}
         </tr>
       </thead>
       <tbody>`;
   
   listaPrestadores.forEach((p, idx) => {
-    const totAno = MONTHS_LOCAL.reduce((s, m) => s + _getRHValor(p, m), 0);
+    const totAno = MONTHS_ALL.reduce((s, m) => s + _getRHValor(p, m), 0);
     const bg = idx % 2 === 0 ? '#ffffff' : '#fafafa';
     html += `<tr style="background:${bg}"><td style="padding:8px 14px;font-size:12px;position:sticky;left:0;background:${bg};z-index:2" title="${_escLocal(p)}">${_escLocal(p)}</td>`;
-    mesesVisiveis.forEach(m => {
+    MONTHS_VIS.forEach(m => {
       const v = _getRHValor(p, m);
       html += `<td style="padding:4px 6px"><input type="number" step="0.01" value="${v || ''}" onchange="_setRHValor('${p.replace(/'/g, "\\'")}','${m}',parseFloat(this.value)||0); renderRH();" placeholder="—" style="width:100%;max-width:100px;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;background:white;font-family:Poppins;font-size:11.5px;text-align:right;outline:none;box-sizing:border-box"/></td>`;
     });
-    if (mesFiltro === 'all') {
-      html += `<td style="text-align:right;padding:8px 12px;font-weight:700;background:#f3f4f6;font-size:12px">${totAno === 0 ? '—' : _fmtLocal(totAno)}</td>`;
+    if (showAll) {
+      html += `<td style="text-align:right;padding:8px 12px;font-weight:700;background:#f3f4f6;font-size:12px">${totAno === 0 ? '—' : 'R$ ' + _fmtLocal(totAno)}</td>`;
     }
     html += `</tr>`;
   });
   
-  // LINHA FECHAMENTO FOLHA
-  const totGeral = MONTHS_LOCAL.reduce((s, m) => s + totMes[m], 0);
+  // FECHAMENTO FOLHA
+  const totGeral = MONTHS_ALL.reduce((s, m) => s + totMes[m], 0);
   html += `<tr style="background:#dbeafe;font-weight:800"><td style="padding:12px 14px;font-size:13px;color:#1e40af;position:sticky;left:0;background:#dbeafe;z-index:2">💼 FECHAMENTO DA FOLHA</td>`;
-  mesesVisiveis.forEach(m => {
+  MONTHS_VIS.forEach(m => {
     const v = totMes[m];
-    html += `<td style="text-align:right;padding:12px 8px;font-weight:800;color:#1e40af;font-size:12.5px">${v === 0 ? '—' : _fmtLocal(v)}</td>`;
+    html += `<td style="text-align:right;padding:12px 8px;font-weight:800;color:#1e40af;font-size:12.5px">${v === 0 ? '—' : 'R$ ' + _fmtLocal(v)}</td>`;
   });
-  if (mesFiltro === 'all') {
-    html += `<td style="text-align:right;padding:12px 12px;font-weight:800;color:#1e40af;background:#bfdbfe">${_fmtLocal(totGeral)}</td>`;
+  if (showAll) {
+    html += `<td style="text-align:right;padding:12px 12px;font-weight:800;color:#1e40af;background:#bfdbfe">R$ ${_fmtLocal(totGeral)}</td>`;
   }
   html += `</tr>`;
   
-  // LINHA FATURAMENTO (referência)
-  const totFat = MONTHS_LOCAL.reduce((s, m) => s + fatMes[m], 0);
+  // FATURAMENTO
+  const totFat = MONTHS_ALL.reduce((s, m) => s + fatMes[m], 0);
   html += `<tr style="background:#f0fdf4;font-weight:700"><td style="padding:10px 14px;font-size:12px;color:#166534;position:sticky;left:0;background:#f0fdf4;z-index:2">📊 Faturamento (Receitas Op)</td>`;
-  mesesVisiveis.forEach(m => {
+  MONTHS_VIS.forEach(m => {
     const v = fatMes[m];
-    html += `<td style="text-align:right;padding:10px 8px;color:#166534;font-size:11.5px">${v === 0 ? '—' : _fmtLocal(v)}</td>`;
+    html += `<td style="text-align:right;padding:10px 8px;color:#166534;font-size:11.5px">${v === 0 ? '—' : 'R$ ' + _fmtLocal(v)}</td>`;
   });
-  if (mesFiltro === 'all') {
-    html += `<td style="text-align:right;padding:10px 12px;color:#166534;background:#dcfce7">${_fmtLocal(totFat)}</td>`;
+  if (showAll) {
+    html += `<td style="text-align:right;padding:10px 12px;color:#166534;background:#dcfce7">R$ ${_fmtLocal(totFat)}</td>`;
   }
   html += `</tr>`;
   
-  // LINHA % SOBRE FATURAMENTO
+  // % FOLHA
   html += `<tr style="background:#fef3c7;font-weight:700"><td style="padding:10px 14px;font-size:12px;color:#92400e;position:sticky;left:0;background:#fef3c7;z-index:2">📈 % da folha sobre faturamento</td>`;
-  mesesVisiveis.forEach(m => {
+  MONTHS_VIS.forEach(m => {
     const folha = totMes[m];
     const fat = fatMes[m];
     if (fat === 0 || folha === 0) {
@@ -2121,7 +2108,7 @@ function renderRH() {
       html += `<td style="text-align:right;padding:10px 8px;font-weight:800;color:${cor};background:${bg};font-size:11.5px">${icon} ${pct.toFixed(1)}%</td>`;
     }
   });
-  if (mesFiltro === 'all') {
+  if (showAll) {
     if (totFat > 0 && totGeral > 0) {
       const pctAno = (totGeral / totFat) * 100;
       const cor = pctAno <= 30 ? '#166534' : '#991b1b';
@@ -2990,7 +2977,7 @@ function renderArea() {
       <table>
         <thead><tr>
           <th style="min-width:220px;max-width:220px">Departamento / Categoria / Fornecedor</th>
-          ${MONTHS.map(m => `<th>${MONTH_NAMES[MONTHS.indexOf(m)]}</th>`).join('')}
+          ${MONTHS.map(m => `<th>${MONTH_NAMES[MONTHS_ALL.indexOf(m)]}</th>`).join('')}
           <th>Total</th>
         </tr></thead>
         <tbody>`;
@@ -3102,6 +3089,12 @@ const _expanded = {
 
 function renderCard() {
   const container = document.getElementById('cardContent') || document.getElementById('mainArea');
+  // Meses respeitando filtro global
+  const MONTHS = (window._MONTHS_VISIBLE && window._MONTHS_VISIBLE.length > 0) 
+    ? window._MONTHS_VISIBLE 
+    : ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'];
+  const MONTH_NAMES = ['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
+  const MONTHS_ALL = ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'];
   const data = (currentView === 'caixa') ? RAW_DATA_CAIXA : RAW_DATA_COMP;
   const rows = data.filter(r => {
     if (r.conta !== 'Cartão 2130') return false;
@@ -3146,16 +3139,16 @@ function renderCard() {
   const sumTot = obj => MONTHS.reduce((s, m) => s + (obj.totMes[m] || 0), 0);
   // Ordem manual dos departamentos no cartão (regra do usuário)
   const _ORDEM_DEPT_CARTAO = {
-    'Performance': 1, 
-    'CS': 2, 
-    'Tecnologia': 3, 
+    'Performance': 1,
+    'CS': 2,
+    'Tecnologia': 3,
     'Criação': 4,
-    'Financeiro': 5,
-    'Escala': 6, 'Scalia': 6,
-    'Obrigações Tributárias': 7,
-    'Despesas Não Operacionais': 8,
-    'Administrativo Geral': 9, 'Administrativo': 9,
-    'People e Recrutamento': 10, 'People & Recrutamento': 10, 'People': 10, 'Recrutamento': 10
+    'People e Recrutamento': 5, 'People & Recrutamento': 5, 'People': 5, 'Recrutamento': 5,
+    'Administrativo Geral': 6, 'Administrativo': 6,
+    'Financeiro': 7,
+    'Escala': 8, 'Scalia': 8,
+    'Obrigações Tributárias': 9,
+    'Despesas Não Operacionais': 10
   };
   const depts = [...cardByDept.entries()].sort((a, b) => {
     const oa = _ORDEM_DEPT_CARTAO[a[0]] || 999;
@@ -3181,7 +3174,7 @@ function renderCard() {
       <table>
         <thead><tr>
           <th style="min-width:260px">Departamento / Categoria / Fornecedor</th>
-          ${MONTHS.map(m => `<th>${MONTH_NAMES[MONTHS.indexOf(m)]}</th>`).join('')}
+          ${MONTHS.map(m => `<th>${MONTH_NAMES[MONTHS_ALL.indexOf(m)]}</th>`).join('')}
           <th>Total</th>
         </tr></thead>
         <tbody>`;
@@ -4291,6 +4284,11 @@ function renderDRE() {
 function renderPJs() {
   // Menu ÁREAS: mesmo padrão do Principal, mas por departamento com Receitas e Despesas
   const container = document.getElementById('pjsContent') || document.getElementById('mainArea');
+  const MONTHS = (window._MONTHS_VISIBLE && window._MONTHS_VISIBLE.length > 0) 
+    ? window._MONTHS_VISIBLE 
+    : ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'];
+  const MONTH_NAMES = ['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
+  const MONTHS_ALL = ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'];
   if (!container) return;
   const data = (currentView === 'caixa') ? RAW_DATA_CAIXA : RAW_DATA_COMP;
   
@@ -4358,7 +4356,7 @@ function renderPJs() {
       <table>
         <thead><tr>
           <th style="min-width:260px">Área / Categoria / Fornecedor</th>
-          ${MONTHS.map(m => `<th>${MONTH_NAMES[MONTHS.indexOf(m)]}</th>`).join('')}
+          ${MONTHS.map(m => `<th>${MONTH_NAMES[MONTHS_ALL.indexOf(m)]}</th>`).join('')}
           <th>Total</th>
         </tr></thead>
         <tbody>`;
@@ -6191,10 +6189,15 @@ if (document.readyState === 'loading') {
   function _cls(v) { if (!v || v === 0) return 'value-zero'; return v > 0 ? 'value-pos' : 'value-neg'; }
   function _esc(s) { return String(s || '').replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c])); }
 
-  // ============ Meses dinâmicos por ano ============
+  // ============ Meses dinâmicos por ano + filtro global de mês ============
   function _getMonths() {
     const y = (typeof currentYear !== 'undefined' && currentYear) ? currentYear : '2026';
-    return ['01','02','03','04','05','06','07','08','09','10','11','12'].map(m => y + '-' + m);
+    const all = ['01','02','03','04','05','06','07','08','09','10','11','12'].map(m => y + '-' + m);
+    // Filtro global de mês
+    if (window._MONTHS_VISIBLE && Array.isArray(window._MONTHS_VISIBLE) && window._MONTHS_VISIBLE.length > 0) {
+      return window._MONTHS_VISIBLE.filter(m => all.includes(m));
+    }
+    return all;
   }
 
   // ============ Cache pra drill-down (evita colocar JSON gigante no DOM) ============
