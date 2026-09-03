@@ -2835,6 +2835,14 @@ function _limparDepto(dept) {
   return s.trim() || 'Sem Departamento';
 }
 
+// Helpers globais para menus que estão no escopo global (renderCard, renderPJs)
+// Reutiliza window._esc etc. se já existirem, senão cria
+const _esc = window._esc || (s => String(s || '').replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c])));
+const _fmt = window._fmt || (v => v.toLocaleString('pt-BR', {minimumFractionDigits: 0, maximumFractionDigits: 0}));
+const _fmtSigned = window._fmtSigned || (v => (v >= 0 ? '' : '-') + _fmt(Math.abs(v)));
+// _expanded: usa o Set global que window._toggleExpand modifica (definido no escopo interno)
+const _expanded = window._expanded || new Set();
+
 function renderCard() {
   const container = document.getElementById('cardContent') || document.getElementById('mainArea');
   const data = (currentView === 'caixa') ? RAW_DATA_CAIXA : RAW_DATA_COMP;
