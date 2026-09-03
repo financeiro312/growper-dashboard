@@ -6196,15 +6196,24 @@ if (document.readyState === 'loading') {
     const isReceita = _CLASSIFICACAO[catLimpa] === _GRUPO_RECEITAS;
     if (dep.includes('scalia') && !isReceita) return _GRUPO_SCALIA;
 
-    // EXCEÇÃO: fornecedores específicos em "Prestadores de Serviços - Pontual" → FORNECEDORES
-    // (regra manual do usuário — outros fornecedores dessa categoria seguem em VARIÁVEIS)
+    // EXCEÇÕES POR FORNECEDOR: casos específicos onde fornecedor override o grupo da categoria
+    // (regra manual — outros fornecedores dessa categoria seguem no grupo padrão)
+    const f = String(fornecedor || '').toUpperCase();
+    
+    // "Prestadores de Serviços - Pontual" → FORNECEDORES (padrão: VARIÁVEIS)
     if (catLimpa === 'Prestadores de Serviços - Pontual') {
-      const f = String(fornecedor || '').toUpperCase();
       if (f.includes('GRANVILLE') 
           || f.includes('KAUE KENDY') 
           || f.includes('FOGAROLLI')
           || f.includes('BOREALIS')) {
         return 'FORNECEDORES';
+      }
+    }
+    
+    // "Softwares Operacionais" → VARIÁVEIS (padrão: FORNECEDORES)
+    if (catLimpa === 'Softwares Operacionais') {
+      if (f.includes('LIGUE LEAD')) {
+        return 'VARIÁVEIS';
       }
     }
 
