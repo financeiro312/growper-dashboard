@@ -6393,10 +6393,18 @@ if (document.readyState === 'loading') {
                 'Concil:', (typeof currentConciliado !== 'undefined') ? currentConciliado : 'N/A',
                 'View:', (typeof currentView !== 'undefined') ? currentView : 'N/A');
 
-    // Construir HTML
+    // Construir HTML — cabeçalho com toggle Projetado por mês
     const thead = document.getElementById('tableHead');
     let theadHtml = '<tr><th style="text-align:left;padding:10px 14px">Descrição</th>';
-    MONTH_LABELS.forEach(m => theadHtml += `<th style="text-align:right;padding:10px 8px">${m.toUpperCase()}</th>`);
+    MONTH_LABELS.forEach((mLabel, idx) => {
+      const mes = MONTHS[idx];
+      const vis = projetadoVisible[mes];
+      const btnIcon = vis ? '◀' : '▶';
+      theadHtml += `<th style="text-align:right;padding:10px 8px">${mLabel.toUpperCase()}<button onclick="toggleProjetadoMes('${mes}')" title="${vis?'Ocultar':'Mostrar'} projetado" style="margin-left:6px;width:18px;height:18px;border:1px solid ${vis?'#f59e0b':'#d1d5db'};background:${vis?'#fef9c3':'white'};color:${vis?'#92400e':'#6b7280'};border-radius:4px;font-weight:700;font-size:11px;cursor:pointer;line-height:1;padding:0;font-family:Poppins">${btnIcon}</button></th>`;
+      if (vis) {
+        theadHtml += `<th style="text-align:right;padding:10px 6px;background:#fef9c3;color:#92400e;font-size:11px">PROJ ${mLabel.toUpperCase()}</th>`;
+      }
+    });
     theadHtml += '<th style="text-align:right;padding:10px 12px">Total</th></tr>';
     thead.innerHTML = theadHtml;
 
@@ -6414,6 +6422,40 @@ if (document.readyState === 'loading') {
         } else {
           cells += `<td style="text-align:right;padding:8px;font-size:11.5px" class="value-zero">—</td>`;
         }
+        // Célula extra Projetado (vazia para linhas de categoria/fornecedor)
+        if (projetadoVisible[m]) {
+          cells += `<td style="background:#fef9c3"></td>`;
+        }
+      });
+      return cells;
+    }
+    
+    // Helper para célula de VALOR + PROJETADO editável
+    // key: identificador da linha para salvar valor projetado (localStorage)
+    // editable: se true, coloca <input>; se false, mostra valor calculado
+    function _cellsGrupoProj(byMonth, key, valStyle, projStyle, editable) {
+      let cells = '';
+      MONTHS.forEach(m => {
+        const v = byMonth[m] || 0;
+        cells += `<td style="${valStyle}">${v === 0 ? '—' : _fmt(v)}</td>`;
+        if (projetadoVisible[m]) {
+          if (editable) {
+            const pv = getProjetado(key, m);
+            cells += `<td style="${projStyle};padding:4px 6px;background:#fef9c3"><input type="number" step="0.01" value="${pv || ''}" onchange="setProjetadoValue('${key}','${m}',parseFloat(this.value)||0); if(window.renderMain) window.renderMain();" placeholder="—" style="width:100%;max-width:90px;padding:2px 3px;border:1px solid #fde047;border-radius:3px;background:#fffef0;font-family:Poppins;font-size:11px;text-align:right;outline:none;box-sizing:border-box"/></td>`;
+          } else {
+            const pv = getProjetado(key, m);
+            cells += `<td style="${projStyle};background:#fef9c3">${pv ? _fmt(pv) : '—'}</td>`;
+          }
+        }
+      });
+      return cells;
+    }
+    
+    // Célula extra Projetado vazia (para não-editáveis / totais que não usam)
+    function _cellsProjVazio() {
+      let cells = '';
+      MONTHS.forEach(m => {
+        if (projetadoVisible[m]) cells += `<td style="background:#fef9c3"></td>`;
       });
       return cells;
     }
@@ -6429,9 +6471,15 @@ if (document.readyState === 'loading') {
       let hCells = `<td style="padding:12px 14px;background:#f0fdf4;color:#166534;font-weight:800;cursor:pointer" onclick="_toggleExpand('${rExpKey}')">
         <span style="display:inline-block;width:16px">${rOpen ? '▼' : '▶'}</span> 📥 RECEITAS OPERACIONAIS
       </td>`;
+      let recProjTot = 0;
       MONTHS.forEach(m => {
         const v = totRecMes[m] || 0;
         hCells += `<td style="text-align:right;padding:12px 8px;background:#f0fdf4;color:#166534;font-weight:800" class="value-pos">${v === 0 ? '—' : _fmt(v)}</td>`;
+        if (projetadoVisible[m]) {
+          const pv = getProjetado('rec_op_total', m);
+          recProjTot += pv;
+          hCells += `<td style="text-align:right;padding:8px 6px;background:#fef9c3"><input type="number" step="0.01" value="${pv || ''}" onchange="setProjetadoValue('rec_op_total','${m}',parseFloat(this.value)||0); if(window.renderMain) window.renderMain();" placeholder="—" style="width:100%;max-width:90px;padding:2px 3px;border:1px solid #fde047;border-radius:3px;background:#fffef0;font-family:Poppins;font-size:11px;text-align:right;outline:none;box-sizing:border-box"/></td>`;
+        }
       });
       hCells += `<td style="text-align:right;padding:12px 12px;background:#f0fdf4;color:#166534;font-weight:800" class="value-pos">${_fmt(recGrandTot)}</td>`;
       html += `<tr class="section-header">${hCells}</tr>`;
@@ -6568,6 +6616,10 @@ if (document.readyState === 'loading') {
     MONTHS.forEach(m => {
       const v = (totDespMes[m] || 0) + (_cartaoIncluir ? (totCartaoMes[m] || 0) : 0);
       dhCells += `<td style="text-align:right;padding:12px 8px;background:#fef2f2;color:#991b1b;font-weight:800" class="value-neg">${v === 0 ? '—' : _fmt(v)}</td>`;
+      if (projetadoVisible[m]) {
+        const pv = getProjetado('desp_op_total', m);
+        dhCells += `<td style="text-align:right;padding:8px 6px;background:#fef9c3"><input type="number" step="0.01" value="${pv || ''}" onchange="setProjetadoValue('desp_op_total','${m}',parseFloat(this.value)||0); if(window.renderMain) window.renderMain();" placeholder="—" style="width:100%;max-width:90px;padding:2px 3px;border:1px solid #fde047;border-radius:3px;background:#fffef0;font-family:Poppins;font-size:11px;text-align:right;outline:none;box-sizing:border-box"/></td>`;
+      }
     });
     dhCells += `<td style="text-align:right;padding:12px 12px;background:#fef2f2;color:#991b1b;font-weight:800" class="value-neg">${_fmt(despHeadTot)}</td>`;
     html += `<tr class="section-header">${dhCells}</tr>`;
@@ -6684,43 +6736,57 @@ if (document.readyState === 'loading') {
       totalResult += v;
       rCells += `<td style="text-align:right;padding:14px 8px;font-weight:800;background:#eff6ff" class="${_cls(v)}">${v === 0 ? '—' : _fmtSigned(v)}</td>`;
     });
-    rCells += `<td style="text-align:right;padding:14px 12px;font-weight:800;font-size:14px;background:#eff6ff" class="${_cls(totalResult)}">${_fmtSigned(totalResult)}</td>`;
-    html += `<tr class="result-row" style="border-top:2px solid #1e40af;border-bottom:2px solid #1e40af">${rCells}</tr>`;
+    // Nova versão: adicionar projetado no Resultado Op
+    let rCellsNew = '<td style="padding:14px;font-weight:800;font-size:14px;color:#1e40af;background:#eff6ff">💰 RESULTADO OPERACIONAL</td>';
+    MONTHS.forEach(m => {
+      const v = (totRecMes[m] || 0) - (totDespComCartao[m] || 0);
+      rCellsNew += `<td style="text-align:right;padding:14px 8px;font-weight:800;font-size:13px;background:#eff6ff" class="${_cls(v)}">${v === 0 ? '—' : _fmtSigned(v)}</td>`;
+      if (projetadoVisible[m]) {
+        const recP = getProjetado('rec_op_total', m);
+        const despP = getProjetado('desp_op_total', m);
+        const resP = recP - despP;
+        rCellsNew += `<td style="text-align:right;padding:14px 6px;font-weight:800;background:#fef9c3;color:${resP>=0?'#166534':'#991b1b'};font-size:12.5px">${(recP===0 && despP===0) ? '—' : _fmtSigned(resP)}</td>`;
+      }
+    });
+    rCellsNew += `<td style="text-align:right;padding:14px 12px;font-weight:800;font-size:14px;background:#eff6ff" class="${_cls(totalResult)}">${_fmtSigned(totalResult)}</td>`;
+    html += `<tr class="result-row" style="border-top:2px solid #1e40af;border-bottom:2px solid #1e40af">${rCellsNew}</tr>`;
 
     // ============================================================
     // 🏦 SALDO OPERACIONAL — acumulado do Resultado Operacional
     // Saldo do mês = Saldo do mês anterior + Resultado Op do mês
     // ============================================================
     let soCells = '<td style="padding:14px;font-weight:800;font-size:14px;color:#065f46;background:#d1fae5">🏦 SALDO OPERACIONAL</td>';
-    // Calcular saldo bancário (Inter + Itaú) até fim de Junho
-    // Baseado nos movimentos: saldo inicial Inter (1.639,62) + Itaú (-29.052,14) + todos movimentos até '2026-06'
     let saldoBancarioJun = 1639.62 + (-29052.14);
     RAW_DATA_CAIXA.forEach(r => {
       if (r.conta !== 'Banco Inter' && r.conta !== 'Itaú Unibanco') return;
       const mes = String(r.mesPagto || '').slice(0, 7);
-      if (mes >= '2026-01' && mes <= '2026-06') {
-        saldoBancarioJun += (r.valorPago || 0);
-      }
+      if (mes >= '2026-01' && mes <= '2026-06') saldoBancarioJun += (r.valorPago || 0);
     });
     let saldoOpAcum = 0;
     let saldoOpFinal = 0;
+    let saldoOpProjAcum = 0;
     MONTHS.forEach(m => {
       const anoMes = String(m).slice(0, 7);
-      // Jan-Mai 2026: sem informação
       if (anoMes < '2026-06') {
         soCells += `<td style="text-align:right;padding:14px 8px;font-weight:800;background:#d1fae5;color:#94a3b8">—</td>`;
+        if (projetadoVisible[m]) soCells += `<td style="background:#fef9c3;text-align:right;padding:14px 6px;color:#94a3b8">—</td>`;
         return;
       }
-      // Junho: começa com saldo bancário final de Jun
       if (anoMes === '2026-06') {
         saldoOpAcum = saldoBancarioJun;
+        saldoOpProjAcum = saldoBancarioJun;
       } else {
-        // A partir de Julho: mês anterior + Resultado Op do mês
         const resMes = (totRecMes[m] || 0) - (totDespComCartao[m] || 0);
         saldoOpAcum += resMes;
+        const recP = getProjetado('rec_op_total', m);
+        const despP = getProjetado('desp_op_total', m);
+        saldoOpProjAcum += (recP - despP);
       }
       saldoOpFinal = saldoOpAcum;
       soCells += `<td style="text-align:right;padding:14px 8px;font-weight:800;background:#d1fae5" class="${_cls(saldoOpAcum)}">${_fmtSigned(saldoOpAcum)}</td>`;
+      if (projetadoVisible[m]) {
+        soCells += `<td style="text-align:right;padding:14px 6px;font-weight:800;background:#fef9c3;color:${saldoOpProjAcum>=0?'#065f46':'#991b1b'};font-size:12.5px">${_fmtSigned(saldoOpProjAcum)}</td>`;
+      }
     });
     soCells += `<td style="text-align:right;padding:14px 12px;font-weight:800;font-size:14px;background:#d1fae5" class="${_cls(saldoOpFinal)}">${_fmtSigned(saldoOpFinal)}</td>`;
     html += `<tr style="border-top:1px solid #10b981;border-bottom:2px solid #10b981">${soCells}</tr>`;
