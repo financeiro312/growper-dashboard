@@ -6692,17 +6692,33 @@ if (document.readyState === 'loading') {
     // Saldo do mês = Saldo do mês anterior + Resultado Op do mês
     // ============================================================
     let soCells = '<td style="padding:14px;font-weight:800;font-size:14px;color:#065f46;background:#d1fae5">🏦 SALDO OPERACIONAL</td>';
+    // Calcular saldo bancário (Inter + Itaú) até fim de Junho
+    // Baseado nos movimentos: saldo inicial Inter (1.639,62) + Itaú (-29.052,14) + todos movimentos até '2026-06'
+    let saldoBancarioJun = 1639.62 + (-29052.14);
+    RAW_DATA_CAIXA.forEach(r => {
+      if (r.conta !== 'Banco Inter' && r.conta !== 'Itaú Unibanco') return;
+      const mes = String(r.mesPagto || '').slice(0, 7);
+      if (mes >= '2026-01' && mes <= '2026-06') {
+        saldoBancarioJun += (r.valorPago || 0);
+      }
+    });
     let saldoOpAcum = 0;
     let saldoOpFinal = 0;
     MONTHS.forEach(m => {
       const anoMes = String(m).slice(0, 7);
-      // Jan-Mai 2026: sem informação; começa a acumular a partir de Junho
+      // Jan-Mai 2026: sem informação
       if (anoMes < '2026-06') {
         soCells += `<td style="text-align:right;padding:14px 8px;font-weight:800;background:#d1fae5;color:#94a3b8">—</td>`;
         return;
       }
-      const resMes = (totRecMes[m] || 0) - (totDespComCartao[m] || 0);
-      saldoOpAcum += resMes;
+      // Junho: começa com saldo bancário final de Jun
+      if (anoMes === '2026-06') {
+        saldoOpAcum = saldoBancarioJun;
+      } else {
+        // A partir de Julho: mês anterior + Resultado Op do mês
+        const resMes = (totRecMes[m] || 0) - (totDespComCartao[m] || 0);
+        saldoOpAcum += resMes;
+      }
       saldoOpFinal = saldoOpAcum;
       soCells += `<td style="text-align:right;padding:14px 8px;font-weight:800;background:#d1fae5" class="${_cls(saldoOpAcum)}">${_fmtSigned(saldoOpAcum)}</td>`;
     });
