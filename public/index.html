@@ -6799,6 +6799,20 @@ if (document.readyState === 'loading') {
     roCells += `<td></td>`;
     html += `<tr>${roCells}</tr>`;
 
+    // (=) Saldo Operacional Acumulado = Saldo do mês anterior + Resultado Op do mês
+    // (acumula ao longo do ano; começa em 0 em janeiro)
+    let saldoOpCells = '<td style="padding:8px 14px;padding-left:36px;font-size:12.5px;color:var(--text-secondary);font-weight:600">(=) Saldo Operacional</td>';
+    let saldoOpAcum = 0;
+    let saldoOpFinal = 0;
+    MONTHS.forEach(m => {
+      const resMes = (totRecMes[m] || 0) - (totDespComCartao[m] || 0);
+      saldoOpAcum += resMes;
+      saldoOpFinal = saldoOpAcum;
+      saldoOpCells += `<td style="text-align:right;padding:8px;font-size:11.5px;font-weight:600" class="${_cls(saldoOpAcum)}">${_fmtSigned(saldoOpAcum)}</td>`;
+    });
+    saldoOpCells += `<td style="text-align:right;padding:8px 12px;font-size:11.5px;font-weight:700" class="${_cls(saldoOpFinal)}">${_fmtSigned(saldoOpFinal)}</td>`;
+    html += `<tr>${saldoOpCells}</tr>`;
+
     // (±) Ajustes Financeiros — expansível
     if (hasAjustes) {
       const ajExpKey = 'sec|ajustesCaixa';
