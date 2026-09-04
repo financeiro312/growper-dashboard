@@ -2274,387 +2274,434 @@ function renderKPIs() {
   const container = document.getElementById('kpisContent') || document.getElementById('mainArea');
   if (!container) return;
 
-  // ============ Setup ============
   const data = RAW_DATA_CAIXA || [];
   const MONTHS_ALL = ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'];
-  const MONTH_LABELS_ALL = ['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
-  
-  // Respeitar filtro de mês global
-  const MONTHS_VIS = (window._MONTHS_VISIBLE && window._MONTHS_VISIBLE.length > 0) 
-    ? window._MONTHS_VISIBLE : MONTHS_ALL;
+  const MONTH_LABELS = ['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
   
   const _fmtR = v => (v === null || v === undefined || isNaN(v)) ? '—' : 'R$ ' + Math.abs(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
-  const _fmtN = v => (v === null || v === undefined || isNaN(v)) ? '—' : v.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+  const _fmtRs = v => (v === null || v === undefined || isNaN(v)) ? '—' : 'R$ ' + Math.abs(v).toLocaleString('pt-BR', {minimumFractionDigits:0, maximumFractionDigits:0});
   const _fmtPct = v => (v === null || v === undefined || isNaN(v)) ? '—' : v.toFixed(1) + '%';
   const _esc = s => String(s || '').replace(/[<>&"']/g, ch => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[ch]));
 
-  // Estado accordion
   if (!window._kpiOpen) window._kpiOpen = { visao: true, efic: false, rec: false, bu: false, squads: false, trib: false, saude: false };
   
-  // ============ Cálculos base ============
-  // Receita Mensalidades (base para Custo do Time)
-  const isMensalidadeBase = cat => {
-    const c = String(cat || '');
-    return c.includes('Mensalidades Clientes') 
-        || c.includes('Mensalidade Inadimplentes') || c.includes('Mensalidades Inadimplentes')
-        || c.includes('Taxa de Implementação') || c.includes('Taxa Implementação');
-  };
+  // ============ Classificadores ============
+  const isMensalidadeCliente = cat => String(cat || '').includes('Mensalidades Clientes');
   const isInadimplente = cat => String(cat || '').includes('Inadimplent');
-  const isImposto = cat => {
-    const c = String(cat || '').toLowerCase();
-    return c.includes('imposto') || c.includes('tributári') || c.includes('simples nacional') || c.includes('iof') || c.includes('irrf') || c.includes('inss') || c.includes('das ');
-  };
-  const isREC_CRED = cat => {
-    const c = String(cat || '');
-    return c.includes('Estratégia recrutamento') || c.includes('Estratégia Recrutamento')
-        || c.includes('Estratégia direto na conta') || c.includes('Estratégia Direto na Conta');
-  };
+  const isTaxaImpl = cat => String(cat || '').includes('Taxa de Implementação') || String(cat || '').includes('Taxa Implementação');
+  const isMensalidadeBase = cat => isMensalidadeCliente(cat) || isInadimplente(cat) || isTaxaImpl(cat);
+  const isImposto = cat => { const c = String(cat || '').toLowerCase(); return c.includes('imposto') || c.includes('tributári') || c.includes('simples nacional') || c.includes('iof') || c.includes('irrf') || c.includes('inss') || c.includes('das '); };
+  const isREC_CRED = cat => { const c = String(cat || ''); return c.includes('Estratégia recrutamento') || c.includes('Estratégia Recrutamento') || c.includes('Estratégia direto na conta') || c.includes('Estratégia Direto na Conta'); };
   
-  // Prestadores PJ (do RH) — colaboradores
+  // ============ Prestadores/Custo do Time ============
   const prestadoresSet = new Set();
   data.forEach(r => {
     if (r.tipo !== '2. Contas a Pagar') return;
-    const cat = String(r.categoria || '');
-    if (!cat.includes('Remuneração')) return;
-    const forn = String(r.fornecedor || '').trim();
-    if (forn) prestadoresSet.add(forn);
+    if (!String(r.categoria || '').includes('Remuneração')) return;
+    const f = String(r.fornecedor || '').trim();
+    if (f) prestadoresSet.add(f);
   });
   const listaPrestadores = [...prestadoresSet].sort();
   const qtdColaboradores = listaPrestadores.length;
   
-  // Custo do Time (RH) por mês — usa localStorage
   const custoTimeMes = {};
   MONTHS_ALL.forEach(m => {
-    let tot = 0;
-    let temValor = false;
+    let tot = 0, tem = false;
     listaPrestadores.forEach(p => {
       const v = _getRHValor(p, m);
-      if (v > 0) { tot += v; temValor = true; }
+      if (v > 0) { tot += v; tem = true; }
     });
-    custoTimeMes[m] = temValor ? tot : null;  // null = vazio (não considerar como 0)
+    custoTimeMes[m] = tem ? tot : null;
   });
   
-  // Receita total (por mês) - todas receitas operacionais
-  const isReceitaOp = r => {
-    if (r.tipo !== '1. Contas a Receber') return false;
-    if (r.conta !== 'Banco Inter' && r.conta !== 'Itaú Unibanco') return false;
-    const cat = String(r.categoria || '');
-    if (cat.includes('Ajuste')) return false;
-    if (cat.includes('Transferência')) return false;
-    return true;
-  };
+  // ============ Receitas/Despesas por mês ============
+  const isReceitaOp = r => r.tipo === '1. Contas a Receber' && (r.conta === 'Banco Inter' || r.conta === 'Itaú Unibanco') && !String(r.categoria || '').includes('Ajuste') && !String(r.categoria || '').includes('Transferência');
   
-  const recTotalMes = {};
-  const recMensalidadesMes = {};
-  const recInadimplenciaMes = {};
-  const recRecCredMes = {};
-  const recOperacaoMes = {};
-  MONTHS_ALL.forEach(m => { 
-    recTotalMes[m] = 0; recMensalidadesMes[m] = 0; recInadimplenciaMes[m] = 0;
-    recRecCredMes[m] = 0; recOperacaoMes[m] = 0;
-  });
+  const rec = { total:{}, mens:{}, inad:{}, taxa:{}, recCred:{}, oper:{} };
+  Object.keys(rec).forEach(k => MONTHS_ALL.forEach(m => rec[k][m] = 0));
+  
+  const desp = { total:{}, imp:{} };
+  MONTHS_ALL.forEach(m => { desp.total[m] = 0; desp.imp[m] = 0; });
+  
+  // Por departamento
+  const deptRec = {}, deptDesp = {};
+  
   data.forEach(r => {
-    if (!isReceitaOp(r)) return;
     const mes = r.mesPagto;
     if (!MONTHS_ALL.includes(mes)) return;
-    const v = Math.abs(r.valorPago || 0);
-    recTotalMes[mes] += v;
-    if (isMensalidadeBase(r.categoria)) recMensalidadesMes[mes] += v;
-    if (isInadimplente(r.categoria)) recInadimplenciaMes[mes] += v;
-    if (isREC_CRED(r.categoria)) recRecCredMes[mes] += v;
-    else recOperacaoMes[mes] += v;
-  });
-  
-  // Despesas Operacionais por mês
-  const despTotalMes = {};
-  const impostosMes = {};
-  MONTHS_ALL.forEach(m => { despTotalMes[m] = 0; impostosMes[m] = 0; });
-  data.forEach(r => {
-    if (r.tipo !== '2. Contas a Pagar') return;
-    if (r.conta !== 'Banco Inter' && r.conta !== 'Itaú Unibanco' && r.conta !== 'Cartão 2130') return;
     const cat = String(r.categoria || '');
-    if (cat.includes('Ajuste')) return;
-    if (cat.includes('Transferência') && r.conta !== 'Banco Inter') return;
-    const mes = r.mesPagto;
-    if (!MONTHS_ALL.includes(mes)) return;
     const v = Math.abs(r.valorPago || 0);
-    despTotalMes[mes] += v;
-    if (isImposto(cat)) impostosMes[mes] += v;
-  });
-  
-  // Resultado Op = Rec - Desp
-  const resultadoMes = {};
-  MONTHS_ALL.forEach(m => resultadoMes[m] = recTotalMes[m] - despTotalMes[m]);
-  
-  // Custo Time / Receita Mensalidades — % por mês (null se sem valor RH)
-  const pctCustoTimeMes = {};
-  MONTHS_ALL.forEach(m => {
-    if (custoTimeMes[m] === null || recMensalidadesMes[m] === 0) {
-      pctCustoTimeMes[m] = null;
-    } else {
-      pctCustoTimeMes[m] = (custoTimeMes[m] / recMensalidadesMes[m]) * 100;
+    const dept = String(r.departamento || '').trim() || 'Sem Departamento';
+    
+    if (isReceitaOp(r)) {
+      rec.total[mes] += v;
+      if (isMensalidadeCliente(cat)) rec.mens[mes] += v;
+      if (isInadimplente(cat)) rec.inad[mes] += v;
+      if (isTaxaImpl(cat)) rec.taxa[mes] += v;
+      if (isREC_CRED(cat)) rec.recCred[mes] += v;
+      else rec.oper[mes] += v;
+      
+      if (!deptRec[dept]) { deptRec[dept] = {}; MONTHS_ALL.forEach(mm => deptRec[dept][mm] = 0); }
+      deptRec[dept][mes] += v;
+    } else if (r.tipo === '2. Contas a Pagar' && (r.conta === 'Banco Inter' || r.conta === 'Itaú Unibanco' || r.conta === 'Cartão 2130') && !cat.includes('Ajuste')) {
+      desp.total[mes] += v;
+      if (isImposto(cat)) desp.imp[mes] += v;
+      
+      if (!deptDesp[dept]) { deptDesp[dept] = {}; MONTHS_ALL.forEach(mm => deptDesp[dept][mm] = 0); }
+      deptDesp[dept][mes] += v;
     }
   });
   
-  // Margem Op %
-  const margemMes = {};
-  MONTHS_ALL.forEach(m => {
-    if (recTotalMes[m] === 0) margemMes[m] = null;
-    else margemMes[m] = (resultadoMes[m] / recTotalMes[m]) * 100;
-  });
+  // ============ Cálculos agregados ============
+  const sum = obj => MONTHS_ALL.reduce((s, m) => s + (obj[m] || 0), 0);
+  const sumNull = obj => { let s=0, tem=false; MONTHS_ALL.forEach(m => { if(obj[m] !== null && obj[m] !== undefined) { s += obj[m]; tem = true; }}); return tem ? s : null; };
   
-  // % Inadimplência sobre Mensalidades
-  const pctInadimplenciaMes = {};
-  MONTHS_ALL.forEach(m => {
-    const denom = recMensalidadesMes[m];
-    pctInadimplenciaMes[m] = denom > 0 ? (recInadimplenciaMes[m] / denom) * 100 : null;
-  });
+  const totRec = sum(rec.total);
+  const totDesp = sum(desp.total);
+  const totRes = totRec - totDesp;
+  const totMargem = totRec > 0 ? (totRes/totRec)*100 : null;
+  const totMens = sum(rec.mens);
+  const totInad = sum(rec.inad);
+  const totTaxa = sum(rec.taxa);
+  const totMensBase = totMens + totInad + totTaxa;
+  const totRecCred = sum(rec.recCred);
+  const totOper = sum(rec.oper);
+  const totImp = sum(desp.imp);
+  const totCustoTime = sumNull(custoTimeMes);
   
-  // % Impostos sobre Receita
-  const pctImpostosMes = {};
-  MONTHS_ALL.forEach(m => {
-    pctImpostosMes[m] = recTotalMes[m] > 0 ? (impostosMes[m] / recTotalMes[m]) * 100 : null;
-  });
-  
-  // Totais (soma dos meses visíveis)
-  const sumVis = obj => MONTHS_VIS.reduce((s, m) => s + (obj[m] || 0), 0);
-  const sumVisNull = obj => {
-    let s = 0, tem = false;
-    MONTHS_VIS.forEach(m => { if (obj[m] !== null && obj[m] !== undefined) { s += obj[m]; tem = true; }});
-    return tem ? s : null;
-  };
-  
-  const totRec = sumVis(recTotalMes);
-  const totDesp = sumVis(despTotalMes);
-  const totResultado = totRec - totDesp;
-  const totMargem = totRec > 0 ? (totResultado/totRec)*100 : null;
-  const totMensalidades = sumVis(recMensalidadesMes);
-  const totInadimplencia = sumVis(recInadimplenciaMes);
-  const totRecCred = sumVis(recRecCredMes);
-  const totOperacao = sumVis(recOperacaoMes);
-  const totImpostos = sumVis(impostosMes);
-  const totCustoTime = sumVisNull(custoTimeMes);
-  const pctCustoTimeAno = (totCustoTime !== null && totMensalidades > 0) ? (totCustoTime/totMensalidades)*100 : null;
-  const pctInadimplenciaAno = totMensalidades > 0 ? (totInadimplencia/totMensalidades)*100 : null;
-  const pctImpostosAno = totRec > 0 ? (totImpostos/totRec)*100 : null;
+  const pctCustoTime = (totCustoTime !== null && totMensBase > 0) ? (totCustoTime/totMensBase)*100 : null;
+  const pctInad = totMens > 0 ? (totInad/totMens)*100 : null;
+  const pctImp = totRec > 0 ? (totImp/totRec)*100 : null;
   const recPorColab = qtdColaboradores > 0 ? totRec / qtdColaboradores : null;
   
   // Semáforos
-  const semCustoTime = pctCustoTimeAno === null ? 'gray' : (pctCustoTimeAno <= 30 ? 'green' : (pctCustoTimeAno <= 35 ? 'yellow' : 'red'));
-  const semMargem = totMargem === null ? 'gray' : (totMargem >= 15 ? 'green' : (totMargem >= 5 ? 'yellow' : 'red'));
-  const semInadimplencia = pctInadimplenciaAno === null ? 'gray' : (pctInadimplenciaAno <= 5 ? 'green' : (pctInadimplenciaAno <= 10 ? 'yellow' : 'red'));
-  const corSem = c => ({green:'#166534', yellow:'#92400e', red:'#991b1b', gray:'#64748b'}[c]);
-  const bgSem = c => ({green:'#dcfce7', yellow:'#fef3c7', red:'#fee2e2', gray:'#f1f5f9'}[c]);
-  const iconSem = c => ({green:'🟢', yellow:'🟡', red:'🔴', gray:'⚪'}[c]);
+  const semCT = pctCustoTime === null ? 'gray' : (pctCustoTime <= 30 ? 'green' : (pctCustoTime <= 40 ? 'yellow' : 'red'));
+  const semMg = totMargem === null ? 'gray' : (totMargem >= 15 ? 'green' : (totMargem >= 5 ? 'yellow' : 'red'));
+  const semIn = pctInad === null ? 'gray' : (pctInad <= 5 ? 'green' : (pctInad <= 10 ? 'yellow' : 'red'));
   
-  // ============ HTML ============
-  const accHead = (key, icon, title, subtitle) => {
+  const semColor = { green:'#10b981', yellow:'#f59e0b', red:'#ef4444', gray:'#94a3b8' };
+  const semBg    = { green:'#d1fae5', yellow:'#fef3c7', red:'#fee2e2', gray:'#f1f5f9' };
+  const semIcon  = { green:'🟢', yellow:'🟡', red:'🔴', gray:'⚪' };
+  
+  // ============ Helper: mini sparkline SVG ============
+  const sparkline = (vals, cor, w, h) => {
+    w = w || 100; h = h || 24;
+    const arr = vals.filter(v => v !== null && v !== undefined);
+    if (arr.length < 2) return '';
+    const max = Math.max(...arr, 0), min = Math.min(...arr, 0);
+    const range = max - min || 1;
+    const step = w / (vals.length - 1);
+    let d = '';
+    vals.forEach((v, i) => {
+      if (v === null || v === undefined) return;
+      const x = i * step;
+      const y = h - ((v - min) / range) * h;
+      d += (d === '' ? 'M' : 'L') + x.toFixed(1) + ' ' + y.toFixed(1) + ' ';
+    });
+    return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="display:block"><path d="${d}" stroke="${cor}" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  };
+  
+  // ============ Accordion helpers ============
+  const acc = (key, icon, title, subtitle, rightContent) => {
     const open = window._kpiOpen[key];
-    return `<div style="background:white;border:1px solid #e5e7eb;border-radius:10px;margin-bottom:14px;overflow:hidden">
-      <div onclick="window._kpiOpen['${key}']=!window._kpiOpen['${key}']; renderKPIs();" 
-        style="padding:14px 18px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;background:${open?'#f8fafc':'white'};border-bottom:${open?'1px solid #e5e7eb':'none'}">
-        <div>
-          <div style="font-size:15px;font-weight:800;color:#0f172a">${icon} ${title}</div>
-          ${subtitle ? `<div style="font-size:11.5px;color:#64748b;margin-top:2px">${subtitle}</div>` : ''}
+    return `<div style="background:white;border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,0.04);border:1px solid #e5e7eb;margin-bottom:16px;overflow:hidden">
+      <div onclick="window._kpiOpen['${key}']=!window._kpiOpen['${key}']; renderKPIs();" style="padding:18px 22px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;background:${open?'linear-gradient(180deg, #f8fafc, #ffffff)':'white'};border-bottom:${open?'1px solid #e5e7eb':'none'};transition:all 0.15s">
+        <div style="display:flex;align-items:center;gap:14px">
+          <div style="width:44px;height:44px;background:#f1f5f9;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px">${icon}</div>
+          <div>
+            <div style="font-size:16px;font-weight:800;color:#0f172a;letter-spacing:-0.2px">${title}</div>
+            ${subtitle ? `<div style="font-size:12px;color:#64748b;margin-top:3px">${subtitle}</div>` : ''}
+          </div>
         </div>
-        <span style="font-size:14px;color:#6b7280">${open?'▼':'▶'}</span>
+        <div style="display:flex;align-items:center;gap:14px">
+          ${rightContent || ''}
+          <span style="font-size:14px;color:#94a3b8;transition:transform 0.2s;transform:rotate(${open?90:0}deg)">▸</span>
+        </div>
       </div>`;
   };
-  const accClose = () => `</div>`;
-  const accBody = (key, content) => window._kpiOpen[key] ? `<div style="padding:16px 18px">${content}</div>` : '';
+  const accBody = (key, content) => window._kpiOpen[key] ? `<div style="padding:22px">${content}</div></div>` : '</div>';
   
-  // Card de KPI (usado na Visão Geral)
-  const kpiCard = (label, valor, sub, cor) => {
-    cor = cor || '#0f172a';
-    return `<div style="background:white;border:1px solid #e5e7eb;border-radius:10px;padding:16px;flex:1;min-width:180px">
-      <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;font-weight:600;margin-bottom:8px">${label}</div>
-      <div style="font-size:20px;font-weight:800;color:${cor}">${valor}</div>
-      ${sub ? `<div style="font-size:11px;color:#64748b;margin-top:4px">${sub}</div>` : ''}
+  // Big card
+  const bigCard = (icon, label, valor, sub, cor, extra) => {
+    return `<div style="background:white;border:1px solid #e5e7eb;border-radius:12px;padding:18px;position:relative;overflow:hidden">
+      <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:14px">
+        <div style="width:38px;height:38px;background:${semBg[cor==='green'?'green':cor==='yellow'?'yellow':cor==='red'?'red':'gray']||'#f1f5f9'};border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:18px">${icon}</div>
+        ${extra || ''}
+      </div>
+      <div style="font-size:10.5px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;margin-bottom:6px">${label}</div>
+      <div style="font-size:22px;font-weight:800;color:#0f172a;letter-spacing:-0.4px;line-height:1.1">${valor}</div>
+      ${sub ? `<div style="font-size:11.5px;color:#64748b;margin-top:6px">${sub}</div>` : ''}
     </div>`;
   };
   
-  // Tabela mês a mês genérica
-  const tabelaMes = (linhas) => {
-    let h = `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">
-      <thead><tr style="background:#f8fafc"><th style="text-align:left;padding:8px 10px;font-size:11px;color:#64748b">Indicador</th>`;
-    MONTHS_VIS.forEach(m => h += `<th style="text-align:right;padding:8px 8px;font-size:11px;color:#64748b">${MONTH_LABELS_ALL[MONTHS_ALL.indexOf(m)]}</th>`);
-    h += `<th style="text-align:right;padding:8px 10px;font-size:11px;color:#64748b;background:#f3f4f6">TOTAL</th></tr></thead><tbody>`;
-    linhas.forEach(l => {
-      h += `<tr style="border-top:1px solid #f1f5f9"><td style="padding:8px 10px;font-weight:600;color:#334155">${l.label}</td>`;
-      let tot = l.total !== undefined ? l.total : 0;
-      let computeTot = l.total === undefined;
-      MONTHS_VIS.forEach(m => {
-        const v = l.valores[m];
-        h += `<td style="text-align:right;padding:8px 8px;color:${l.cor||'#0f172a'}">${l.fmt ? l.fmt(v) : (v === null || v === undefined ? '—' : _fmtR(v))}</td>`;
-        if (computeTot && v !== null && v !== undefined) tot += v;
-      });
-      h += `<td style="text-align:right;padding:8px 10px;font-weight:700;color:${l.cor||'#0f172a'};background:#f9fafb">${l.fmtTotal ? l.fmtTotal(tot) : (l.fmt ? l.fmt(tot) : _fmtR(tot))}</td></tr>`;
-    });
-    h += `</tbody></table></div>`;
-    return h;
+  // Progresso barra
+  const progBar = (val, max, cor, meta) => {
+    const pct = Math.min(100, Math.max(0, (val/max)*100));
+    const c = semColor[cor] || '#3b82f6';
+    return `<div style="position:relative;height:10px;background:#f1f5f9;border-radius:5px;overflow:hidden">
+      <div style="height:100%;width:${pct}%;background:${c};border-radius:5px;transition:width 0.3s"></div>
+      ${meta !== undefined ? `<div style="position:absolute;top:-2px;left:${(meta/max)*100}%;width:2px;height:14px;background:#0f172a"></div>` : ''}
+    </div>`;
   };
   
-  let html = `<div style="padding:20px;max-width:1400px;margin:0 auto">
-    <h2 style="margin:0 0 4px;color:#0f172a">📊 KPI Financeiro</h2>
-    <p style="margin:0 0 20px;color:#64748b;font-size:12.5px">Camada de análise gerencial sobre a estrutura financeira</p>`;
+  // Grid mensal para tabelas menores
+  const linhaEvoluto = (label, valores, cor, fmt) => {
+    fmt = fmt || _fmtR;
+    let h = `<div style="display:grid;grid-template-columns:180px repeat(12, 1fr);gap:2px;font-size:11px;align-items:center;margin-bottom:4px">
+      <div style="font-weight:600;color:#475569;font-size:11.5px">${label}</div>`;
+    MONTHS_ALL.forEach(m => {
+      const v = valores[m];
+      const isEmpty = v === null || v === undefined || v === 0;
+      h += `<div style="text-align:right;padding:6px 4px;color:${isEmpty?'#cbd5e1':(cor||'#0f172a')};font-weight:${isEmpty?'400':'600'}">${isEmpty?'—':fmt(v)}</div>`;
+    });
+    return h + '</div>';
+  };
+  
+  let html = `<div style="padding:24px;max-width:1500px;margin:0 auto;background:#fafafa;min-height:100vh">
+    <div style="margin-bottom:24px">
+      <h2 style="margin:0 0 4px;color:#0f172a;font-size:26px;font-weight:800;letter-spacing:-0.5px">📊 KPI Financeiro</h2>
+      <p style="margin:0;color:#64748b;font-size:13px">Camada de análise gerencial • Growper Digital 2026</p>
+    </div>`;
   
   // ============ 1. VISÃO GERAL ============
-  html += accHead('visao', '📊', 'Visão Geral', 'Principais indicadores financeiros');
+  const badgeSaude = `<span style="padding:5px 10px;background:${semBg[semMg]};color:${semColor[semMg]};border-radius:6px;font-size:11px;font-weight:700">${semIcon[semMg]} Margem ${_fmtPct(totMargem)}</span>`;
+  
+  html += acc('visao', '📊', 'Visão Geral', 'Principais indicadores da operação', badgeSaude);
   html += accBody('visao', `
-    <div style="display:flex;flex-wrap:wrap;gap:12px">
-      ${kpiCard('Receita', _fmtR(totRec), null, '#166534')}
-      ${kpiCard('Despesas', _fmtR(totDesp), null, '#991b1b')}
-      ${kpiCard('Resultado Operacional', _fmtR(totResultado), null, totResultado >= 0 ? '#166534' : '#991b1b')}
-      ${kpiCard('Margem Operacional', _fmtPct(totMargem), null, corSem(semMargem))}
-      ${kpiCard('Custo do Time', totCustoTime === null ? '—' : _fmtR(totCustoTime), pctCustoTimeAno !== null ? _fmtPct(pctCustoTimeAno) + ' das mensalidades' : 'Preencha o RH', corSem(semCustoTime))}
-      ${kpiCard('Receita / Colaborador', recPorColab === null ? '—' : _fmtR(recPorColab), qtdColaboradores + ' colaboradores', '#0f172a')}
-      ${kpiCard('Inadimplência', _fmtR(totInadimplencia), pctInadimplenciaAno !== null ? _fmtPct(pctInadimplenciaAno) + ' das mensalidades' : null, corSem(semInadimplencia))}
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:14px">
+      ${bigCard('💰', 'Receita', _fmtR(totRec), 'Ano até o momento', 'green', sparkline(MONTHS_ALL.map(m => rec.total[m]), '#10b981', 80, 22))}
+      ${bigCard('💸', 'Despesas', _fmtR(totDesp), 'Todas op + cartão', 'red', sparkline(MONTHS_ALL.map(m => desp.total[m]), '#ef4444', 80, 22))}
+      ${bigCard('📈', 'Resultado Op', _fmtR(totRes), 'Receita − Despesa', totRes >= 0 ? 'green' : 'red')}
+      ${bigCard('🎯', 'Margem Op', _fmtPct(totMargem), 'Resultado ÷ Receita', semMg)}
+      ${bigCard('👥', 'Custo do Time', totCustoTime === null ? '—' : _fmtR(totCustoTime), pctCustoTime !== null ? _fmtPct(pctCustoTime) + ' das mensalidades' : 'Preencha no menu RH', semCT)}
+      ${bigCard('⚡', 'Receita / Colaborador', recPorColab === null ? '—' : _fmtR(recPorColab), qtdColaboradores + ' colaboradores', 'green')}
+      ${bigCard('⚠️', 'Inadimplência', _fmtR(totInad), pctInad !== null ? _fmtPct(pctInad) + ' das mensalidades' : '—', semIn)}
+      ${bigCard('🧾', 'Impostos', _fmtR(totImp), pctImp !== null ? _fmtPct(pctImp) + ' da receita' : '—', 'gray')}
     </div>
   `);
-  html += accClose();
   
   // ============ 2. EFICIÊNCIA ============
-  const custoTimeVals = {};
-  MONTHS_ALL.forEach(m => custoTimeVals[m] = custoTimeMes[m]);
+  const custoTimeStr = pctCustoTime === null ? 'Sem dados' : _fmtPct(pctCustoTime);
+  const badgeCT = `<span style="padding:5px 10px;background:${semBg[semCT]};color:${semColor[semCT]};border-radius:6px;font-size:11px;font-weight:700">${semIcon[semCT]} Custo Time ${custoTimeStr}</span>`;
   
-  html += accHead('efic', '⚙️', 'Eficiência', 'Custo do Time · Receita por Colaborador · Margem Op');
+  html += acc('efic', '⚙️', 'Eficiência', 'Custo do Time · Receita por Colaborador · Margem por Área', badgeCT);
+  
+  // Margem por departamento
+  const deptsComReceita = Object.keys(deptRec).filter(d => sum(deptRec[d]) > 0).map(d => {
+    const r = sum(deptRec[d]);
+    const dp = sum(deptDesp[d] || {});
+    const res = r - dp;
+    const mg = r > 0 ? (res/r)*100 : null;
+    return { dept: d, rec: r, desp: dp, res, mg };
+  }).sort((a,b) => b.rec - a.rec);
+  
   html += accBody('efic', `
-    <!-- CUSTO DO TIME -->
-    <div style="margin-bottom:20px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <div style="font-size:13.5px;font-weight:700;color:#0f172a">Custo do Time ÷ Mensalidades <span style="color:#64748b;font-weight:500;font-size:11.5px">(meta ≤ 30%)</span></div>
-        <div style="padding:5px 12px;background:${bgSem(semCustoTime)};color:${corSem(semCustoTime)};border-radius:6px;font-size:11.5px;font-weight:700">${iconSem(semCustoTime)} ${pctCustoTimeAno === null ? 'Sem dados no RH' : _fmtPct(pctCustoTimeAno) + (pctCustoTimeAno <= 30 ? ' — Dentro da meta' : ' — Atenção')}</div>
+    <!-- CUSTO DO TIME - Card destaque -->
+    <div style="background:linear-gradient(135deg, ${semBg[semCT]} 0%, white 100%);border:1px solid #e5e7eb;border-radius:14px;padding:22px;margin-bottom:18px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:12px">
+        <div>
+          <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;margin-bottom:6px">🎯 CUSTO DO TIME</div>
+          <div style="font-size:32px;font-weight:800;color:${semColor[semCT]};letter-spacing:-0.5px;line-height:1">${custoTimeStr}</div>
+          <div style="font-size:12.5px;color:#475569;margin-top:6px">${pctCustoTime === null ? 'Preencha os valores no menu RH' : 'da base de mensalidades'}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Meta</div>
+          <div style="font-size:20px;font-weight:800;color:#0f172a">≤ 30%</div>
+          <div style="font-size:11px;color:${pctCustoTime !== null && pctCustoTime > 30 ? '#991b1b' : '#166534'};margin-top:2px;font-weight:600">${pctCustoTime === null ? '' : (pctCustoTime <= 30 ? '✓ Dentro da meta' : '✗ Fora da meta')}</div>
+        </div>
       </div>
-      ${tabelaMes([
-        {label: 'Receita mensalidades', valores: recMensalidadesMes, cor: '#166534'},
-        {label: 'Custo do time (RH)', valores: custoTimeVals, cor: '#991b1b', fmt: v => v === null || v === undefined ? '—' : _fmtR(v)},
-        {label: '% do custo do time', valores: pctCustoTimeMes, cor: '#0f172a', fmt: v => v === null || v === undefined ? '—' : _fmtPct(v), fmtTotal: () => pctCustoTimeAno === null ? '—' : _fmtPct(pctCustoTimeAno), total: pctCustoTimeAno}
-      ])}
-      <div style="margin-top:8px;font-size:11px;color:#64748b">Base: Mensalidades Clientes + Mensalidade Inadimplentes + Taxa de Implementação. Custo: Fechamento da Folha preenchido no menu RH.</div>
+      <div style="margin-top:14px">
+        ${progBar(pctCustoTime || 0, 60, semCT, 30)}
+        <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:10.5px;color:#64748b">
+          <span>0%</span><span style="color:#0f172a;font-weight:700">Meta 30%</span><span>60%</span>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:16px;margin-top:20px;padding-top:18px;border-top:1px solid #e5e7eb">
+        <div><div style="font-size:10.5px;color:#64748b;font-weight:600;text-transform:uppercase">Mensalidades</div><div style="font-size:15px;font-weight:700;color:#166534;margin-top:2px">${_fmtR(totMens)}</div></div>
+        <div><div style="font-size:10.5px;color:#64748b;font-weight:600;text-transform:uppercase">Taxa Implementação</div><div style="font-size:15px;font-weight:700;color:#166534;margin-top:2px">${_fmtR(totTaxa)}</div></div>
+        <div><div style="font-size:10.5px;color:#64748b;font-weight:600;text-transform:uppercase">Inadimplência</div><div style="font-size:15px;font-weight:700;color:#166534;margin-top:2px">${_fmtR(totInad)}</div></div>
+      </div>
+      <div style="margin-top:14px;padding-top:14px;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center">
+        <div><div style="font-size:10.5px;color:#64748b;font-weight:600;text-transform:uppercase">Base Total</div><div style="font-size:17px;font-weight:800;color:#0f172a">${_fmtR(totMensBase)}</div></div>
+        <div style="text-align:right"><div style="font-size:10.5px;color:#64748b;font-weight:600;text-transform:uppercase">Custo (RH)</div><div style="font-size:17px;font-weight:800;color:#991b1b">${totCustoTime === null ? '—' : _fmtR(totCustoTime)}</div></div>
+      </div>
     </div>
     
-    <!-- RECEITA POR COLABORADOR -->
-    <div style="margin-bottom:20px">
-      <div style="font-size:13.5px;font-weight:700;color:#0f172a;margin-bottom:10px">Receita por Colaborador</div>
-      <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:14px;display:flex;gap:24px;flex-wrap:wrap">
-        <div><div style="font-size:11px;color:#64748b">Receita total (período)</div><div style="font-size:18px;font-weight:800;color:#166534">${_fmtR(totRec)}</div></div>
-        <div><div style="font-size:11px;color:#64748b">Colaboradores</div><div style="font-size:18px;font-weight:800;color:#0f172a">${qtdColaboradores}</div></div>
-        <div><div style="font-size:11px;color:#64748b">Receita / colaborador</div><div style="font-size:18px;font-weight:800;color:#166534">${recPorColab === null ? '—' : _fmtR(recPorColab)}</div></div>
-      </div>
+    <!-- Grid de KPIs de eficiência -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:14px;margin-bottom:20px">
+      ${bigCard('⚡', 'Receita por Colaborador', recPorColab === null ? '—' : _fmtR(recPorColab), qtdColaboradores + ' colaboradores ativos', 'green')}
+      ${bigCard('🎯', 'Margem Operacional', _fmtPct(totMargem), _fmtR(totRes) + ' de resultado', semMg)}
     </div>
     
-    <!-- MARGEM OPERACIONAL -->
-    <div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <div style="font-size:13.5px;font-weight:700;color:#0f172a">Margem Operacional</div>
-        <div style="padding:5px 12px;background:${bgSem(semMargem)};color:${corSem(semMargem)};border-radius:6px;font-size:11.5px;font-weight:700">${iconSem(semMargem)} ${_fmtPct(totMargem)}</div>
-      </div>
-      ${tabelaMes([
-        {label: 'Receita', valores: recTotalMes, cor: '#166534'},
-        {label: 'Despesas', valores: despTotalMes, cor: '#991b1b'},
-        {label: 'Resultado Op', valores: resultadoMes, cor: '#0f172a'},
-        {label: 'Margem %', valores: margemMes, fmt: v => v === null ? '—' : _fmtPct(v), fmtTotal: () => _fmtPct(totMargem), total: totMargem}
-      ])}
+    <!-- Margem por Departamento -->
+    <div style="background:white;border:1px solid #e5e7eb;border-radius:12px;padding:18px">
+      <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:14px">🏢 Margem por Departamento</div>
+      ${deptsComReceita.length === 0 ? '<div style="color:#64748b;text-align:center;padding:20px;font-size:12.5px">Sem dados por departamento</div>' :
+        '<div style="display:flex;flex-direction:column;gap:10px">' + deptsComReceita.slice(0, 10).map(d => {
+          const semD = d.mg === null ? 'gray' : (d.mg >= 15 ? 'green' : (d.mg >= 5 ? 'yellow' : 'red'));
+          return `<div style="display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr 90px;gap:12px;padding:10px 12px;background:#f8fafc;border-radius:8px;align-items:center">
+            <div style="font-size:12.5px;font-weight:600;color:#0f172a">${_esc(d.dept)}</div>
+            <div style="font-size:12px;color:#166534"><span style="color:#94a3b8;font-size:10px">Rec:</span> ${_fmtRs(d.rec)}</div>
+            <div style="font-size:12px;color:#991b1b"><span style="color:#94a3b8;font-size:10px">Desp:</span> ${_fmtRs(d.desp)}</div>
+            <div style="font-size:12px;color:${d.res>=0?'#166534':'#991b1b'};font-weight:700"><span style="color:#94a3b8;font-size:10px;font-weight:400">Res:</span> ${_fmtRs(d.res)}</div>
+            <div style="text-align:right;padding:4px 10px;background:${semBg[semD]};color:${semColor[semD]};border-radius:6px;font-weight:800;font-size:12px">${_fmtPct(d.mg)}</div>
+          </div>`;
+        }).join('') + '</div>'
+      }
     </div>
   `);
-  html += accClose();
   
   // ============ 3. RECEITA ============
-  html += accHead('rec', '💰', 'Receita', 'Mensalidades · Inadimplência');
+  const badgeInad = `<span style="padding:5px 10px;background:${semBg[semIn]};color:${semColor[semIn]};border-radius:6px;font-size:11px;font-weight:700">${semIcon[semIn]} Inad ${_fmtPct(pctInad)}</span>`;
+  
+  html += acc('rec', '💰', 'Receita', 'Mensalidades · Taxa de Implementação · Inadimplência', badgeInad);
   html += accBody('rec', `
-    <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
-      ${kpiCard('Mensalidades', _fmtR(totMensalidades), 'Clientes + Inadimplentes + Taxa Impl.', '#166534')}
-      ${kpiCard('Inadimplência', _fmtR(totInadimplencia), pctInadimplenciaAno !== null ? _fmtPct(pctInadimplenciaAno) + ' das mensalidades' : null, corSem(semInadimplencia))}
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:14px;margin-bottom:18px">
+      ${bigCard('💳', 'Mensalidades Clientes', _fmtR(totMens), null, 'green', sparkline(MONTHS_ALL.map(m => rec.mens[m]), '#10b981', 80, 22))}
+      ${bigCard('🚀', 'Taxa de Implementação', _fmtR(totTaxa), null, 'green', sparkline(MONTHS_ALL.map(m => rec.taxa[m]), '#10b981', 80, 22))}
+      ${bigCard('⚠️', 'Inadimplência', _fmtR(totInad), pctInad !== null ? _fmtPct(pctInad) + ' das mensalidades' : '—', semIn, sparkline(MONTHS_ALL.map(m => rec.inad[m]), '#f59e0b', 80, 22))}
     </div>
-    <div style="font-size:13.5px;font-weight:700;color:#0f172a;margin:12px 0 8px">Evolução mensal</div>
-    ${tabelaMes([
-      {label: 'Mensalidades', valores: recMensalidadesMes, cor: '#166534'},
-      {label: 'Inadimplência', valores: recInadimplenciaMes, cor: '#991b1b'},
-      {label: '% inadimplência', valores: pctInadimplenciaMes, fmt: v => v === null ? '—' : _fmtPct(v), fmtTotal: () => _fmtPct(pctInadimplenciaAno), total: pctInadimplenciaAno}
-    ])}
+    <div style="background:white;border:1px solid #e5e7eb;border-radius:12px;padding:18px">
+      <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:14px">📅 Evolução mensal</div>
+      <div style="display:grid;grid-template-columns:180px repeat(12, 1fr);gap:2px;font-size:10px;color:#94a3b8;font-weight:700;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid #e5e7eb">
+        <div></div>
+        ${MONTH_LABELS.map(l => `<div style="text-align:right;padding:0 4px">${l}</div>`).join('')}
+      </div>
+      ${linhaEvoluto('Mensalidades', rec.mens, '#166534', _fmtRs)}
+      ${linhaEvoluto('Taxa Implementação', rec.taxa, '#166534', _fmtRs)}
+      ${linhaEvoluto('Inadimplência', rec.inad, '#991b1b', _fmtRs)}
+      ${linhaEvoluto('% Inadimplência', Object.fromEntries(MONTHS_ALL.map(m => [m, rec.mens[m] > 0 ? (rec.inad[m]/rec.mens[m])*100 : null])), '#f59e0b', v => v === null ? '—' : v.toFixed(1)+'%')}
+    </div>
   `);
-  html += accClose();
   
   // ============ 4. BU ============
-  const resOperacaoMes = {}, resRecCredMes = {};
-  MONTHS_ALL.forEach(m => {
-    resOperacaoMes[m] = recOperacaoMes[m];
-    resRecCredMes[m] = recRecCredMes[m];
-  });
+  const pctOperTot = (totOper+totRecCred) > 0 ? (totOper/(totOper+totRecCred))*100 : 0;
+  const pctRecCredTot = 100 - pctOperTot;
   
-  html += accHead('bu', '🏢', 'BU — Estrutura Gerencial', 'Operação · Rec Cred');
+  html += acc('bu', '🏢', 'BU — Estrutura Gerencial', 'Operação · Rec Cred', `<span style="font-size:11px;color:#64748b">Consolidado ${_fmtRs(totOper + totRecCred)}</span>`);
   html += accBody('bu', `
-    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:12px;color:#1e40af">
-      ℹ️ REC CRED = Estratégia Recrutamento + Estratégia Direto na Conta. OPERAÇÃO = todas as demais receitas. Neste momento, apenas receitas são classificadas por BU.
+    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px 16px;margin-bottom:18px;font-size:12px;color:#1e40af;line-height:1.5">
+      ℹ️ <strong>REC CRED</strong> = Estratégia Recrutamento + Estratégia Direto na Conta. <strong>OPERAÇÃO</strong> = todas as demais receitas. Apenas receitas classificadas por BU nesta fase.
     </div>
-    <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
-      ${kpiCard('OPERAÇÃO — Receita', _fmtR(totOperacao), null, '#166534')}
-      ${kpiCard('REC CRED — Receita', _fmtR(totRecCred), null, '#166534')}
-      ${kpiCard('CONSOLIDADO', _fmtR(totOperacao + totRecCred), 'Op + Rec Cred', '#0f172a')}
+    
+    <!-- Composição visual -->
+    <div style="background:white;border:1px solid #e5e7eb;border-radius:12px;padding:20px;margin-bottom:16px">
+      <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:14px">Composição da Receita Total</div>
+      <div style="display:flex;height:44px;border-radius:10px;overflow:hidden;margin-bottom:12px">
+        <div style="width:${pctOperTot}%;background:linear-gradient(90deg, #10b981, #059669);display:flex;align-items:center;justify-content:center;color:white;font-weight:800;font-size:13px">${pctOperTot >= 15 ? pctOperTot.toFixed(1)+'% OPERAÇÃO' : ''}</div>
+        <div style="width:${pctRecCredTot}%;background:linear-gradient(90deg, #8b5cf6, #7c3aed);display:flex;align-items:center;justify-content:center;color:white;font-weight:800;font-size:13px">${pctRecCredTot >= 15 ? pctRecCredTot.toFixed(1)+'% REC CRED' : ''}</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div style="padding:14px;background:#ecfdf5;border-radius:10px;border-left:4px solid #10b981">
+          <div style="font-size:11px;color:#166534;text-transform:uppercase;letter-spacing:0.5px;font-weight:700">OPERAÇÃO</div>
+          <div style="font-size:22px;font-weight:800;color:#0f172a;margin-top:6px">${_fmtR(totOper)}</div>
+          <div style="font-size:11.5px;color:#166534;font-weight:600;margin-top:2px">${_fmtPct(pctOperTot)} da receita</div>
+        </div>
+        <div style="padding:14px;background:#f5f3ff;border-radius:10px;border-left:4px solid #8b5cf6">
+          <div style="font-size:11px;color:#5b21b6;text-transform:uppercase;letter-spacing:0.5px;font-weight:700">REC CRED</div>
+          <div style="font-size:22px;font-weight:800;color:#0f172a;margin-top:6px">${_fmtR(totRecCred)}</div>
+          <div style="font-size:11.5px;color:#5b21b6;font-weight:600;margin-top:2px">${_fmtPct(pctRecCredTot)} da receita</div>
+        </div>
+      </div>
     </div>
-    ${tabelaMes([
-      {label: 'OPERAÇÃO', valores: recOperacaoMes, cor: '#166534'},
-      {label: 'REC CRED', valores: recRecCredMes, cor: '#166534'},
-      {label: 'Consolidado', valores: Object.fromEntries(MONTHS_ALL.map(m => [m, recOperacaoMes[m]+recRecCredMes[m]])), cor: '#0f172a'}
-    ])}
+    
+    <div style="background:white;border:1px solid #e5e7eb;border-radius:12px;padding:18px">
+      <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:14px">Evolução mensal por BU</div>
+      <div style="display:grid;grid-template-columns:180px repeat(12, 1fr);gap:2px;font-size:10px;color:#94a3b8;font-weight:700;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid #e5e7eb">
+        <div></div>
+        ${MONTH_LABELS.map(l => `<div style="text-align:right;padding:0 4px">${l}</div>`).join('')}
+      </div>
+      ${linhaEvoluto('OPERAÇÃO', rec.oper, '#166534', _fmtRs)}
+      ${linhaEvoluto('REC CRED', rec.recCred, '#5b21b6', _fmtRs)}
+    </div>
   `);
-  html += accClose();
   
   // ============ 5. SQUADS ============
-  html += accHead('squads', '👥', 'Squads', 'Em construção');
+  html += acc('squads', '👥', 'Squads', 'Em construção');
   html += accBody('squads', `
-    <div style="text-align:center;padding:30px 20px;color:#64748b">
-      <div style="font-size:36px;margin-bottom:12px">🚧</div>
-      <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:6px">Receita por Squad — Em construção</div>
-      <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:12px">Custo por Squad — Em construção</div>
-      <div style="font-size:12px;max-width:500px;margin:0 auto;line-height:1.5">Estrutura de distribuição de clientes e colaboradores entre squads ainda está sendo definida.</div>
+    <div style="text-align:center;padding:40px 20px;color:#64748b">
+      <div style="font-size:48px;margin-bottom:16px">🚧</div>
+      <div style="font-size:15px;font-weight:700;color:#0f172a;margin-bottom:6px">Em Construção</div>
+      <div style="font-size:12.5px;max-width:480px;margin:0 auto;line-height:1.6">Receita e Custo por Squad serão implementados após definição da estrutura de distribuição de clientes e colaboradores entre squads.</div>
     </div>
   `);
-  html += accClose();
   
   // ============ 6. TRIBUTÁRIO ============
-  html += accHead('trib', '🧾', 'Tributário', 'Total de impostos · % sobre receita');
+  html += acc('trib', '🧾', 'Tributário', 'Impostos · % sobre receita', `<span style="font-size:12px;color:#991b1b;font-weight:700">${_fmtPct(pctImp)}</span>`);
   html += accBody('trib', `
-    <div style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap">
-      ${kpiCard('Total de impostos', _fmtR(totImpostos), null, '#991b1b')}
-      ${kpiCard('% sobre receita', _fmtPct(pctImpostosAno), null, '#0f172a')}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+      ${bigCard('🧾', 'Total de Impostos', _fmtR(totImp), 'Simples, IRRF, INSS, IOF...', 'red', sparkline(MONTHS_ALL.map(m => desp.imp[m]), '#ef4444', 80, 22))}
+      ${bigCard('📊', '% sobre Receita', _fmtPct(pctImp), 'Carga tributária', 'gray')}
     </div>
-    ${tabelaMes([
-      {label: 'Impostos', valores: impostosMes, cor: '#991b1b'},
-      {label: '% sobre receita', valores: pctImpostosMes, fmt: v => v === null ? '—' : _fmtPct(v), fmtTotal: () => _fmtPct(pctImpostosAno), total: pctImpostosAno}
-    ])}
+    <div style="background:white;border:1px solid #e5e7eb;border-radius:12px;padding:18px">
+      <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:14px">Evolução mensal</div>
+      <div style="display:grid;grid-template-columns:180px repeat(12, 1fr);gap:2px;font-size:10px;color:#94a3b8;font-weight:700;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid #e5e7eb">
+        <div></div>
+        ${MONTH_LABELS.map(l => `<div style="text-align:right;padding:0 4px">${l}</div>`).join('')}
+      </div>
+      ${linhaEvoluto('Impostos', desp.imp, '#991b1b', _fmtRs)}
+      ${linhaEvoluto('% sobre receita', Object.fromEntries(MONTHS_ALL.map(m => [m, rec.total[m] > 0 ? (desp.imp[m]/rec.total[m])*100 : null])), '#f59e0b', v => v === null ? '—' : v.toFixed(1)+'%')}
+    </div>
   `);
-  html += accClose();
   
-  // ============ 7. SAÚDE + PAINEL ATENÇÃO ============
+  // ============ 7. SAÚDE FINANCEIRA ============
   const alertas = [];
-  if (pctCustoTimeAno !== null && pctCustoTimeAno > 30) alertas.push({icon: '⚠️', txt: `Custo do Time em ${_fmtPct(pctCustoTimeAno)} (acima de 30%)`});
-  if (totMargem !== null && totMargem < 5) alertas.push({icon: '⚠️', txt: `Margem Operacional em ${_fmtPct(totMargem)} (abaixo de 5%)`});
-  if (pctInadimplenciaAno !== null && pctInadimplenciaAno > 10) alertas.push({icon: '⚠️', txt: `Inadimplência em ${_fmtPct(pctInadimplenciaAno)} (acima de 10%)`});
+  if (pctCustoTime !== null && pctCustoTime > 30) alertas.push({ txt: 'Custo do Time acima de 30%', val: _fmtPct(pctCustoTime), cor: 'red' });
+  if (totMargem !== null && totMargem < 5) alertas.push({ txt: 'Margem Operacional abaixo de 5%', val: _fmtPct(totMargem), cor: 'red' });
+  if (pctInad !== null && pctInad > 10) alertas.push({ txt: 'Inadimplência acima de 10%', val: _fmtPct(pctInad), cor: 'red' });
+  if (pctCustoTime !== null && pctCustoTime > 25 && pctCustoTime <= 30) alertas.push({ txt: 'Custo do Time próximo do limite', val: _fmtPct(pctCustoTime), cor: 'yellow' });
+  if (totMargem !== null && totMargem >= 5 && totMargem < 15) alertas.push({ txt: 'Margem em zona de atenção', val: _fmtPct(totMargem), cor: 'yellow' });
+  if (pctInad !== null && pctInad > 5 && pctInad <= 10) alertas.push({ txt: 'Inadimplência em zona de atenção', val: _fmtPct(pctInad), cor: 'yellow' });
   
-  html += accHead('saude', '❤️', 'Saúde Financeira', `${alertas.length} alerta(s) ativos`);
+  const badgeSaudeGeral = alertas.length === 0 ? `<span style="padding:5px 10px;background:#d1fae5;color:#166534;border-radius:6px;font-size:11px;font-weight:700">🟢 Saudável</span>` : `<span style="padding:5px 10px;background:${semBg[alertas[0].cor]};color:${semColor[alertas[0].cor]};border-radius:6px;font-size:11px;font-weight:700">${alertas.length} alerta${alertas.length>1?'s':''}</span>`;
+  
+  html += acc('saude', '❤️', 'Saúde Financeira', 'Leitura rápida da situação', badgeSaudeGeral);
   html += accBody('saude', `
-    <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
-      <div style="flex:1;min-width:180px;background:${bgSem(semCustoTime)};border-radius:8px;padding:14px">
-        <div style="font-size:11px;color:${corSem(semCustoTime)};font-weight:700;text-transform:uppercase;margin-bottom:6px">${iconSem(semCustoTime)} Custo do Time</div>
-        <div style="font-size:16px;font-weight:800;color:${corSem(semCustoTime)}">${pctCustoTimeAno === null ? 'Sem dados' : _fmtPct(pctCustoTimeAno)}</div>
+    <!-- Como funciona -->
+    <div style="background:linear-gradient(135deg, #f0f9ff 0%, #ffffff 100%);border:1px solid #bae6fd;border-radius:10px;padding:14px 16px;margin-bottom:18px;font-size:12px;color:#0c4a6e;line-height:1.6">
+      <strong>💡 Como funciona:</strong> os KPIs de Custo do Time, Margem Operacional e Inadimplência são classificados em zonas:
+      <span style="display:inline-block;padding:2px 8px;background:#d1fae5;color:#166534;border-radius:4px;font-weight:700;margin:0 3px">🟢 Saudável</span> = dentro da meta,
+      <span style="display:inline-block;padding:2px 8px;background:#fef3c7;color:#92400e;border-radius:4px;font-weight:700;margin:0 3px">🟡 Atenção</span> = próximo do limite,
+      <span style="display:inline-block;padding:2px 8px;background:#fee2e2;color:#991b1b;border-radius:4px;font-weight:700;margin:0 3px">🔴 Crítico</span> = fora da meta.
+    </div>
+    
+    <!-- Cards de saúde grandes -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:14px;margin-bottom:20px">
+      <div style="background:linear-gradient(135deg, ${semBg[semCT]} 0%, white 100%);border-radius:14px;padding:20px;border:1px solid #e5e7eb">
+        <div style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">💰 Custo do Time</div>
+        <div style="font-size:36px;font-weight:800;color:${semColor[semCT]};letter-spacing:-1px;margin:8px 0;line-height:1">${pctCustoTime === null ? '—' : _fmtPct(pctCustoTime)}</div>
+        <div style="font-size:12px;color:#0f172a;font-weight:600">${semIcon[semCT]} ${pctCustoTime === null ? 'Sem dados no RH' : pctCustoTime <= 30 ? 'Saudável' : pctCustoTime <= 40 ? 'Atenção' : 'Crítico'}</div>
+        <div style="font-size:10.5px;color:#64748b;margin-top:4px">Meta: ≤ 30% das mensalidades</div>
       </div>
-      <div style="flex:1;min-width:180px;background:${bgSem(semMargem)};border-radius:8px;padding:14px">
-        <div style="font-size:11px;color:${corSem(semMargem)};font-weight:700;text-transform:uppercase;margin-bottom:6px">${iconSem(semMargem)} Margem Op</div>
-        <div style="font-size:16px;font-weight:800;color:${corSem(semMargem)}">${_fmtPct(totMargem)}</div>
+      <div style="background:linear-gradient(135deg, ${semBg[semMg]} 0%, white 100%);border-radius:14px;padding:20px;border:1px solid #e5e7eb">
+        <div style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">📈 Margem Operacional</div>
+        <div style="font-size:36px;font-weight:800;color:${semColor[semMg]};letter-spacing:-1px;margin:8px 0;line-height:1">${_fmtPct(totMargem)}</div>
+        <div style="font-size:12px;color:#0f172a;font-weight:600">${semIcon[semMg]} ${totMargem === null ? 'Sem dados' : totMargem >= 15 ? 'Saudável' : totMargem >= 5 ? 'Atenção' : 'Crítico'}</div>
+        <div style="font-size:10.5px;color:#64748b;margin-top:4px">Meta: ≥ 15% da receita</div>
       </div>
-      <div style="flex:1;min-width:180px;background:${bgSem(semInadimplencia)};border-radius:8px;padding:14px">
-        <div style="font-size:11px;color:${corSem(semInadimplencia)};font-weight:700;text-transform:uppercase;margin-bottom:6px">${iconSem(semInadimplencia)} Inadimplência</div>
-        <div style="font-size:16px;font-weight:800;color:${corSem(semInadimplencia)}">${_fmtPct(pctInadimplenciaAno)}</div>
+      <div style="background:linear-gradient(135deg, ${semBg[semIn]} 0%, white 100%);border-radius:14px;padding:20px;border:1px solid #e5e7eb">
+        <div style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">⚠️ Inadimplência</div>
+        <div style="font-size:36px;font-weight:800;color:${semColor[semIn]};letter-spacing:-1px;margin:8px 0;line-height:1">${_fmtPct(pctInad)}</div>
+        <div style="font-size:12px;color:#0f172a;font-weight:600">${semIcon[semIn]} ${pctInad === null ? 'Sem dados' : pctInad <= 5 ? 'Saudável' : pctInad <= 10 ? 'Atenção' : 'Crítico'}</div>
+        <div style="font-size:10.5px;color:#64748b;margin-top:4px">Meta: ≤ 5% das mensalidades</div>
       </div>
     </div>
-    <div style="font-size:13.5px;font-weight:700;color:#0f172a;margin:12px 0 8px">Painel de Atenção</div>
-    ${alertas.length === 0 
-      ? '<div style="padding:16px;background:#dcfce7;color:#166534;border-radius:8px;text-align:center;font-weight:600">✅ Nenhum indicador fora do objetivo</div>' 
-      : '<div style="display:flex;flex-direction:column;gap:8px">' + alertas.map(a => `<div style="padding:12px 14px;background:#fef2f2;color:#991b1b;border-left:4px solid #ef4444;border-radius:4px;font-size:13px;font-weight:600">${a.icon} ${a.txt}</div>`).join('') + '</div>'
-    }
+    
+    <!-- Painel de Atenção -->
+    <div style="background:white;border:1px solid #e5e7eb;border-radius:12px;padding:20px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div style="font-size:14px;font-weight:700;color:#0f172a">🚨 Painel de Atenção</div>
+        <span style="font-size:11px;color:#64748b">Indicadores fora do objetivo</span>
+      </div>
+      ${alertas.length === 0 
+        ? '<div style="padding:24px;background:#d1fae5;color:#166534;border-radius:10px;text-align:center;font-weight:700">✅ Todos os indicadores dentro dos objetivos</div>' 
+        : '<div style="display:flex;flex-direction:column;gap:8px">' + alertas.map(a => `<div style="padding:14px 16px;background:${semBg[a.cor]};border-left:4px solid ${semColor[a.cor]};border-radius:8px;display:flex;justify-content:space-between;align-items:center">
+            <div style="font-size:13px;font-weight:600;color:${semColor[a.cor]}">${semIcon[a.cor]} ${a.txt}</div>
+            <div style="font-size:14px;font-weight:800;color:${semColor[a.cor]}">${a.val}</div>
+          </div>`).join('') + '</div>'
+      }
+    </div>
   `);
-  html += accClose();
   
   html += `</div>`;
   container.innerHTML = html;
