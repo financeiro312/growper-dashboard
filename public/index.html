@@ -736,7 +736,7 @@ body.scalia-mode .company-badge {
       <button class="nav-btn" data-section="card"><span class="nav-icon">💳</span><span>Cartão de Crédito</span></button>
       <button class="nav-btn" data-section="recebiveis"><span class="nav-icon">💰</span><span>Recebíveis</span></button>
       <button class="nav-btn" data-section="kits"><span class="nav-icon">🎁</span><span>Orçamento de Kits</span></button>
-      <button class="nav-btn" data-section="area"><span class="nav-icon">🏢</span><span>Por Área</span></button>
+      
       <button class="nav-btn" data-section="kpis"><span class="nav-icon">📊</span><span>KPI's Financeiro</span></button>
     </div>
   </div>
@@ -5110,144 +5110,19 @@ function showDetailPJ(colab, mes) {
 
 // =================== MARGEM (Cards + Tabela mês a mês) ===================
 function renderMargem() {
-  const data = RAW_DATA_COMP;
-  const filtered = filterData(data, false);
-
-  const recByMonth = {}, cdByMonth = {}, ciByMonth = {}, tribByMonth = {}, distrByMonth = {};
-  MONTHS.forEach(m => { recByMonth[m] = 0; cdByMonth[m] = 0; ciByMonth[m] = 0; tribByMonth[m] = 0; distrByMonth[m] = 0; });
-
-  // Mesma estrutura para CAIXA (realizada)
-  const recR = {}, cdR = {}, ciR = {}, tribR = {}, distrR = {};
-  MONTHS.forEach(m => { recR[m] = 0; cdR[m] = 0; ciR[m] = 0; tribR[m] = 0; distrR[m] = 0; });
-  
-  const dataCaixa = RAW_DATA_CAIXA.filter(r => {
-    if (!_contaAceita(r.conta)) return false;
-    if (currentConciliado !== 'all' && r.conciliado !== currentConciliado) return false;
-    return true;
-  });
-
-  const directDepts = ['D001 - Performance', 'D002 - CS (Customer Success)', 'D003 - Criação'];
-  const indirectDepts = ['D004 - Tecnologia', 'D005 - Financeiro', 'D006 - Administrativo Geral', 'D007 - People & Recrutamento', 'D008 - Comercial & Expansão'];
-  const distrDepts = ['D011 - Despesas Não Operacionais'];
-
-  // Projetado (competência)
-  filtered.forEach(r => {
-    const mes = r.mesRegistro;
-    if (!MONTHS.includes(mes)) return;
-    const val = r.valorConta;
-    if (r.tipo === '1. Contas a Receber') recByMonth[mes] += val;
-    else if (r.tipo === '2. Contas a Pagar') {
-      if (directDepts.includes(r.departamento)) cdByMonth[mes] += val;
-      else if (indirectDepts.includes(r.departamento)) ciByMonth[mes] += val;
-      else if (distrDepts.includes(r.departamento)) distrByMonth[mes] += val;
-      if (r.departamento === 'D010 - Obrigações Tributárias') tribByMonth[mes] += val;
-    }
-  });
-
-  // Realizado (caixa)
-  dataCaixa.forEach(r => {
-    const mes = r.mesPagto;
-    if (!MONTHS.includes(mes)) return;
-    const val = r.valorPago;
-    if (r.tipo === '1. Contas a Receber') recR[mes] += val;
-    else if (r.tipo === '2. Contas a Pagar') {
-      if (directDepts.includes(r.departamento)) cdR[mes] += val;
-      else if (indirectDepts.includes(r.departamento)) ciR[mes] += val;
-      else if (distrDepts.includes(r.departamento)) distrR[mes] += val;
-      if (r.departamento === 'D010 - Obrigações Tributárias') tribR[mes] += val;
-    }
-  });
-
-  const totalRec = MONTHS.reduce((a,m) => a + (recByMonth[m] || 0), 0);
-  const totalCD = MONTHS.reduce((a,m) => a + (cdByMonth[m] || 0), 0);
-  const totalCI = MONTHS.reduce((a,m) => a + (ciByMonth[m] || 0), 0);
-  const totalTrib = MONTHS.reduce((a,m) => a + (tribByMonth[m] || 0), 0);
-  const totalDistr = MONTHS.reduce((a,m) => a + (distrByMonth[m] || 0), 0);
-
-  // Realizado totais
-  const totalRecR = MONTHS.reduce((a,m) => a + (recR[m] || 0), 0);
-  const totalCDR = MONTHS.reduce((a,m) => a + (cdR[m] || 0), 0);
-  const totalCIR = MONTHS.reduce((a,m) => a + (ciR[m] || 0), 0);
-  const totalTribR = MONTHS.reduce((a,m) => a + (tribR[m] || 0), 0);
-
-  const margemBruta = totalRec > 0 ? ((totalRec + totalCD) / totalRec * 100) : 0;
-  const margemOp = totalRec > 0 ? ((totalRec + totalCD + totalCI) / totalRec * 100) : 0;
-  const margemLiq = totalRec > 0 ? ((totalRec + totalCD + totalCI + totalTrib) / totalRec * 100) : 0;
-  const margemEbitda = totalRec > 0 ? ((totalRec + totalCD + totalCI) / totalRec * 100) : 0;
-
-  // Realizadas
-  const margemBrutaR = totalRecR > 0 ? ((totalRecR + totalCDR) / totalRecR * 100) : 0;
-  const margemOpR = totalRecR > 0 ? ((totalRecR + totalCDR + totalCIR) / totalRecR * 100) : 0;
-  const margemLiqR = totalRecR > 0 ? ((totalRecR + totalCDR + totalCIR + totalTribR) / totalRecR * 100) : 0;
-  const margemEbitdaR = totalRecR > 0 ? ((totalRecR + totalCDR + totalCIR) / totalRecR * 100) : 0;
-
-  function getStatus(value, min) { if (value >= min) return 'good'; if (value >= min * 0.7) return 'warn'; return 'bad'; }
-  function getStatusLabel(s) { return s === 'good' ? '✅ Dentro do benchmark' : s === 'warn' ? '⚠️ Abaixo do esperado' : '🔴 Atenção urgente'; }
-
-  const margens = [
-    { id: 'bruta', icon: '💚', title: 'Margem Bruta', proj: margemBruta, real: margemBrutaR, min: 50, max: 65, formula: '(Receita - Custos Diretos) / Receita', desc: 'Eficiência dos custos diretos' },
-    { id: 'operacional', icon: '💙', title: 'Margem Operacional', proj: margemOp, real: margemOpR, min: 15, max: 25, formula: 'Lucro Operacional / Receita × 100', desc: 'Rentabilidade das operações' },
-    { id: 'liquida', icon: '💛', title: 'Margem Líquida (sem distrib.)', proj: margemLiq, real: margemLiqR, min: 10, max: 20, formula: '(Receita - Custos - Tributos) / Receita', desc: 'Lucro REAL do negócio, antes da distribuição aos sócios (D011)' },
-    { id: 'ebitda', icon: '🧡', title: 'EBITDA', proj: margemEbitda, real: margemEbitdaR, min: 20, max: 30, formula: 'Lucro antes juros, impostos, deprec.', desc: 'Geração de caixa operacional' },
-  ];
-
-  let cardsHtml = '';
-  margens.forEach(m => {
-    const status = getStatus(m.real, m.min);
-    cardsHtml += `<div class="margin-card" onclick='showMargemDetail(${JSON.stringify(m).replace(/'/g, "&#39;")}, ${totalRec}, ${totalCD}, ${totalCI}, ${totalTrib}, ${totalDistr})'>
-      <div class="margin-card-header"><div class="margin-card-title">${m.title}</div><div class="margin-card-icon">${m.icon}</div></div>
-      <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px">
-        <div style="font-size:11px;color:var(--text-light);font-weight:500">📊 Projetada: <span style="font-weight:700;color:var(--text-secondary)">${fmtPct(m.proj)}</span></div>
-        <div style="font-size:11px;color:var(--text-light);font-weight:500">✅ Realizada:</div>
+  const container = document.getElementById('margemContent');
+  if (!container) return;
+  container.innerHTML = `
+    <div style="min-height:70vh;display:flex;align-items:center;justify-content:center;padding:40px">
+      <div style="max-width:520px;padding:40px;background:white;border-radius:14px;box-shadow:0 4px 20px rgba(0,0,0,0.08);text-align:center">
+        <div style="font-size:56px;margin-bottom:20px">🚧</div>
+        <h2 style="margin:0 0 12px;font-size:24px;font-weight:800;color:#0f172a">Menu em Construção</h2>
+        <p style="color:#64748b;line-height:1.6;font-size:14px;margin:0">O menu Margem de Lucro está sendo reformulado.</p>
       </div>
-      <div class="margin-card-value" style="color:${status === 'good' ? 'var(--primary)' : status === 'warn' ? 'var(--accent)' : 'var(--secondary)'}">${fmtPct(m.real)}</div>
-      <div class="margin-card-benchmark"><div class="benchmark-indicator benchmark-${status}"></div><span>Benchmark: ${m.min}-${m.max}% • ${getStatusLabel(status)}</span></div>
-    </div>`;
-  });
-  document.getElementById('marginCards').innerHTML = cardsHtml;
-
-  // Tabela mês a mês (mantém só projetada para não poluir)
-  let tableHtml = `<div class="table-container"><table>
-    <thead><tr><th>Métrica</th>${MONTH_LABELS.map(m=>`<th>${m}</th>`).join('')}<th>Média</th></tr></thead>
-    <tbody>`;
-
-  function calcMargensMonth() {
-    const result = { bruta: {}, op: {}, liq: {}, ebitda: {} };
-    MONTHS.forEach(m => {
-      const r = recByMonth[m] || 0;
-      const cd = cdByMonth[m] || 0;
-      const ci = ciByMonth[m] || 0;
-      const trib = tribByMonth[m] || 0;
-      result.bruta[m] = r > 0 ? ((r + cd) / r * 100) : 0;
-      result.op[m] = r > 0 ? ((r + cd + ci) / r * 100) : 0;
-      result.liq[m] = r > 0 ? ((r + cd + ci + trib) / r * 100) : 0;
-      result.ebitda[m] = r > 0 ? ((r + cd + ci) / r * 100) : 0;
-    });
-    return result;
-  }
-
-  const monthlyMargens = calcMargensMonth();
-  const rows = [
-    { id: 'bruta', label: '💚 Margem Bruta', data: monthlyMargens.bruta, avg: margemBruta },
-    { id: 'op', label: '💙 Margem Operacional', data: monthlyMargens.op, avg: margemOp },
-    { id: 'liq', label: '💛 Margem Líquida', data: monthlyMargens.liq, avg: margemLiq },
-    { id: 'ebitda', label: '🧡 EBITDA', data: monthlyMargens.ebitda, avg: margemEbitda },
-  ];
-
-  rows.forEach(row => {
-    let cells = `<td>${row.label}</td>`;
-    MONTHS.forEach(m => {
-      const v = row.data[m] || 0;
-      const cls = v >= 0 ? 'value-pos' : 'value-neg';
-      cells += `<td class="${cls}">${recByMonth[m] > 0 ? fmtPct(v) : '—'}</td>`;
-    });
-    cells += `<td style="font-weight:700">${fmtPct(row.avg)}</td>`;
-    tableHtml += `<tr class="cat-row">${cells}</tr>`;
-  });
-
-  tableHtml += `</tbody></table></div>`;
-  document.getElementById('margemTableContent').innerHTML = tableHtml;
+    </div>
+  `;
 }
+
 
 function showMargemDetail(m, receita, cd, ci, trib, distr) {
   const status = m.value >= m.min ? 'Acima do benchmark' : m.value >= m.min * 0.7 ? 'Levemente abaixo' : 'Abaixo do benchmark';
@@ -5281,192 +5156,19 @@ function showMargemDetail(m, receita, cd, ci, trib, distr) {
 
 // =================== TICKET MÉDIO ===================
 function renderTicket() {
-  const data = getRawData();
-  const filtered = filterData(data, false).filter(r =>
-    r.tipo === '1. Contas a Receber' && r.categoria && (
-      r.categoria.includes('Mensalidades Clientes') ||
-      r.categoria.includes('Mensalidade Inadimplentes') ||
-      r.categoria.includes('Mensalidades Inadimplentes') ||
-      r.categoria.includes('Taxa de Implementação') ||
-      r.categoria.includes('Taxa Implementação')
-    )
-  );
-
-  const byMonth = {};
-  const clientesByMonth = {};
-  MONTHS.forEach(m => { byMonth[m] = 0; clientesByMonth[m] = new Set(); });
-
-  filtered.forEach(r => {
-    const mes = getMesKey(r);
-    if (!MONTHS.includes(mes)) return;
-    byMonth[mes] += getVal(r);
-    clientesByMonth[mes].add(r.fornecedor);
-  });
-
-  const ticketByMonth = {};
-  MONTHS.forEach(m => { const n = clientesByMonth[m].size; ticketByMonth[m] = n > 0 ? byMonth[m] / n : 0; });
-
-  const valid = MONTHS.filter(m => ticketByMonth[m] > 0);
-  if (valid.length === 0) {
-    document.getElementById('ticketContent').innerHTML = emptyState('⏳', 'Sem dados de mensalidades', 'Nenhum lançamento nas categorias Mensalidades Clientes, Inadimplentes ou Taxa de Implementação encontrado.');
-    return;
-  }
-
-  const best = valid.reduce((a, b) => ticketByMonth[a] > ticketByMonth[b] ? a : b);
-  const worst = valid.reduce((a, b) => ticketByMonth[a] < ticketByMonth[b] ? a : b);
-  const mediaAnual = valid.reduce((a,m) => a + ticketByMonth[m], 0) / valid.length;
-  const totalRec = valid.reduce((a,m) => a + (byMonth[m] || 0), 0);
-
-  let html = '<div style="background:linear-gradient(135deg,#f0fdf4,#fff);border:1px solid var(--primary);border-radius:12px;padding:24px;margin-bottom:24px">';
-  html += '<div style="display:flex;align-items:center;gap:16px;margin-bottom:8px">';
-  html += '<div style="font-size:32px">🎫</div>';
-  html += '<div><h3 style="font-size:18px;font-weight:700;margin-bottom:4px">Ticket Médio das Mensalidades</h3>';
-  html += '<p style="font-size:13px;color:var(--text-secondary)">Quanto cada cliente paga em média por mês</p></div></div></div>';
-
-  // Gráfico moderno - Combo com barras de receita e linha de ticket médio
-  html += '<div class="chart-container" style="margin-bottom:24px"><div class="chart-title">📊 Receita Total vs Ticket Médio (mês a mês)</div><div style="position:relative;height:380px"><canvas id="chartTicket"></canvas></div></div>';
-
-  // Cards principais grandes
-  html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px">';
-  html += '<div style="background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:white;border-radius:12px;padding:20px;box-shadow:0 4px 12px rgba(16,185,129,0.3)">';
-  html += '<div style="font-size:11px;opacity:0.9;text-transform:uppercase;letter-spacing:0.3px;font-weight:600;margin-bottom:8px">Ticket Médio Anual</div>';
-  html += '<div style="font-size:24px;font-weight:700;white-space:nowrap">' + fmt(mediaAnual) + '</div>';
-  html += '<div style="font-size:11px;opacity:0.8;margin-top:4px">por cliente / mês</div></div>';
-
-  html += '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px">';
-  html += '<div style="font-size:11px;color:var(--text-light);text-transform:uppercase;letter-spacing:0.3px;font-weight:600;margin-bottom:8px">🏆 Melhor Mês</div>';
-  html += '<div style="font-size:24px;font-weight:700;color:var(--primary);white-space:nowrap">' + fmt(ticketByMonth[best] || 0) + '</div>';
-  html += '<div style="font-size:11px;color:var(--text-secondary);margin-top:4px">' + MONTH_NAMES[MONTHS.indexOf(best)] + ' • ' + clientesByMonth[best].size + ' clientes</div></div>';
-
-  html += '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px">';
-  html += '<div style="font-size:11px;color:var(--text-light);text-transform:uppercase;letter-spacing:0.3px;font-weight:600;margin-bottom:8px">⚠️ Pior Mês</div>';
-  html += '<div style="font-size:24px;font-weight:700;color:var(--secondary);white-space:nowrap">' + fmt(ticketByMonth[worst] || 0) + '</div>';
-  html += '<div style="font-size:11px;color:var(--text-secondary);margin-top:4px">' + MONTH_NAMES[MONTHS.indexOf(worst)] + ' • ' + clientesByMonth[worst].size + ' clientes</div></div>';
-
-  html += '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px">';
-  html += '<div style="font-size:11px;color:var(--text-light);text-transform:uppercase;letter-spacing:0.3px;font-weight:600;margin-bottom:8px">📈 Receita Total</div>';
-  html += '<div style="font-size:24px;font-weight:700;white-space:nowrap">' + fmt(totalRec) + '</div>';
-  html += '<div style="font-size:11px;color:var(--text-secondary);margin-top:4px">Acumulado ' + currentYear + '</div></div>';
-  html += '</div>';
-
-  // Tabela detalhada
-  html += '<div class="table-container"><table>';
-  html += '<thead><tr><th>Mês</th><th>Receita</th><th>Nº Clientes</th><th>Ticket Médio</th><th>vs Média</th></tr></thead><tbody>';
-
-  MONTHS.forEach((m, i) => {
-    const rec = byMonth[m] || 0;
-    const n = clientesByMonth[m].size;
-    const t = ticketByMonth[m];
-    const vsMedia = mediaAnual > 0 ? ((t - mediaAnual) / mediaAnual * 100) : 0;
-    let highlight = '';
-    if (m === best && t > 0) highlight = 'background:#f0fdf4';
-    if (m === worst && t > 0) highlight = 'background:#fef2f2';
-    html += '<tr class="cat-row" style="' + highlight + '">';
-    html += '<td>' + MONTH_NAMES[i] + (m === best && t > 0 ? ' 🏆' : m === worst && t > 0 ? ' ⚠️' : '') + '</td>';
-    html += '<td style="color:var(--primary);white-space:nowrap">' + (rec > 0 ? fmt(rec) : '—') + '</td>';
-    html += '<td>' + (n > 0 ? n : '—') + '</td>';
-    html += '<td style="font-weight:600;white-space:nowrap">' + (t > 0 ? fmt(t) : '—') + '</td>';
-    html += '<td style="color:' + (vsMedia >= 0 ? 'var(--primary)' : 'var(--secondary)') + ';white-space:nowrap">' + (t > 0 ? (vsMedia >= 0 ? '+' : '') + vsMedia.toFixed(1) + '%' : '—') + '</td>';
-    html += '</tr>';
-  });
-  html += '</tbody></table></div>';
-
-  document.getElementById('ticketContent').innerHTML = html;
-
-  // Gráfico combo: barras (receita) + linha (ticket médio)
-  setTimeout(() => {
-    new Chart(document.getElementById('chartTicket'), {
-      type: 'bar',
-      data: {
-        labels: MONTH_LABELS.map(l => l.toUpperCase()),
-        datasets: [
-          {
-            type: 'bar',
-            label: 'Receita Total',
-            data: MONTHS.map(m => byMonth[m] || 0),
-            backgroundColor: 'rgba(16, 185, 129, 0.2)',
-            borderColor: 'rgba(16, 185, 129, 1)',
-            borderWidth: 1,
-            borderRadius: 8,
-            yAxisID: 'y',
-            order: 2
-          },
-          {
-            type: 'line',
-            label: 'Ticket Médio',
-            data: MONTHS.map(m => ticketByMonth[m] || 0),
-            borderColor: '#f59e0b',
-            backgroundColor: 'rgba(245, 158, 11, 0.1)',
-            borderWidth: 3,
-            tension: 0.4,
-            yAxisID: 'y1',
-            pointRadius: 6,
-            pointBackgroundColor: '#f59e0b',
-            pointBorderColor: 'white',
-            pointBorderWidth: 2,
-            pointHoverRadius: 8,
-            order: 1
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: { mode: 'index', intersect: false },
-        plugins: {
-          legend: {
-            position: 'top',
-            labels: { font: { family: 'Poppins', size: 12, weight: '600' }, padding: 16, usePointStyle: true }
-          },
-          tooltip: {
-            backgroundColor: 'rgba(15, 23, 42, 0.95)',
-            padding: 12,
-            cornerRadius: 8,
-            titleFont: { family: 'Poppins', size: 13, weight: 'bold' },
-            bodyFont: { family: 'Poppins', size: 12 },
-            callbacks: {
-              label: function(ctx) {
-                const value = ctx.parsed.y;
-                if (ctx.dataset.label === 'Receita Total') {
-                  return '💰 Receita: ' + fmt(value);
-                } else {
-                  return '🎫 Ticket Médio: ' + fmt(value);
-                }
-              }
-            }
-          }
-        },
-        scales: {
-          y: {
-            type: 'linear',
-            position: 'left',
-            title: { display: true, text: 'Receita Total (R$)', font: { family: 'Poppins', weight: '600' } },
-            ticks: { callback: v => 'R$ ' + (v/1000).toFixed(0) + 'k', font: { family: 'Poppins' } },
-            grid: { color: 'rgba(0,0,0,0.05)' }
-          },
-          y1: {
-            type: 'linear',
-            position: 'right',
-            title: { display: true, text: 'Ticket Médio (R$)', font: { family: 'Poppins', weight: '600' } },
-            ticks: { callback: v => 'R$ ' + v.toLocaleString('pt-BR', {minimumFractionDigits:0}), font: { family: 'Poppins' } },
-            grid: { drawOnChartArea: false }
-          },
-          x: {
-            ticks: { font: { family: 'Poppins', weight: '600' } },
-            grid: { display: false }
-          }
-        }
-      }
-    });
-  }, 100);
+  const container = document.getElementById('ticketContent');
+  if (!container) return;
+  container.innerHTML = `
+    <div style="min-height:70vh;display:flex;align-items:center;justify-content:center;padding:40px">
+      <div style="max-width:520px;padding:40px;background:white;border-radius:14px;box-shadow:0 4px 20px rgba(0,0,0,0.08);text-align:center">
+        <div style="font-size:56px;margin-bottom:20px">🚧</div>
+        <h2 style="margin:0 0 12px;font-size:24px;font-weight:800;color:#0f172a">Menu em Construção</h2>
+        <p style="color:#64748b;line-height:1.6;font-size:14px;margin:0">O menu Ticket Médio está sendo reformulado.</p>
+      </div>
+    </div>
+  `;
 }
 
-
-
-// =================== SISTEMA DE SELEÇÃO ===================
-let selectedCells = []; // Array de elementos selecionados
-let lastClickedCell = null;
-let isDragging = false;
 
 function parseMoneyValue(text) {
   if (!text) return null;
@@ -8131,101 +7833,52 @@ if (document.readyState === 'loading') {
   };
 
   window.renderMargem = function() {
-    const MONTHS = _getMonths();
-    const MONTH_NAMES = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
-    const rows = _applyFilters(RAW_DATA_COMP);
-    const recMes = {}; const despMes = {};
-    MONTHS.forEach(m => { recMes[m] = 0; despMes[m] = 0; });
-    rows.forEach(r => {
-      const mes = _getMes(r, (typeof currentSection !== 'undefined' ? currentSection : 'main'));
-      if (!MONTHS.includes(mes)) return;
-      const val = Math.abs(r.valorPago || 0);
-      if (r.tipo === '1. Contas a Receber') recMes[mes] += val;
-      else if (r.tipo === '2. Contas a Pagar') despMes[mes] += val;
-    });
-    const totRec = MONTHS.reduce((a,m) => a + recMes[m], 0);
-    const totDesp = MONTHS.reduce((a,m) => a + despMes[m], 0);
-    const margemAnual = totRec > 0 ? ((totRec - totDesp) / totRec * 100) : 0;
-    let cardsHtml = `<div class="margin-card" style="background:linear-gradient(135deg,#f0fdf4,white);border:1px solid var(--primary)">
-      <div class="margin-card-title">Margem Anual</div>
-      <div class="margin-card-value" style="color:${margemAnual >= 0 ? 'var(--primary)' : 'var(--secondary)'}">${margemAnual.toFixed(1)}%</div>
-      <div class="summary-sub">Receita ${_fmt(totRec)} • Despesa ${_fmt(totDesp)}</div>
-    </div>`;
-    const mc = document.getElementById('marginCards');
-    if (mc) mc.innerHTML = cardsHtml;
-    let html = '<div class="table-container"><table>';
-    html += '<thead><tr><th>Mês</th><th style="text-align:right">Receita</th><th style="text-align:right">Despesa</th><th style="text-align:right">Resultado</th><th style="text-align:right">Margem %</th></tr></thead><tbody>';
-    MONTHS.forEach((m, i) => {
-      const r = recMes[m] || 0;
-      const d = despMes[m] || 0;
-      const res = r - d;
-      const marg = r > 0 ? ((res / r) * 100) : 0;
-      html += `<tr class="cat-row">
-        <td style="padding:10px 14px">${MONTH_NAMES[i]}</td>
-        <td style="text-align:right;padding:10px 8px" class="value-pos">${r === 0 ? '—' : _fmt(r)}</td>
-        <td style="text-align:right;padding:10px 8px" class="value-neg">${d === 0 ? '—' : _fmt(d)}</td>
-        <td style="text-align:right;padding:10px 8px" class="${_cls(res)}">${res === 0 ? '—' : _fmtSigned(res)}</td>
-        <td style="text-align:right;padding:10px 12px;font-weight:700" class="${_cls(res)}">${r > 0 ? marg.toFixed(1)+'%' : '—'}</td>
-      </tr>`;
-    });
-    html += '</tbody></table></div>';
-    document.getElementById('margemTableContent').innerHTML = html;
+    const container = document.getElementById('margemContent');
+    if (!container) return;
+    container.innerHTML = `
+      <div style="min-height:70vh;display:flex;align-items:center;justify-content:center;padding:40px">
+        <div style="max-width:520px;padding:40px;background:white;border-radius:14px;box-shadow:0 4px 20px rgba(0,0,0,0.08);text-align:center">
+          <div style="font-size:56px;margin-bottom:20px">🚧</div>
+          <h2 style="margin:0 0 12px;font-size:24px;font-weight:800;color:#0f172a">Menu em Construção</h2>
+          <p style="color:#64748b;line-height:1.6;font-size:14px;margin:0">O menu Margem de Lucro está sendo reformulado.</p>
+        </div>
+      </div>
+    `;
   };
 
   window.renderTicket = function() {
-    const MONTHS = _getMonths();
-    const MONTH_NAMES = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
-    const rows = _applyFilters(RAW_DATA_COMP).filter(r => r.tipo === '1. Contas a Receber');
-    const recMes = {}; const clientesMes = {};
-    MONTHS.forEach(m => { recMes[m] = 0; clientesMes[m] = new Set(); });
-    rows.forEach(r => {
-      const mes = _getMes(r, (typeof currentSection !== 'undefined' ? currentSection : 'main'));
-      if (!MONTHS.includes(mes)) return;
-      const val = Math.abs(r.valorPago || 0);
-      recMes[mes] += val;
-      if (r.fornecedor) clientesMes[mes].add(r.fornecedor);
-    });
-    const validos = MONTHS.filter(m => recMes[m] > 0);
-    if (validos.length === 0) {
-      document.getElementById('ticketContent').innerHTML = '<div class="empty-state"><div class="title">Sem dados de receita</div></div>';
-      return;
-    }
-    const totRec = validos.reduce((a,m) => a + recMes[m], 0);
-    const totClientes = validos.reduce((a,m) => a + clientesMes[m].size, 0);
-    const ticketMedio = totClientes > 0 ? totRec / totClientes : 0;
-    let html = `<div class="summary-container">
-      <div class="summary-item"><div class="summary-label">Ticket Médio</div><div class="summary-value" style="color:var(--primary)">${_fmt(ticketMedio)}</div><div class="summary-sub">por cliente/mês</div></div>
-      <div class="summary-item"><div class="summary-label">Receita Total</div><div class="summary-value">${_fmt(totRec)}</div></div>
-      <div class="summary-item"><div class="summary-label">Meses com Receita</div><div class="summary-value">${validos.length}</div></div>
-    </div>`;
-    html += '<div class="table-container"><table>';
-    html += '<thead><tr><th>Mês</th><th style="text-align:right">Receita</th><th style="text-align:right">Clientes</th><th style="text-align:right">Ticket Médio</th></tr></thead><tbody>';
-    MONTHS.forEach((m, i) => {
-      const r = recMes[m] || 0;
-      const n = clientesMes[m].size;
-      const t = n > 0 ? r / n : 0;
-      html += `<tr class="cat-row">
-        <td style="padding:10px 14px">${MONTH_NAMES[i]}</td>
-        <td style="text-align:right;padding:10px 8px" class="value-pos">${r === 0 ? '—' : _fmt(r)}</td>
-        <td style="text-align:right;padding:10px 8px">${n || '—'}</td>
-        <td style="text-align:right;padding:10px 12px;font-weight:700">${t === 0 ? '—' : _fmt(t)}</td>
-      </tr>`;
-    });
-    html += '</tbody></table></div>';
-    document.getElementById('ticketContent').innerHTML = html;
+    const container = document.getElementById('ticketContent');
+    if (!container) return;
+    container.innerHTML = `
+      <div style="min-height:70vh;display:flex;align-items:center;justify-content:center;padding:40px">
+        <div style="max-width:520px;padding:40px;background:white;border-radius:14px;box-shadow:0 4px 20px rgba(0,0,0,0.08);text-align:center">
+          <div style="font-size:56px;margin-bottom:20px">🚧</div>
+          <h2 style="margin:0 0 12px;font-size:24px;font-weight:800;color:#0f172a">Menu em Construção</h2>
+          <p style="color:#64748b;line-height:1.6;font-size:14px;margin:0">O menu Ticket Médio está sendo reformulado.</p>
+        </div>
+      </div>
+    `;
   };
 
   window.renderPJs = function() {
+    const container = document.getElementById('pjsContent');
+    if (!container) return;
     const MONTHS = _getMonths();
     const MONTH_LABELS = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
-    const rows = _applyFilters(RAW_DATA_COMP).filter(r => r.tipo === '2. Contas a Pagar');
+    // FILTRO: somente categoria Remuneração Operacional PJ
+    const rows = _applyFilters(RAW_DATA_COMP).filter(r => 
+      r.tipo === '2. Contas a Pagar' 
+      && String(r.categoria || '').includes('Remuneração')
+    );
+    // Limpar prefixos numéricos/tipos do departamento
+    const limpaDept = d => String(d || '').replace(/^\s*\d+(\.\d+)*\s+/, '').replace(/^[DR]\d+\s*-\s*/i, '').trim();
     const porDept = new Map();
     rows.forEach(r => {
       const mes = _getMes(r, (typeof currentSection !== 'undefined' ? currentSection : 'main'));
       if (!MONTHS.includes(mes)) return;
       const val = Math.abs(r.valorPago || 0);
       if (val === 0) return;
-      const dept = r.departamento || '(sem departamento)';
+      const dept = limpaDept(r.departamento) || '(sem departamento)';
       if (!porDept.has(dept)) porDept.set(dept, { byMonth: {}, total: 0, fornec: new Map() });
       const g = porDept.get(dept);
       g.byMonth[mes] = (g.byMonth[mes] || 0) + val;
@@ -8237,43 +7890,56 @@ if (document.readyState === 'loading') {
       fg.total += val;
     });
     if (porDept.size === 0) {
-      document.getElementById('pjsContent').innerHTML = '<div class="empty-state"><div class="title">Sem despesas</div></div>';
+      container.innerHTML = '<div class="empty-state"><div class="title">Sem dados de Remuneração Operacional PJ</div></div>';
       return;
     }
+    // Ordem manual dos deptos
+    const _ORDEM = {
+      'Performance': 1, 'CS (Customer Success)': 2, 'CS': 2, 'Tecnologia': 3, 'Criação': 4,
+      'People e Recrutamento': 5, 'Administrativo Geral': 6, 'Financeiro': 7, 
+      'Scalia': 8, 'Escala': 8, 'Obrigações Tributárias': 9, 'Despesas Não Operacionais': 10
+    };
     let html = '<div class="table-container"><table>';
-    html += '<thead><tr><th>Departamento / Fornecedor</th>' + MONTH_LABELS.map(m => `<th style="text-align:right">${m}</th>`).join('') + '<th style="text-align:right">Total</th></tr></thead><tbody>';
-    const depts = Array.from(porDept.entries()).sort((a,b) => b[1].total - a[1].total);
+    html += '<thead><tr><th style="text-align:left;padding:10px 14px">Departamento / Prestador</th>' + MONTH_LABELS.map(m => `<th style="text-align:right;padding:10px 8px">${m.toUpperCase()}</th>`).join('') + '<th style="text-align:right;padding:10px 12px">Total</th></tr></thead><tbody>';
+    const depts = Array.from(porDept.entries()).sort((a,b) => {
+      const oa = _ORDEM[a[0]] || 999;
+      const ob = _ORDEM[b[0]] || 999;
+      if (oa !== ob) return oa - ob;
+      return b[1].total - a[1].total;
+    });
     let grandTotal = 0;
     const grandByMonth = {}; MONTHS.forEach(m => grandByMonth[m] = 0);
     depts.forEach(([dept, g]) => {
-      let cells = `<td style="padding:10px 14px;font-weight:700">🏢 ${_esc(dept)}</td>`;
+      let cells = `<td style="padding:12px 14px;font-weight:800;background:#fef2f2;color:#991b1b;position:sticky;left:0;z-index:5">${_esc(dept)}</td>`;
       MONTHS.forEach(m => {
         const v = g.byMonth[m] || 0;
         grandByMonth[m] += v;
-        cells += `<td style="text-align:right;padding:10px 8px;font-weight:600" class="value-neg">${v === 0 ? '—' : _fmt(v)}</td>`;
+        cells += `<td style="text-align:right;padding:12px 8px;background:#fef2f2;color:#991b1b;font-weight:800" class="value-neg">${v === 0 ? '—' : _fmt(v)}</td>`;
       });
-      cells += `<td style="text-align:right;padding:10px 12px;font-weight:800" class="value-neg">${_fmt(g.total)}</td>`;
-      html += `<tr class="section-header">${cells}</tr>`;
+      cells += `<td style="text-align:right;padding:12px 12px;background:#fef2f2;color:#991b1b;font-weight:800" class="value-neg">${_fmt(g.total)}</td>`;
+      html += `<tr>${cells}</tr>`;
       grandTotal += g.total;
+      // Prestadores dentro do departamento
       const fornecs = Array.from(g.fornec.entries()).sort((a,b) => b[1].total - a[1].total);
       fornecs.forEach(([f, fg]) => {
-        let fCells = `<td style="padding:8px 14px;padding-left:36px;font-size:12px;color:var(--text-secondary)">👤 ${_esc(f)}</td>`;
+        let fCells = `<td style="padding:6px 14px;padding-left:36px;font-size:11.5px;color:var(--text-secondary)">↳ ${_esc(f)}</td>`;
         MONTHS.forEach(m => {
           const v = fg.byMonth[m] || 0;
-          fCells += `<td style="text-align:right;padding:8px;font-size:11px" class="${v === 0 ? 'value-zero' : 'value-neg'}">${v === 0 ? '—' : _fmt(v)}</td>`;
+          fCells += `<td style="text-align:right;padding:6px;font-size:11px" class="${v === 0 ? 'value-zero' : 'value-neg'}">${v === 0 ? '—' : _fmt(v)}</td>`;
         });
-        fCells += `<td style="text-align:right;padding:8px 12px;font-size:11px;font-weight:600" class="value-neg">${_fmt(fg.total)}</td>`;
+        fCells += `<td style="text-align:right;padding:6px 12px;font-size:11px;font-weight:600" class="value-neg">${_fmt(fg.total)}</td>`;
         html += `<tr>${fCells}</tr>`;
       });
     });
-    let totCells = '<td style="padding:14px;font-weight:800">TOTAL GERAL</td>';
+    let totCells = '<td style="padding:14px;font-weight:800;background:#fee2e2;color:#991b1b;position:sticky;left:0;z-index:5">📊 TOTAL FOLHA PJ</td>';
     MONTHS.forEach(m => {
-      totCells += `<td style="text-align:right;padding:14px 8px;font-weight:800" class="value-neg">${grandByMonth[m] === 0 ? '—' : _fmt(grandByMonth[m])}</td>`;
+      const v = grandByMonth[m] || 0;
+      totCells += `<td style="text-align:right;padding:14px 8px;font-weight:800;background:#fee2e2;color:#991b1b" class="value-neg">${v === 0 ? '—' : _fmt(v)}</td>`;
     });
-    totCells += `<td style="text-align:right;padding:14px 12px;font-weight:800" class="value-neg">${_fmt(grandTotal)}</td>`;
-    html += `<tr class="result-row">${totCells}</tr>`;
+    totCells += `<td style="text-align:right;padding:14px 12px;font-weight:800;background:#fee2e2;color:#991b1b" class="value-neg">${_fmt(grandTotal)}</td>`;
+    html += `<tr class="result-row" style="border-top:2px solid #991b1b;border-bottom:2px solid #991b1b">${totCells}</tr>`;
     html += '</tbody></table></div>';
-    document.getElementById('pjsContent').innerHTML = html;
+    container.innerHTML = html;
   };
 
 
