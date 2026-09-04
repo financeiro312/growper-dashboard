@@ -3850,12 +3850,12 @@ function renderCard() {
     const dOpen = _expanded.has(dKey);
     const totDept = sumTot(dObj);
     
-    html += `<tr style="background:#fafafa;font-weight:700"><td style="padding:10px 14px;cursor:pointer;position:sticky;left:0;background:#fafafa;z-index:5" onclick="_toggleExpand('${dKey}')"><span style="display:inline-block;width:16px">${dOpen?'▼':'▶'}</span> ${_esc(dept)}</td>`;
+    html += `<tr style="background:#fef2f2;font-weight:800"><td style="padding:12px 14px;cursor:pointer;position:sticky;left:0;background:#fef2f2;z-index:5;color:#991b1b" onclick="_toggleExpand('${dKey}')"><span style="display:inline-block;width:16px">${dOpen?'▼':'▶'}</span> ${_esc(dept)}</td>`;
     MONTHS.forEach(m => {
       const v = dObj.totMes[m] || 0;
-      html += `<td style="text-align:right;padding:10px 8px">${v === 0 ? '—' : 'R$ ' + _fmt(v)}</td>`;
+      html += `<td style="text-align:right;padding:12px 8px;background:#fef2f2;color:#991b1b;font-weight:800" class="value-neg">${v === 0 ? '—' : _fmt(v)}</td>`;
     });
-    html += `<td style="text-align:right;padding:10px 12px">R$ ${_fmt(totDept)}</td></tr>`;
+    html += `<td style="text-align:right;padding:12px 12px;background:#fef2f2;color:#991b1b;font-weight:800" class="value-neg">${_fmt(totDept)}</td></tr>`;
     
     if (!dOpen) return;
     
@@ -3863,34 +3863,34 @@ function renderCard() {
       const cKey = dKey + '_c_' + cat.replace(/\W/g, '_');
       const cOpen = _expanded.has(cKey);
       const totCat = sumTot(catObj);
-      html += `<tr><td style="padding:6px 14px;padding-left:44px;cursor:pointer;font-size:12px" onclick="_toggleExpand('${cKey}')"><span style="display:inline-block;width:14px">${cOpen?'▼':'▶'}</span> ${_esc(cat)}</td>`;
+      html += `<tr class="cat-row"><td style="padding:8px 14px;padding-left:52px;cursor:pointer" title="${_esc(cat)}" onclick="_toggleExpand('${cKey}')"><span style="display:inline-block;width:14px;color:var(--primary);font-weight:700">${cOpen?'▼':'▶'}</span> ${_esc(cat)}</td>`;
       MONTHS.forEach(m => {
         const v = catObj.totMes[m] || 0;
-        html += `<td style="text-align:right;padding:6px 8px;font-size:11.5px">${v === 0 ? '—' : 'R$ ' + _fmt(v)}</td>`;
+        html += `<td style="text-align:right;padding:8px;font-size:11.5px" class="${v === 0 ? 'value-zero' : 'value-neg'}">${v === 0 ? '—' : _fmt(v)}</td>`;
       });
-      html += `<td style="text-align:right;padding:6px 12px;font-size:11.5px;font-weight:600">R$ ${_fmt(totCat)}</td></tr>`;
+      html += `<td style="text-align:right;padding:8px 12px;font-weight:700" class="value-neg">${_fmt(totCat)}</td></tr>`;
       
       if (!cOpen) return;
       
       [...catObj.forns.entries()].sort((a, b) => sumTot(b[1]) - sumTot(a[1])).forEach(([forn, fObj]) => {
         const totF = sumTot(fObj);
-        html += `<tr><td style="padding:5px 14px;padding-left:80px;font-size:11px;color:#6b7280">${_esc(forn)}</td>`;
+        html += `<tr><td style="padding:6px 14px;padding-left:86px;font-size:11.5px;color:var(--text-secondary)" title="${_esc(forn)}">↳ ${_esc(forn)}</td>`;
         MONTHS.forEach(m => {
           const v = fObj.totMes[m] || 0;
-          html += `<td style="text-align:right;padding:5px 8px;font-size:11px;color:#6b7280">${v === 0 ? '—' : 'R$ ' + _fmt(v)}</td>`;
+          html += `<td style="text-align:right;padding:6px;font-size:11px" class="${v === 0 ? 'value-zero' : 'value-neg'}">${v === 0 ? '—' : _fmt(v)}</td>`;
         });
-        html += `<td style="text-align:right;padding:5px 12px;font-size:11px;font-weight:500">R$ ${_fmt(totF)}</td></tr>`;
+        html += `<td style="text-align:right;padding:6px 12px;font-weight:600;font-size:11px" class="value-neg">${_fmt(totF)}</td></tr>`;
       });
     });
   });
   
   // 📊 TOTAL FATURA no FINAL, abaixo de todos os departamentos
-  html += `<tr style="background:#fef2f2;font-weight:800"><td style="padding:12px 14px;color:#991b1b;position:sticky;left:0;background:#fef2f2;z-index:5">📊 TOTAL FATURA</td>`;
+  html += `<tr class="result-row" style="border-top:2px solid #991b1b;border-bottom:2px solid #991b1b"><td style="padding:14px;font-weight:800;font-size:14px;color:#991b1b;background:#fee2e2;position:sticky;left:0;z-index:5">📊 TOTAL FATURA</td>`;
   MONTHS.forEach(m => {
     const v = totGeral[m] || 0;
-    html += `<td style="text-align:right;padding:12px 8px;color:#991b1b">${v === 0 ? '—' : 'R$ ' + _fmt(v)}</td>`;
+    html += `<td style="text-align:right;padding:14px 8px;font-weight:800;font-size:13px;background:#fee2e2;color:#991b1b" class="${v===0?'value-zero':'value-neg'}">${v === 0 ? '—' : _fmt(v)}</td>`;
   });
-  html += `<td style="text-align:right;padding:12px 12px;color:#991b1b">R$ ${_fmt(totFinal)}</td></tr>`;
+  html += `<td style="text-align:right;padding:14px 12px;font-weight:800;font-size:14px;background:#fee2e2;color:#991b1b" class="value-neg">${_fmt(totFinal)}</td></tr>`;
   
   html += `</tbody></table></div></div>`;
   container.innerHTML = html;
@@ -6956,6 +6956,53 @@ if (document.readyState === 'loading') {
   };
 
   // ============ Drill-down modal (lista lançamentos) ============
+  // ============ NOTAS/COMENTÁRIOS em fornecedores ============
+  window._getNotaForn = function(forn, mes) {
+    try { 
+      const raw = localStorage.getItem('notas_forn_v1');
+      const data = raw ? JSON.parse(raw) : {};
+      return data[forn + '|' + mes] || '';
+    } catch(e) { return ''; }
+  };
+  window._setNotaForn = function(forn, mes, texto) {
+    try {
+      const raw = localStorage.getItem('notas_forn_v1');
+      const data = raw ? JSON.parse(raw) : {};
+      const k = forn + '|' + mes;
+      if (!texto || !texto.trim()) delete data[k];
+      else data[k] = texto.trim();
+      localStorage.setItem('notas_forn_v1', JSON.stringify(data));
+    } catch(e) {}
+  };
+  window._abrirNotaForn = function(forn, mes, valorTexto) {
+    const mesLabel = MONTH_NAMES[parseInt(mes.split('-')[1],10)-1];
+    const nota = window._getNotaForn(forn, mes);
+    const modal = document.createElement('div');
+    modal.id = '_modalNotaForn';
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px';
+    modal.innerHTML = `
+      <div style="background:white;border-radius:12px;padding:24px;max-width:520px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.2)">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+          <div>
+            <div style="font-size:13px;color:#64748b;text-transform:uppercase;letter-spacing:0.3px;font-weight:600;margin-bottom:4px">📝 Comentário / Nota</div>
+            <div style="font-size:15px;font-weight:700;color:#0f172a">${forn.replace(/[<>&"']/g, ch => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[ch]))}</div>
+            <div style="font-size:12px;color:#64748b;margin-top:2px">${mesLabel} • ${valorTexto || ''}</div>
+          </div>
+          <button onclick="document.getElementById('_modalNotaForn').remove()" style="border:none;background:transparent;font-size:22px;cursor:pointer;color:#94a3b8;line-height:1">×</button>
+        </div>
+        <textarea id="_notaFornTextarea" rows="5" placeholder="Adicione um comentário ou nota (ex: justificativa de ajuste, observação sobre pagamento...)" style="width:100%;padding:12px;border:1px solid #d1d5db;border-radius:8px;font-family:Poppins;font-size:13px;resize:vertical;box-sizing:border-box;outline:none">${(nota||'').replace(/[<>&"']/g, ch => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[ch]))}</textarea>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">
+          <button onclick="document.getElementById('_modalNotaForn').remove()" style="padding:9px 16px;border:1px solid #d1d5db;background:white;border-radius:6px;cursor:pointer;font-family:Poppins;font-size:12.5px">Cancelar</button>
+          <button onclick="window._setNotaForn('${forn.replace(/'/g,"\\'")}','${mes}',document.getElementById('_notaFornTextarea').value); document.getElementById('_modalNotaForn').remove(); if(window.renderMain)window.renderMain();" 
+            style="padding:9px 16px;border:none;background:#0f172a;color:white;border-radius:6px;cursor:pointer;font-family:Poppins;font-size:12.5px;font-weight:600">💾 Salvar</button>
+        </div>
+      </div>
+    `;
+    modal.onclick = function(e) { if (e.target === modal) modal.remove(); };
+    document.body.appendChild(modal);
+    setTimeout(() => document.getElementById('_notaFornTextarea').focus(), 50);
+  };
+
   window._showLancamentos = function(cacheKey) {
     const entry = _drillCache[cacheKey];
     if (!entry) return;
@@ -7679,7 +7726,11 @@ if (document.readyState === 'loading') {
                 if (v > 0) {
                   const fck = fKey + '_' + m;
                   _drillCache[fck] = { titulo: fName, subtitulo: MONTH_NAMES[parseInt(m.split('-')[1],10)-1] + ' • ' + cat, items: fG.items.filter(it => it.mes === m) };
-                  fCells += `<td onclick="_showLancamentos('${fck}')" style="text-align:right;padding:6px;cursor:pointer;font-size:11px" class="value-neg">${_fmt(v)}</td>`;
+                  const nota = window._getNotaForn ? window._getNotaForn(fName, m) : '';
+                  const iconeNota = nota 
+                    ? `<span onclick="event.stopPropagation(); window._abrirNotaForn('${fName.replace(/'/g,"\\'")}','${m}','R$ '+'${_fmt(v)}')" title="${nota.replace(/"/g,'&quot;')}" style="display:inline-block;margin-right:4px;cursor:pointer;font-size:10px">📝</span>`
+                    : `<span onclick="event.stopPropagation(); window._abrirNotaForn('${fName.replace(/'/g,"\\'")}','${m}','R$ '+'${_fmt(v)}')" title="Adicionar nota" style="display:inline-block;margin-right:4px;cursor:pointer;font-size:10px;opacity:0.25" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.25">📝</span>`;
+                  fCells += `<td style="text-align:right;padding:6px;font-size:11px" class="value-neg"><span onclick="_showLancamentos('${fck}')" style="cursor:pointer">${_fmt(v)}</span>${iconeNota}</td>`;
                 } else {
                   fCells += `<td style="text-align:right;padding:6px;font-size:11px" class="value-zero">—</td>`;
                 }
