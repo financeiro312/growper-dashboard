@@ -7207,7 +7207,7 @@ if (document.readyState === 'loading') {
           </td>`;
           MONTHS.forEach(m => {
             const v = sgTotMes[m] || 0;
-            {const notaSg = window._getNotaForn ? window._getNotaForn('sg|'+subgrupo, m) : ''; const markSg = notaSg ? '<span style="color:#f59e0b;font-size:9px;margin-right:2px">●</span>' : ''; sgCells += `<td oncontextmenu="event.preventDefault(); window._abrirNotaForn('sg|${subgrupo.replace(/'/g,"\\'")}','${m}','R$ '+'${_fmt(v)}'); return false;" title="${notaSg ? '📝 ' + notaSg.replace(/"/g,'&quot;') : 'Clique direito para nota'}" style="text-align:right;padding:10px 8px;background:#ecfdf5;color:#065f46;font-weight:700;cursor:context-menu" class="value-pos">${markSg}${v === 0 ? '—' : _fmt(v)}</td>`;}
+            {const notaSg = window._getNotaForn ? window._getNotaForn('sg|'+sgName, m) : ''; const markSg = notaSg ? '<span style="color:#f59e0b;font-size:9px;margin-right:2px">●</span>' : ''; sgCells += `<td oncontextmenu="event.preventDefault(); window._abrirNotaForn('sg|${sgName.replace(/'/g,"\\'")}','${m}','R$ '+'${_fmt(v)}'); return false;" title="${notaSg ? '📝 ' + notaSg.replace(/"/g,'&quot;') : 'Clique direito para nota'}" style="text-align:right;padding:10px 8px;background:#ecfdf5;color:#065f46;font-weight:700;cursor:context-menu" class="value-pos">${markSg}${v === 0 ? '—' : _fmt(v)}</td>`;}
             if (projetadoVisible[m]) {
               let pvSoma = 0;
               [...sgMap.keys()].forEach(cat => pvSoma += getProjetado('cat_rec|'+cat, m));
