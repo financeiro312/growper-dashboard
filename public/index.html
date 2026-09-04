@@ -760,9 +760,17 @@ body.scalia-mode .company-badge {
           <button class="view-btn" data-view="competencia">Competência</button>
           
         </div>
-        <button id="btnExportExcelInline" onclick="exportarMenuPrincipal()" style="display:none;margin-left:8px;background:#065f46;color:white;border:none;padding:8px 14px;border-radius:6px;font-family:Poppins,sans-serif;font-weight:600;font-size:12.5px;cursor:pointer;align-items:center;gap:6px;white-space:nowrap" title="Exportar Menu Principal para Excel">📊 Exportar Excel</button>
-        <button id="btnModeloProj" onclick="window._downloadModeloProjetado()" style="display:none;margin-left:6px;background:#f59e0b;color:white;border:none;padding:8px 14px;border-radius:6px;font-family:Poppins,sans-serif;font-weight:600;font-size:12.5px;cursor:pointer;white-space:nowrap" title="Baixar modelo Excel para importar projetados">📥 Modelo Projetado</button>
-        <button id="btnImportProj" onclick="document.getElementById('inputImportProj').click()" style="display:none;margin-left:6px;background:#7c3aed;color:white;border:none;padding:8px 14px;border-radius:6px;font-family:Poppins,sans-serif;font-weight:600;font-size:12.5px;cursor:pointer;white-space:nowrap" title="Importar projetados de planilha">📤 Importar Projetado</button>
+        <div id="btnExcelWrap" style="display:none;position:relative;margin-left:8px">
+          <button onclick="const dd=document.getElementById('excelDropdown'); dd.style.display=dd.style.display==='block'?'none':'block'; event.stopPropagation();" 
+            style="background:#065f46;color:white;border:none;padding:8px 14px;border-radius:6px;font-family:Poppins,sans-serif;font-weight:600;font-size:12.5px;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:6px">
+            📊 Excel <span style="font-size:10px">▾</span>
+          </button>
+          <div id="excelDropdown" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:white;border:1px solid #d1d5db;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.12);z-index:100;min-width:220px;overflow:hidden">
+            <div onclick="exportarMenuPrincipal(); document.getElementById('excelDropdown').style.display='none'" style="padding:12px 16px;cursor:pointer;font-size:12.5px;color:#0f172a;border-bottom:1px solid #f1f5f9" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">📊 Exportar dashboard</div>
+            <div onclick="window._downloadModeloProjetado(); document.getElementById('excelDropdown').style.display='none'" style="padding:12px 16px;cursor:pointer;font-size:12.5px;color:#0f172a;border-bottom:1px solid #f1f5f9" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">📥 Baixar modelo (projetado)</div>
+            <div onclick="document.getElementById('inputImportProj').click(); document.getElementById('excelDropdown').style.display='none'" style="padding:12px 16px;cursor:pointer;font-size:12.5px;color:#0f172a" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">📤 Importar projetado</div>
+          </div>
+        </div>
         <input type="file" id="inputImportProj" accept=".xlsx,.xls" style="display:none" onchange="window._importarProjetado(event)"/>
         <!-- Sub-abas de recebíveis agora ficam dentro da seção -->
       </div>
@@ -2687,8 +2695,8 @@ function renderRH() {
         <div style="font-size:11px;color:#64748b;margin-top:4px">${listaPrestadores.length} prestadores • Limite folha ≤ 30% do faturamento</div>
       </div>
       <div style="display:flex;gap:8px">
-        <button onclick="window._exportarRH()" style="background:#065f46;color:white;border:none;padding:8px 14px;border-radius:6px;font-family:Poppins,sans-serif;font-weight:600;font-size:12.5px;cursor:pointer">📊 Exportar planilha</button>
-        <button onclick="document.getElementById('inputImportRH').click()" style="background:#7c3aed;color:white;border:none;padding:8px 14px;border-radius:6px;font-family:Poppins,sans-serif;font-weight:600;font-size:12.5px;cursor:pointer">📥 Importar planilha</button>
+        <button onclick="window._exportarRH()" style="background:#065f46;color:white;border:none;padding:8px 14px;border-radius:6px;font-family:Poppins,sans-serif;font-weight:600;font-size:12.5px;cursor:pointer" title="Exportar folha atual em Excel">📊 Exportar Folha</button>
+        <button onclick="document.getElementById('inputImportRH').click()" style="background:#7c3aed;color:white;border:none;padding:8px 14px;border-radius:6px;font-family:Poppins,sans-serif;font-weight:600;font-size:12.5px;cursor:pointer" title="Importar valores da folha de Excel">📥 Importar Folha</button>
         <input type="file" id="inputImportRH" accept=".xlsx,.xls" style="display:none" onchange="window._importarRH(event)"/>
       </div>
     </div>
@@ -3009,6 +3017,11 @@ window._importarRH = function(evt) {
   reader.readAsArrayBuffer(file);
 };
 
+document.addEventListener('click', function(e_close_excel) {
+  const dd = document.getElementById('excelDropdown');
+  const wrap = document.getElementById('btnExcelWrap');
+  if (dd && wrap && !wrap.contains(e_close_excel.target)) dd.style.display = 'none';
+});
 function refreshCurrent() {
   if (currentSection === 'main') {
     // Prefere window.renderMain (versão NOVA que respeita filtro de mês)
@@ -3685,136 +3698,22 @@ function showDetailCard(mes) {
 // =================== POR ÁREA (Departamento) ===================
 // Usa padrão do menu Principal: Caixa/Competência, mês a mês, expandindo Depto > Categoria > Fornecedor
 function renderArea() {
-  const container = document.getElementById('mainArea');
-  const data = (currentView === 'caixa') ? RAW_DATA_CAIXA : RAW_DATA_COMP;
-  
-  // Filtros
-  const rows = data.filter(r => {
-    if (typeof _contaAceita === 'function' && !_contaAceita(r.conta)) return false;
-    if (currentConciliado !== 'all' && r.conciliado !== currentConciliado) return false;
-    return true;
-  });
-  
-  // Agrupar por Departamento > Categoria > Fornecedor (por mês)
-  const areaByDept = new Map();  // dept -> {tipo, totMes, categorias: Map<cat, {totMes, forns: Map<forn, {totMes, items}>}>}
-  rows.forEach(r => {
-    const dept = (r.departamento && String(r.departamento).trim()) || '(Sem Departamento)';
-    const catLimpa = String(r.categoria || '(Sem Categoria)');
-    const forn = String(r.fornecedor || '(Sem fornecedor)');
-    // Tipo pelo prefixo original: R = Receita, D = Despesa
-    const tipoRec = (r.departamento_tipo === 'R') || (r.tipo === '1. Contas a Receber');
-    const mes = (currentView === 'caixa') ? r.mesPagto : r.mesRegistro;
-    if (!MONTHS.includes(mes)) return;
-    const val = Math.abs(r.valorPago || r.valorConta || 0);
-    
-    if (!areaByDept.has(dept)) {
-      areaByDept.set(dept, { tipo: tipoRec ? 'R' : 'D', totMes: {}, categorias: new Map() });
-      MONTHS.forEach(m => areaByDept.get(dept).totMes[m] = 0);
-    }
-    const dObj = areaByDept.get(dept);
-    dObj.totMes[mes] += val;
-    
-    if (!dObj.categorias.has(catLimpa)) {
-      dObj.categorias.set(catLimpa, { totMes: {}, forns: new Map() });
-      MONTHS.forEach(m => dObj.categorias.get(catLimpa).totMes[m] = 0);
-    }
-    const catObj = dObj.categorias.get(catLimpa);
-    catObj.totMes[mes] += val;
-    
-    if (!catObj.forns.has(forn)) {
-      catObj.forns.set(forn, { totMes: {}, items: [] });
-      MONTHS.forEach(m => catObj.forns.get(forn).totMes[m] = 0);
-    }
-    const fObj = catObj.forns.get(forn);
-    fObj.totMes[mes] += val;
-    fObj.items.push(r);
-  });
-  
-  // Separar receitas e despesas (tipo R primeiro, depois D)
-  const receitas = [...areaByDept.entries()].filter(([_, d]) => d.tipo === 'R');
-  const despesas = [...areaByDept.entries()].filter(([_, d]) => d.tipo !== 'R');
-  
-  // Ordenar por total desc
-  const sumTotal = d => MONTHS.reduce((s, m) => s + (d.totMes[m] || 0), 0);
-  receitas.sort((a, b) => sumTotal(b[1]) - sumTotal(a[1]));
-  despesas.sort((a, b) => sumTotal(b[1]) - sumTotal(a[1]));
-  
-  // Renderizar
-  let html = `
-    <div style="padding:20px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-        <h2 style="margin:0;color:#0f172a">Por Área (Departamento)</h2>
-        <div style="display:flex;gap:8px">
-          <button onclick="_setView('caixa')" style="padding:6px 14px;border:1px solid ${currentView==='caixa'?'#10b981':'#d1d5db'};background:${currentView==='caixa'?'#10b981':'white'};color:${currentView==='caixa'?'white':'#374151'};border-radius:6px;cursor:pointer;font-family:Poppins;font-size:12px">Caixa</button>
-          <button onclick="_setView('comp')" style="padding:6px 14px;border:1px solid ${currentView==='comp'?'#10b981':'#d1d5db'};background:${currentView==='comp'?'#10b981':'white'};color:${currentView==='comp'?'white':'#374151'};border-radius:6px;cursor:pointer;font-family:Poppins;font-size:12px">Competência</button>
-        </div>
+  const container = document.getElementById('areaContent') || document.getElementById('areaSection');
+  if (!container) return;
+  const html = `
+    <div style="min-height:70vh;display:flex;align-items:center;justify-content:center;padding:40px">
+      <div style="max-width:520px;padding:40px;background:white;border-radius:14px;box-shadow:0 4px 20px rgba(0,0,0,0.08);text-align:center">
+        <div style="font-size:56px;margin-bottom:20px">🚧</div>
+        <h2 style="margin:0 0 12px;font-size:24px;font-weight:800;color:#0f172a">Menu em Construção</h2>
+        <p style="color:#64748b;line-height:1.6;font-size:14px;margin:0">O menu Por Área está sendo reformulado. Em breve traremos a nova versão.</p>
       </div>
-      <div class="table-container">
-      <table>
-        <thead><tr>
-          <th style="min-width:220px;max-width:220px">Departamento / Categoria / Fornecedor</th>
-          ${MONTHS.map(m => `<th>${MONTH_NAMES[MONTHS_ALL.indexOf(m)]}</th>`).join('')}
-          <th>Total</th>
-        </tr></thead>
-        <tbody>`;
-  
-  const renderDept = (dept, dObj, corHeader) => {
-    const key = 'area_' + dept.replace(/\W/g, '_');
-    const open = _expanded.has(key);
-    const totGeral = sumTotal(dObj);
-    
-    // Linha do departamento
-    html += `<tr style="background:${corHeader};font-weight:700"><td style="padding:10px 14px;cursor:pointer;position:sticky;left:0;background:${corHeader};z-index:5" onclick="_toggleExpand('${key}')"><span style="display:inline-block;width:16px">${open?'▼':'▶'}</span> ${_esc(dept)}</td>`;
-    MONTHS.forEach(m => {
-      const v = dObj.totMes[m] || 0;
-      html += `<td style="text-align:right;padding:10px 8px">${v === 0 ? '—' : _fmt(v)}</td>`;
-    });
-    html += `<td style="text-align:right;padding:10px 12px">${_fmt(totGeral)}</td></tr>`;
-    
-    if (!open) return;
-    
-    // Categorias
-    [...dObj.categorias.entries()].sort((a, b) => sumTotal(b[1]) - sumTotal(a[1])).forEach(([cat, catObj], ci) => {
-      const catKey = key + '_c' + ci;
-      const catOpen = _expanded.has(catKey);
-      const catTot = sumTotal(catObj);
-      html += `<tr><td style="padding:6px 14px;padding-left:44px;cursor:pointer" onclick="_toggleExpand('${catKey}')"><span style="display:inline-block;width:14px">${catOpen?'▼':'▶'}</span> ${_esc(cat)}</td>`;
-      MONTHS.forEach(m => {
-        const v = catObj.totMes[m] || 0;
-        html += `<td style="text-align:right;padding:6px 8px;font-size:11.5px">${v === 0 ? '—' : _fmt(v)}</td>`;
-      });
-      html += `<td style="text-align:right;padding:6px 12px;font-size:11.5px;font-weight:600">${_fmt(catTot)}</td></tr>`;
-      
-      if (!catOpen) return;
-      
-      // Fornecedores
-      [...catObj.forns.entries()].sort((a, b) => sumTotal(b[1]) - sumTotal(a[1])).forEach(([forn, fObj]) => {
-        const fTot = sumTotal(fObj);
-        html += `<tr><td style="padding:5px 14px;padding-left:80px;font-size:11px;color:#6b7280">${_esc(forn)}</td>`;
-        MONTHS.forEach(m => {
-          const v = fObj.totMes[m] || 0;
-          html += `<td style="text-align:right;padding:5px 8px;font-size:11px;color:#6b7280">${v === 0 ? '—' : _fmt(v)}</td>`;
-        });
-        html += `<td style="text-align:right;padding:5px 12px;font-size:11px;font-weight:500">${_fmt(fTot)}</td></tr>`;
-      });
-    });
-  };
-  
-  // Header RECEITAS
-  if (receitas.length > 0) {
-    html += `<tr class="section-header"><td colspan="${MONTHS.length+2}" style="background:#dcfce7;color:#166534;padding:12px 14px;font-weight:800">📥 RECEITAS</td></tr>`;
-    receitas.forEach(([dept, dObj]) => renderDept(dept, dObj, '#f0fdf4'));
-  }
-  
-  // Header DESPESAS
-  if (despesas.length > 0) {
-    html += `<tr class="section-header"><td colspan="${MONTHS.length+2}" style="background:#fef2f2;color:#991b1b;padding:12px 14px;font-weight:800">📤 DESPESAS</td></tr>`;
-    despesas.forEach(([dept, dObj]) => renderDept(dept, dObj, '#fef2f2'));
-  }
-  
-  html += `</tbody></table></div></div>`;
-  container.innerHTML = html;
+    </div>
+  `;
+  const target = document.getElementById('areaContent');
+  if (target) target.innerHTML = html;
+  else document.getElementById('areaSection').innerHTML = html;
 }
+
 
 function _setView(v) { currentView = v; renderArea(); }
 
@@ -4443,9 +4342,7 @@ function getValorMes(cliente, mes) {
 }
 
 function renderRecebiveis() {
-  const container = document.getElementById('recebiveisContent');
-  if (!container) return;
-  container.innerHTML = `
+  const html = `
     <div style="min-height:70vh;display:flex;align-items:center;justify-content:center;padding:40px">
       <div style="max-width:520px;padding:40px;background:white;border-radius:14px;box-shadow:0 4px 20px rgba(0,0,0,0.08);text-align:center">
         <div style="font-size:56px;margin-bottom:20px">🚧</div>
@@ -4454,6 +4351,12 @@ function renderRecebiveis() {
       </div>
     </div>
   `;
+  const target = document.getElementById('recebiveisContent');
+  if (target) target.innerHTML = html;
+  else {
+    const sec = document.getElementById('recebiveisSection');
+    if (sec) sec.innerHTML = html;
+  }
 }
 
 
@@ -6872,12 +6775,8 @@ if (document.readyState === 'loading') {
   // ============ Escolha dados por seção/view ============
   function _getDataForSection(section) {
     // Menu Principal → respeita botão Caixa/Competência
-    const btnExp = document.getElementById('btnExportExcelInline'); const btnMod = document.getElementById('btnModeloProj'); const btnImp = document.getElementById('btnImportProj');
-  if (section === 'main') {
-    if (btnExp) btnExp.style.display = 'inline-flex'; if (btnMod) btnMod.style.display = 'inline-block'; if (btnImp) btnImp.style.display = 'inline-block';
-  } else {
-    if (btnExp) btnExp.style.display = 'none'; if (btnMod) btnMod.style.display = 'none'; if (btnImp) btnImp.style.display = 'none';
-  }
+    const btnExcelWrap = document.getElementById('btnExcelWrap');
+  if (btnExcelWrap) btnExcelWrap.style.display = (section === 'main') ? 'inline-block' : 'none';
   if (section === 'main') {
       if (typeof currentView !== 'undefined' && currentView === 'competencia') {
         return { data: RAW_DATA_COMP, mesKey: 'mesRegistro', valKey: 'valorPago', section: 'main' };
