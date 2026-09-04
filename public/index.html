@@ -549,29 +549,46 @@ body.scalia-mode .company-badge {
 
 
 
-/* Clique em qualquer parte dos controles */
-select, button, .view-btn, .nav-btn, .toolbar select, .toolbar button {
-  cursor: pointer !important;
+/* Clique em qualquer parte dos controles do header */
+.header-controls select, 
+.header-controls button {
+  cursor: pointer;
+  min-height: 38px;
+  height: 38px;
+  padding: 0 14px;
+  padding-right: 32px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  background: white;
+  font-family: Poppins, sans-serif;
+  font-size: 13px;
+  box-sizing: border-box;
+  line-height: 38px;
+  vertical-align: middle;
+  display: inline-flex;
+  align-items: center;
 }
-select {
-  min-height: 36px !important;
-  padding: 8px 14px !important;
-  padding-right: 30px !important;
-  box-sizing: border-box !important;
+.header-controls button {
+  padding-right: 14px;
 }
-.view-buttons button, .view-btn {
-  min-height: 32px !important;
-  padding: 6px 16px !important;
-  box-sizing: border-box !important;
-}
-/* Garantir que o span dentro dos botões não bloqueie o clique */
-button span, .view-btn span, .nav-btn span {
+/* Garantir spans não bloqueiem clique */
+.header-controls button > span,
+.header-controls .view-btn > span {
   pointer-events: none;
 }
-/* Botão Excel dropdown deve ter área clicável total */
-#btnExcelWrap button {
-  padding: 10px 16px !important;
+/* Botão Excel dropdown com hitarea grande */
+#btnExcelWrap > button {
+  padding: 0 16px !important;
   min-height: 38px !important;
+  height: 38px;
+}
+.view-buttons { padding: 4px !important; }
+.view-buttons .view-btn {
+  min-height: 32px;
+  padding: 0 16px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
 }
 </style>
 
@@ -790,11 +807,7 @@ button span, .view-btn span, .nav-btn span {
             style="background:#065f46;color:white;border:none;padding:8px 14px;border-radius:6px;font-family:Poppins,sans-serif;font-weight:600;font-size:12.5px;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:6px">
             📊 Excel <span style="font-size:10px">▾</span>
           </button>
-          <div id="excelDropdown" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:white;border:1px solid #d1d5db;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.12);z-index:100;min-width:220px;overflow:hidden">
-            <div onclick="exportarMenuPrincipal(); document.getElementById('excelDropdown').style.display='none'" style="padding:12px 16px;cursor:pointer;font-size:12.5px;color:#0f172a;border-bottom:1px solid #f1f5f9" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">📊 Exportar dashboard</div>
-            <div onclick="window._downloadModeloProjetado(); document.getElementById('excelDropdown').style.display='none'" style="padding:12px 16px;cursor:pointer;font-size:12.5px;color:#0f172a;border-bottom:1px solid #f1f5f9" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">📥 Baixar modelo (projetado)</div>
-            <div onclick="document.getElementById('inputImportProj').click(); document.getElementById('excelDropdown').style.display='none'" style="padding:12px 16px;cursor:pointer;font-size:12.5px;color:#0f172a" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">📤 Importar projetado</div>
-          </div>
+          <div id="excelDropdown" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:white;border:1px solid #d1d5db;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.12);z-index:100;min-width:230px;overflow:hidden"></div>
         </div>
         <input type="file" id="inputImportProj" accept=".xlsx,.xls" style="display:none" onchange="window._importarProjetado(event)"/>
         <!-- Sub-abas de recebíveis agora ficam dentro da seção -->
@@ -2720,16 +2733,6 @@ function renderRH() {
         <div style="font-size:11px;color:#64748b;margin-top:4px">${listaPrestadores.length} prestadores • Limite folha ≤ 30% do faturamento</div>
       </div>
       <div style="display:flex;gap:8px">
-        <div style="position:relative;display:inline-block">
-          <button onclick="const dd=document.getElementById('excelDropdownRH'); dd.style.display=dd.style.display==='block'?'none':'block'; event.stopPropagation();" 
-            style="background:#065f46;color:white;border:none;padding:10px 16px;border-radius:6px;font-family:Poppins,sans-serif;font-weight:600;font-size:12.5px;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:6px;min-height:38px">
-            📊 Excel <span style="font-size:10px">▾</span>
-          </button>
-          <div id="excelDropdownRH" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:white;border:1px solid #d1d5db;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.12);z-index:100;min-width:220px;overflow:hidden">
-            <div onclick="window._exportarRH(); document.getElementById('excelDropdownRH').style.display='none'" style="padding:12px 16px;cursor:pointer;font-size:12.5px;color:#0f172a;border-bottom:1px solid #f1f5f9" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">📊 Exportar Folha</div>
-            <div onclick="document.getElementById('inputImportRH').click(); document.getElementById('excelDropdownRH').style.display='none'" style="padding:12px 16px;cursor:pointer;font-size:12.5px;color:#0f172a" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">📥 Importar Folha</div>
-          </div>
-        </div>
         <input type="file" id="inputImportRH" accept=".xlsx,.xls" style="display:none" onchange="window._importarRH(event)"/>
       </div>
     </div>
@@ -3059,6 +3062,23 @@ document.addEventListener('click', function(e_close_excel) {
   const wrap = document.getElementById('btnExcelWrap');
   if (dd && wrap && !wrap.contains(e_close_excel.target)) dd.style.display = 'none';
 });
+window._popularExcelDropdown = function() {
+  const dd = document.getElementById('excelDropdown');
+  if (!dd) return;
+  const section = window.currentSection || 'main';
+  let opts = '';
+  const item = (text, action) => `<div onclick="${action}; document.getElementById('excelDropdown').style.display='none'" style="padding:12px 16px;cursor:pointer;font-size:12.5px;color:#0f172a;border-bottom:1px solid #f1f5f9" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">${text}</div>`;
+  if (section === 'main') {
+    opts += item('📊 Exportar dashboard', 'exportarMenuPrincipal()');
+    opts += item('📥 Baixar modelo (projetado)', 'window._downloadModeloProjetado()');
+    opts += item('📤 Importar projetado', "document.getElementById('inputImportProj').click()");
+  } else if (section === 'rh') {
+    opts += item('📊 Exportar Folha', 'window._exportarRH()');
+    opts += item('📥 Importar Folha', "document.getElementById('inputImportRH').click()");
+  }
+  dd.innerHTML = opts;
+};
+
 function refreshCurrent() {
   if (currentSection === 'main') {
     // Prefere window.renderMain (versão NOVA que respeita filtro de mês)
@@ -6813,7 +6833,8 @@ if (document.readyState === 'loading') {
   function _getDataForSection(section) {
     // Menu Principal → respeita botão Caixa/Competência
     const btnExcelWrap = document.getElementById('btnExcelWrap');
-  if (btnExcelWrap) btnExcelWrap.style.display = (section === 'main') ? 'inline-block' : 'none';
+  if (btnExcelWrap) btnExcelWrap.style.display = (section === 'main' || section === 'rh') ? 'inline-block' : 'none';
+  if (typeof window._popularExcelDropdown === 'function') window._popularExcelDropdown();
   if (section === 'main') {
       if (typeof currentView !== 'undefined' && currentView === 'competencia') {
         return { data: RAW_DATA_COMP, mesKey: 'mesRegistro', valKey: 'valorPago', section: 'main' };
