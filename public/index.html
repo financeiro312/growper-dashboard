@@ -2902,6 +2902,10 @@ function showSection(section) {
   } else if (section === 'scaliaKits') {
     if (typeof scaliaKitsRender === 'function') scaliaKitsRender();
   } else {
+    // Configurar botão Excel dropdown conforme menu
+    const btnExcelWrap = document.getElementById('btnExcelWrap');
+    if (btnExcelWrap) btnExcelWrap.style.display = (section === 'main' || section === 'rh') ? 'inline-block' : 'none';
+    if (typeof window._popularExcelDropdown === 'function') window._popularExcelDropdown();
     refreshCurrent();
   }
 }
@@ -6833,10 +6837,7 @@ if (document.readyState === 'loading') {
   // ============ Escolha dados por seção/view ============
   function _getDataForSection(section) {
     // Menu Principal → respeita botão Caixa/Competência
-    const btnExcelWrap = document.getElementById('btnExcelWrap');
-  if (btnExcelWrap) btnExcelWrap.style.display = (section === 'main' || section === 'rh') ? 'inline-block' : 'none';
-  if (typeof window._popularExcelDropdown === 'function') window._popularExcelDropdown();
-  if (section === 'main') {
+    if (section === 'main') {
       if (typeof currentView !== 'undefined' && currentView === 'competencia') {
         return { data: RAW_DATA_COMP, mesKey: 'mesRegistro', valKey: 'valorPago', section: 'main' };
       }
