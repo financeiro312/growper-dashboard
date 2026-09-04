@@ -733,28 +733,6 @@ body.scalia-mode .company-badge {
       <div class="header-controls">
 
 <select id="selYear" onchange="if(typeof _onYearChange==='function')_onYearChange(this.value)"><option value="2026">2026</option><option value="2025">2025</option></select>
-        <div id="selMesWrap" style="position:relative;display:inline-block">
-          <button type="button" id="selMesBtn" onclick="_toggleMesDropdown(event)" 
-            style="padding:8px 14px;background:white;border:1px solid #d1d5db;border-radius:6px;font-family:Poppins;font-size:13px;cursor:pointer;min-width:110px;text-align:left;display:flex;align-items:center;justify-content:space-between;gap:8px">
-            <span id="selMesLabel">Mês: Todos</span>
-            <span style="color:#6b7280">▾</span>
-          </button>
-          <div id="selMesDropdown" style="display:none;position:absolute;top:100%;left:0;margin-top:4px;background:white;border:1px solid #d1d5db;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.1);z-index:100;min-width:140px">
-            <div onclick="_selecionarMes('all')" style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid #e5e7eb;font-weight:600" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background='white'">Todos</div>
-            <div onclick="_selecionarMes('2026-01')" style="padding:6px 12px;cursor:pointer;font-size:13px" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background='white'">Janeiro</div>
-            <div onclick="_selecionarMes('2026-02')" style="padding:6px 12px;cursor:pointer;font-size:13px" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background='white'">Fevereiro</div>
-            <div onclick="_selecionarMes('2026-03')" style="padding:6px 12px;cursor:pointer;font-size:13px" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background='white'">Março</div>
-            <div onclick="_selecionarMes('2026-04')" style="padding:6px 12px;cursor:pointer;font-size:13px" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background='white'">Abril</div>
-            <div onclick="_selecionarMes('2026-05')" style="padding:6px 12px;cursor:pointer;font-size:13px" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background='white'">Maio</div>
-            <div onclick="_selecionarMes('2026-06')" style="padding:6px 12px;cursor:pointer;font-size:13px" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background='white'">Junho</div>
-            <div onclick="_selecionarMes('2026-07')" style="padding:6px 12px;cursor:pointer;font-size:13px" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background='white'">Julho</div>
-            <div onclick="_selecionarMes('2026-08')" style="padding:6px 12px;cursor:pointer;font-size:13px" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background='white'">Agosto</div>
-            <div onclick="_selecionarMes('2026-09')" style="padding:6px 12px;cursor:pointer;font-size:13px" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background='white'">Setembro</div>
-            <div onclick="_selecionarMes('2026-10')" style="padding:6px 12px;cursor:pointer;font-size:13px" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background='white'">Outubro</div>
-            <div onclick="_selecionarMes('2026-11')" style="padding:6px 12px;cursor:pointer;font-size:13px" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background='white'">Novembro</div>
-            <div onclick="_selecionarMes('2026-12')" style="padding:6px 12px;cursor:pointer;font-size:13px" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background='white'">Dezembro</div>
-          </div>
-        </div>
         <div id="selContaWrap" style="position:relative;display:inline-block">
           <button type="button" id="selContaBtn" onclick="_toggleContaDropdown(event)" 
             style="padding:8px 14px;background:white;border:1px solid #d1d5db;border-radius:6px;font-family:Poppins;font-size:13px;cursor:pointer;min-width:170px;text-align:left;display:flex;align-items:center;justify-content:space-between;gap:8px">
@@ -2673,9 +2651,8 @@ function renderRH() {
   const MONTHS_ALL = ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'];
   
   // FILTRO GLOBAL DE MÊS (do header)
-  const MONTHS_VIS = (window._MONTHS_VISIBLE && window._MONTHS_VISIBLE.length > 0) 
-    ? window._MONTHS_VISIBLE : MONTHS_ALL;
-  const showAll = MONTHS_VIS.length === 12;
+  const MONTHS_VIS = MONTHS_ALL;
+  const showAll = true;
   
   const _fmtLocal = v => (v || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
   const _escLocal = s => String(s || '').replace(/[<>&"']/g, ch => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -2722,7 +2699,9 @@ function renderRH() {
     html += `<tr style="background:${bg}"><td style="padding:8px 14px;font-size:12px;position:sticky;left:0;background:${bg};z-index:2" title="${_escLocal(p)}">${_escLocal(p)}</td>`;
     MONTHS_VIS.forEach(m => {
       const v = _getRHValor(p, m);
-      html += `<td style="padding:4px 6px"><input type="number" step="0.01" value="${v || ''}" onchange="_setRHValor('${p.replace(/'/g, "\\'")}','${m}',parseFloat(this.value)||0); renderRH();" placeholder="—" style="width:100%;max-width:100px;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;background:white;font-family:Poppins;font-size:11.5px;text-align:right;outline:none;box-sizing:border-box"/></td>`;
+      const nota = window._getNotaForn ? window._getNotaForn(p, m) : '';
+      const bordaNota = nota ? 'border:2px solid #f59e0b;background:#fffef0' : 'border:1px solid #d1d5db;background:white';
+      html += `<td style="padding:4px 6px" oncontextmenu="event.preventDefault(); window._abrirNotaForn('${p.replace(/'/g, "\\'")}','${m}','R$ '+(this.querySelector('input').value||'0')); return false;" title="${nota ? 'Nota: ' + nota.replace(/"/g,'&quot;').slice(0,120) : 'Clique direito para nota'}"><input type="number" step="0.01" value="${v || ''}" onchange="_setRHValor('${p.replace(/'/g, "\\'")}','${m}',parseFloat(this.value)||0); renderRH();" placeholder="—" style="width:100%;max-width:100px;padding:4px 6px;${bordaNota};border-radius:4px;font-family:Poppins;font-size:11.5px;text-align:right;outline:none;box-sizing:border-box"/></td>`;
     });
     if (showAll) {
       html += `<td style="text-align:right;padding:8px 12px;font-weight:700;background:#f3f4f6;font-size:12px">${totAno === 0 ? '—' : 'R$ ' + _fmtLocal(totAno)}</td>`;
@@ -2888,7 +2867,7 @@ window._selecionarMes = function(mes) {
   const dd = document.getElementById('selMesDropdown');
   if (dd) dd.style.display = 'none';
   // Atualiza MONTHS_VISIBLE que renderMain usa
-  window._MONTHS_VISIBLE = mes === 'all' ? null : [mes];
+  // filtro mês desativado
   if (typeof refreshCurrent === 'function') refreshCurrent();
 };
 document.addEventListener('click', function(e) {
@@ -3755,10 +3734,7 @@ const _expanded = {
 
 function renderCard() {
   const container = document.getElementById('cardContent') || document.getElementById('mainArea');
-  // Meses respeitando filtro global
-  const MONTHS = (window._MONTHS_VISIBLE && window._MONTHS_VISIBLE.length > 0) 
-    ? window._MONTHS_VISIBLE 
-    : ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'];
+  const MONTHS = ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'];
   const MONTH_NAMES = ['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
   const MONTHS_ALL = ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'];
   const data = (currentView === 'caixa') ? RAW_DATA_CAIXA : RAW_DATA_COMP;
@@ -4950,9 +4926,7 @@ function renderDRE() {
 function renderPJs() {
   // Menu ÁREAS: mesmo padrão do Principal, mas por departamento com Receitas e Despesas
   const container = document.getElementById('pjsContent') || document.getElementById('mainArea');
-  const MONTHS = (window._MONTHS_VISIBLE && window._MONTHS_VISIBLE.length > 0) 
-    ? window._MONTHS_VISIBLE 
-    : ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'];
+  const MONTHS = ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'];
   const MONTH_NAMES = ['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
   const MONTHS_ALL = ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'];
   if (!container) return;
@@ -6855,15 +6829,10 @@ if (document.readyState === 'loading') {
   function _cls(v) { if (!v || v === 0) return 'value-zero'; return v > 0 ? 'value-pos' : 'value-neg'; }
   function _esc(s) { return String(s || '').replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c])); }
 
-  // ============ Meses dinâmicos por ano + filtro global de mês ============
+  // ============ Meses dinâmicos por ano ============
   function _getMonths() {
     const y = (typeof currentYear !== 'undefined' && currentYear) ? currentYear : '2026';
-    const all = ['01','02','03','04','05','06','07','08','09','10','11','12'].map(m => y + '-' + m);
-    // Filtro global de mês
-    if (window._MONTHS_VISIBLE && Array.isArray(window._MONTHS_VISIBLE) && window._MONTHS_VISIBLE.length > 0) {
-      return window._MONTHS_VISIBLE.filter(m => all.includes(m));
-    }
-    return all;
+    return ['01','02','03','04','05','06','07','08','09','10','11','12'].map(m => y + '-' + m);
   }
 
   // ============ Cache pra drill-down (evita colocar JSON gigante no DOM) ============
@@ -6985,7 +6954,7 @@ if (document.readyState === 'loading') {
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
           <div>
             <div style="font-size:13px;color:#64748b;text-transform:uppercase;letter-spacing:0.3px;font-weight:600;margin-bottom:4px">📝 Comentário / Nota</div>
-            <div style="font-size:15px;font-weight:700;color:#0f172a">${forn.replace(/[<>&"']/g, ch => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[ch]))}</div>
+            <div style="font-size:15px;font-weight:700;color:#0f172a">${forn.replace(/^cat\|/, '').replace(/[<>&"']/g, ch => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[ch]))}</div>
             <div style="font-size:12px;color:#64748b;margin-top:2px">${mesLabel} • ${valorTexto || ''}</div>
           </div>
           <button onclick="document.getElementById('_modalNotaForn').remove()" style="border:none;background:transparent;font-size:22px;cursor:pointer;color:#94a3b8;line-height:1">×</button>
@@ -7694,7 +7663,9 @@ if (document.readyState === 'loading') {
             if (v > 0) {
               const ck = key + '_' + m;
               _drillCache[ck] = { titulo: cat, subtitulo: MONTH_NAMES[parseInt(m.split('-')[1],10)-1] + ' • ' + grupo, items: g.items.filter(it => it.mes === m) };
-              cells += `<td onclick="_showLancamentos('${ck}')" style="text-align:right;padding:8px;cursor:pointer;font-size:11.5px" class="value-neg">${_fmt(v)}</td>`;
+              const notaCat = window._getNotaForn ? window._getNotaForn('cat|'+cat, m) : '';
+              const markCat = notaCat ? '<span style="color:#f59e0b;font-size:9px;margin-right:2px" title="' + notaCat.replace(/"/g,'&quot;').slice(0,120) + '">●</span>' : '';
+              cells += `<td onclick="_showLancamentos('${ck}')" oncontextmenu="event.preventDefault(); window._abrirNotaForn('cat|${cat.replace(/'/g,"\\'")}','${m}','R$ '+'${_fmt(v)}'); return false;" style="text-align:right;padding:8px;cursor:pointer;font-size:11.5px" class="value-neg" title="Clique direito para nota">${markCat}${_fmt(v)}</td>`;
             } else {
               cells += `<td style="text-align:right;padding:8px;font-size:11.5px" class="value-zero">—</td>`;
             }
@@ -7727,10 +7698,8 @@ if (document.readyState === 'loading') {
                   const fck = fKey + '_' + m;
                   _drillCache[fck] = { titulo: fName, subtitulo: MONTH_NAMES[parseInt(m.split('-')[1],10)-1] + ' • ' + cat, items: fG.items.filter(it => it.mes === m) };
                   const nota = window._getNotaForn ? window._getNotaForn(fName, m) : '';
-                  const iconeNota = nota 
-                    ? `<span onclick="event.stopPropagation(); window._abrirNotaForn('${fName.replace(/'/g,"\\'")}','${m}','R$ '+'${_fmt(v)}')" title="${nota.replace(/"/g,'&quot;')}" style="display:inline-block;margin-right:4px;cursor:pointer;font-size:10px">📝</span>`
-                    : `<span onclick="event.stopPropagation(); window._abrirNotaForn('${fName.replace(/'/g,"\\'")}','${m}','R$ '+'${_fmt(v)}')" title="Adicionar nota" style="display:inline-block;margin-right:4px;cursor:pointer;font-size:10px;opacity:0.25" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.25">📝</span>`;
-                  fCells += `<td style="text-align:right;padding:6px;font-size:11px" class="value-neg"><span onclick="_showLancamentos('${fck}')" style="cursor:pointer">${_fmt(v)}</span>${iconeNota}</td>`;
+                  const notaMark = nota ? '<span style="color:#f59e0b;font-size:9px;margin-right:2px" title="' + nota.replace(/"/g,'&quot;').slice(0,120) + '">●</span>' : '';
+                  fCells += `<td onclick="_showLancamentos('${fck}')" oncontextmenu="event.preventDefault(); window._abrirNotaForn('${fName.replace(/'/g,"\\'")}','${m}','R$ '+'${_fmt(v)}'); return false;" style="text-align:right;padding:6px;cursor:pointer;font-size:11px" class="value-neg" title="Clique direito para nota">${notaMark}${_fmt(v)}</td>`;
                 } else {
                   fCells += `<td style="text-align:right;padding:6px;font-size:11px" class="value-zero">—</td>`;
                 }
