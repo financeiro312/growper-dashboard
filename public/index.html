@@ -705,6 +705,12 @@ body.scalia-mode .company-badge {
     </div>
   </div>
   <div class="nav-section">
+    <div class="nav-label">Notificações</div>
+    <div class="nav-buttons">
+      <button class="nav-btn" data-section="notif"><span class="nav-icon">📲</span><span>Notificações</span></button>
+    </div>
+  </div>
+  <div class="nav-section">
     <div class="nav-label">Contabilidade</div>
     <div class="nav-buttons">
       <button class="nav-btn" data-section="dre"><span class="nav-icon">📋</span><span>DRE</span></button>
@@ -794,6 +800,7 @@ body.scalia-mode .company-badge {
     <div id="cardSection" class="hidden"><div id="cardContent"></div></div>
     <div id="recebiveisSection" class="hidden"><div id="recebiveisContent"></div></div>
     <div id="rhSection" class="hidden"><div id="rhContent"></div></div>
+    <div id="notifSection" class="hidden"><div id="notifContent"></div></div>
     <div id="kpisSection" class="hidden"><div id="kpisContent"></div></div>
     <div id="dreSection" class="hidden"><div id="dreContent"></div></div>
     <div id="pjsSection" class="hidden">
@@ -1953,26 +1960,680 @@ function showDetailArea(dept, tipo, mes) {
 }
 
 // SECTION SWITCHER
+
+
+// ============================================================
+// MENU NOTIFICAÇÕES — 2 frentes
+// A) Interno: validação de ferramentas do time
+// B) Cobrança: mensalidades para clientes
+// Envia via wa.me links (WhatsApp Web/App) — usuário confirma cada envio
+// ============================================================
+function _getNotifConfig() {
+  try { return JSON.parse(localStorage.getItem('notif_config_v1') || '{}'); }
+  catch(e) { return {}; }
+}
+function _setNotifConfig(cfg) {
+  try { localStorage.setItem('notif_config_v1', JSON.stringify(cfg)); } catch(e) {}
+}
+function _notifUpdate(key, value) {
+  const cfg = _getNotifConfig();
+  cfg[key] = value;
+  _setNotifConfig(cfg);
+}
+function _notifClean(str) {
+  return String(str || '').replace(/\D/g, '');  // só números
+}
+function _notifWaLink(numero, mensagem) {
+  const num = _notifClean(numero);
+  if (!num) return '#';
+  const txt = encodeURIComponent(mensagem);
+  return `https://wa.me/${num.startsWith('55') ? num : '55'+num}?text=${txt}`;
+}
+function _notifSetAba(aba) {
+  window._notifAba = aba;
+  renderNotif();
+}
+function _notifMarcarEnviado(id) {
+  const cfg = _getNotifConfig();
+  if (!cfg.enviados) cfg.enviados = {};
+  const key = new Date().toISOString().slice(0,7) + '|' + id;
+  cfg.enviados[key] = new Date().toISOString();
+  _setNotifConfig(cfg);
+  renderNotif();
+}
+function _notifDesmarcarEnviado(id) {
+  const cfg = _getNotifConfig();
+  const key = new Date().toISOString().slice(0,7) + '|' + id;
+  if (cfg.enviados) delete cfg.enviados[key];
+  _setNotifConfig(cfg);
+  renderNotif();
+}
+
+function renderNotif() {
+  const container = document.getElementById('notifContent');
+  if (!container) return;
+  const cfg = _getNotifConfig();
+  const data = RAW_DATA_CAIXA || [];
+  
+  const MONTHS_ALL = ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'];
+  const MONTH_NOMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  
+  const _fmt = v => (v || 0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+  const _esc = s => String(s || '').replace(/[<>&"']/g, ch => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[ch]));
+  
+  if (!window._notifAba) window._notifAba = 'interno';
+  const aba = window._notifAba;
+  
+  // Mês de referência (default: atual)
+  const mesRef = cfg.mesRef || (new Date().toISOString().slice(0,7));
+  const mesLabel = MONTH_NOMES[parseInt(mesRef.split('-')[1],10)-1] + '/' + mesRef.split('-')[0];
+  
+  // ============ HEADER + ABAS ============
+  let html = `<div style="padding:20px;max-width:1400px;margin:0 auto">
+    <h2 style="margin:0 0 4px;color:#0f172a">📲 Notificações</h2>
+    <p style="margin:0 0 18px;color:#64748b;font-size:12.5px">Envio de WhatsApp para o time interno e clientes</p>
+    
+    <div style="display:flex;gap:4px;background:#f1f5f9;padding:4px;border-radius:8px;margin-bottom:20px;width:fit-content">
+      <button onclick="_notifSetAba('interno')" style="padding:8px 18px;border:none;background:${aba==='interno'?'#0f172a':'transparent'};color:${aba==='interno'?'white':'#475569'};border-radius:6px;cursor:pointer;font-family:Poppins;font-size:13px;font-weight:600">🏢 Time Interno</button>
+      <button onclick="_notifSetAba('cobrancas')" style="padding:8px 18px;border:none;background:${aba==='cobrancas'?'#0f172a':'transparent'};color:${aba==='cobrancas'?'white':'#475569'};border-radius:6px;cursor:pointer;font-family:Poppins;font-size:13px;font-weight:600">💰 Cobrança Clientes</button>
+    </div>`;
+  
+  // ============ ABA A: INTERNO ============
+  if (aba === 'interno') {
+    // Colaboradores da categoria "Remuneração Operacional PJ"
+    const colabsSet = new Set();
+    data.forEach(r => {
+      if (r.tipo !== '2. Contas a Pagar') return;
+      const cat = String(r.categoria || '');
+      if (!cat.includes('Remuneração')) return;
+      const forn = String(r.fornecedor || '').trim();
+      if (forn) colabsSet.add(forn);
+    });
+    const colabs = [...colabsSet].sort();
+    
+    // Ferramentas (Softwares Operacionais) pagos no mês de referência
+    const ferramentasMes = new Map(); // fornecedor -> valor total no mês
+    data.forEach(r => {
+      if (r.tipo !== '2. Contas a Pagar') return;
+      const cat = String(r.categoria || '');
+      if (!cat.includes('Softwares') && !cat.includes('Software')) return;
+      if (r.mesPagto !== mesRef) return;
+      const forn = String(r.fornecedor || '').trim();
+      if (!forn) return;
+      const v = Math.abs(r.valorPago || 0);
+      ferramentasMes.set(forn, (ferramentasMes.get(forn) || 0) + v);
+    });
+    const ferramentas = [...ferramentasMes.entries()].sort((a,b) => b[1] - a[1]);
+    
+    const meuNumero = cfg.meuNumero || '';
+    const templateInterno = cfg.templateInterno || 'Oi {colaborador}! Passando aqui pra validar as ferramentas contratadas no cartão da empresa em {mes}. Você ainda está usando essas ferramentas listadas? Se alguma não estiver em uso, avisa pra cancelarmos e não gerar custo desnecessário. Valeu!';
+    
+    html += `<div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:18px;margin-bottom:20px">
+      <div style="font-size:13.5px;font-weight:700;color:#0f172a;margin-bottom:12px">⚙️ Configuração</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+        <div>
+          <label style="font-size:11px;color:#64748b;font-weight:600;display:block;margin-bottom:4px">Seu WhatsApp (remetente)</label>
+          <input type="tel" value="${_esc(meuNumero)}" placeholder="Ex: 11987654321" onchange="_notifUpdate('meuNumero',this.value)" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-family:Poppins;font-size:12.5px;box-sizing:border-box"/>
+        </div>
+        <div>
+          <label style="font-size:11px;color:#64748b;font-weight:600;display:block;margin-bottom:4px">Mês de referência</label>
+          <select onchange="_notifUpdate('mesRef',this.value); renderNotif();" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-family:Poppins;font-size:12.5px;box-sizing:border-box">
+            ${MONTHS_ALL.map((m,i) => `<option value="${m}" ${m===mesRef?'selected':''}>${MONTH_NOMES[i]} / ${m.split('-')[0]}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11px;color:#64748b;font-weight:600;display:block;margin-bottom:4px">Ferramentas em ${mesLabel}</label>
+          <div style="padding:8px 10px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;font-size:12px;color:#1e40af"><strong>${ferramentas.length}</strong> ferramentas · <strong>R$ ${_fmt(ferramentas.reduce((s,[_,v]) => s+v, 0))}</strong></div>
+        </div>
+      </div>
+      <div>
+        <label style="font-size:11px;color:#64748b;font-weight:600;display:block;margin-bottom:4px">Template da mensagem (use {colaborador}, {mes}, {ferramentas})</label>
+        <textarea onchange="_notifUpdate('templateInterno',this.value)" rows="3" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-family:Poppins;font-size:12.5px;box-sizing:border-box;resize:vertical">${_esc(templateInterno)}</textarea>
+      </div>
+    </div>`;
+    
+    // Bloco: Ferramentas do mês
+    html += `<div style="margin-bottom:20px">
+      <div style="font-size:13.5px;font-weight:700;color:#0f172a;margin-bottom:10px">🛠️ Ferramentas contratadas em ${mesLabel}</div>
+      <div style="background:white;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden">`;
+    if (ferramentas.length === 0) {
+      html += '<div style="padding:24px;text-align:center;color:#64748b;font-size:12.5px">Nenhuma ferramenta encontrada para ' + mesLabel + '.</div>';
+    } else {
+      ferramentas.forEach(([forn, valor]) => {
+        html += `<div style="padding:10px 14px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:12.5px;color:#0f172a">${_esc(forn)}</span>
+          <span style="font-size:12.5px;font-weight:700;color:#991b1b">R$ ${_fmt(valor)}</span>
+        </div>`;
+      });
+    }
+    html += '</div></div>';
+    
+    // Bloco: Colaboradores + botão gerar link
+    const listaFerramentasTxt = ferramentas.map(([f,v]) => '• ' + f + ' (R$ ' + _fmt(v) + ')').join('\n');
+    
+    html += `<div>
+      <div style="font-size:13.5px;font-weight:700;color:#0f172a;margin-bottom:10px">👥 Colaboradores (${colabs.length})</div>
+      <div style="background:white;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden">`;
+    
+    colabs.forEach((c_nome, idx) => {
+      const telKey = 'tel_interno|' + c_nome;
+      const tel = cfg[telKey] || '';
+      const idEnv = 'int|' + c_nome;
+      const enviado = cfg.enviados && cfg.enviados[mesRef + '|' + idEnv];
+      const msg = templateInterno
+        .replace(/\{colaborador\}/g, c_nome.split(' ')[0] || c_nome)
+        .replace(/\{mes\}/g, mesLabel)
+        .replace(/\{ferramentas\}/g, listaFerramentasTxt);
+      const link = _notifWaLink(tel, msg);
+      const bg = idx % 2 === 0 ? 'white' : '#fafafa';
+      html += `<div style="padding:10px 14px;border-bottom:1px solid #f1f5f9;display:grid;grid-template-columns:1.5fr 1fr auto auto;gap:10px;align-items:center;background:${bg}">
+        <span style="font-size:12.5px;color:#0f172a" title="${_esc(c_nome)}">${_esc(c_nome)}</span>
+        <input type="tel" value="${_esc(tel)}" placeholder="Ex: 11987654321" onchange="_notifUpdate('${telKey.replace(/'/g,"\\'")}',this.value); renderNotif();" style="padding:5px 8px;border:1px solid #d1d5db;border-radius:4px;font-family:Poppins;font-size:11.5px;box-sizing:border-box"/>
+        ${tel ? `<a href="${link}" target="_blank" onclick="_notifMarcarEnviado('${idEnv.replace(/'/g,"\\'")}')" style="padding:6px 14px;background:${enviado?'#dcfce7':'#25D366'};color:${enviado?'#166534':'white'};border-radius:6px;text-decoration:none;font-size:11.5px;font-weight:700;white-space:nowrap">📱 ${enviado?'Reenviar':'WhatsApp'}</a>` : '<span style="font-size:11px;color:#94a3b8">sem telefone</span>'}
+        ${enviado ? `<button onclick="_notifDesmarcarEnviado('${idEnv.replace(/'/g,"\\'")}')" title="Desmarcar como enviado" style="padding:4px 8px;border:1px solid #d1d5db;background:white;border-radius:4px;cursor:pointer;font-size:10.5px">✕</button>` : '<span></span>'}
+      </div>`;
+    });
+    html += '</div></div>';
+  }
+  
+  // ============ ABA B: COBRANÇAS ============
+  if (aba === 'cobrancas') {
+    // Clientes da categoria Mensalidades no mês de referência
+    const clientesMap = new Map();
+    data.forEach(r => {
+      if (r.tipo !== '1. Contas a Receber') return;
+      const cat = String(r.categoria || '');
+      if (!cat.includes('Mensalidades Clientes') && !cat.includes('Mensalidade Inadimplentes') && !cat.includes('Mensalidades Inadimplentes')) return;
+      const forn = String(r.fornecedor || '').trim();
+      if (!forn) return;
+      const v = Math.abs(r.valorPago || 0);
+      if (!clientesMap.has(forn)) clientesMap.set(forn, {vals: {}, isInad: false});
+      clientesMap.get(forn).vals[r.mesPagto] = v;
+      if (cat.includes('Inadimplent')) clientesMap.get(forn).isInad = true;
+    });
+    const clientes = [...clientesMap.entries()].sort();
+    
+    const chavePixEmpresa = cfg.chavePix || '';
+    const nomeEmpresa = cfg.nomeEmpresa || 'Growper Digital';
+    const templateCobranca = cfg.templateCobranca || 'Olá {cliente}! Segue a mensalidade da {empresa} referente a {mes}: R$ {valor}\n\nPagamento via PIX:\n{chave}\n\nQualquer dúvida estou à disposição. Obrigado!';
+    
+    html += `<div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:18px;margin-bottom:20px">
+      <div style="font-size:13.5px;font-weight:700;color:#0f172a;margin-bottom:12px">⚙️ Configuração</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+        <div>
+          <label style="font-size:11px;color:#64748b;font-weight:600;display:block;margin-bottom:4px">Nome da empresa (remetente)</label>
+          <input type="text" value="${_esc(nomeEmpresa)}" placeholder="Growper Digital" onchange="_notifUpdate('nomeEmpresa',this.value)" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-family:Poppins;font-size:12.5px;box-sizing:border-box"/>
+        </div>
+        <div>
+          <label style="font-size:11px;color:#64748b;font-weight:600;display:block;margin-bottom:4px">Chave PIX da empresa</label>
+          <input type="text" value="${_esc(chavePixEmpresa)}" placeholder="CNPJ ou chave" onchange="_notifUpdate('chavePix',this.value)" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-family:Poppins;font-size:12.5px;box-sizing:border-box"/>
+        </div>
+        <div>
+          <label style="font-size:11px;color:#64748b;font-weight:600;display:block;margin-bottom:4px">Mês de referência</label>
+          <select onchange="_notifUpdate('mesRef',this.value); renderNotif();" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-family:Poppins;font-size:12.5px;box-sizing:border-box">
+            ${MONTHS_ALL.map((m,i) => `<option value="${m}" ${m===mesRef?'selected':''}>${MONTH_NOMES[i]} / ${m.split('-')[0]}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div>
+        <label style="font-size:11px;color:#64748b;font-weight:600;display:block;margin-bottom:4px">Template (use {cliente}, {mes}, {valor}, {chave}, {empresa})</label>
+        <textarea onchange="_notifUpdate('templateCobranca',this.value)" rows="4" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-family:Poppins;font-size:12.5px;box-sizing:border-box;resize:vertical">${_esc(templateCobranca)}</textarea>
+      </div>
+    </div>`;
+    
+    // Filtro rápido
+    const somenteInad = window._notifSomenteInad || false;
+    html += `<div style="margin-bottom:12px;display:flex;gap:10px;align-items:center">
+      <button onclick="window._notifSomenteInad=false; renderNotif();" style="padding:6px 14px;border:1px solid ${!somenteInad?'#10b981':'#d1d5db'};background:${!somenteInad?'#10b981':'white'};color:${!somenteInad?'white':'#374151'};border-radius:6px;cursor:pointer;font-family:Poppins;font-size:12px">Todos (${clientes.length})</button>
+      <button onclick="window._notifSomenteInad=true; renderNotif();" style="padding:6px 14px;border:1px solid ${somenteInad?'#ef4444':'#d1d5db'};background:${somenteInad?'#ef4444':'white'};color:${somenteInad?'white':'#374151'};border-radius:6px;cursor:pointer;font-family:Poppins;font-size:12px">Apenas Inadimplentes (${clientes.filter(([_,x]) => x.isInad).length})</button>
+    </div>`;
+    
+    // Lista de clientes  
+    html += `<div>
+      <div style="font-size:13.5px;font-weight:700;color:#0f172a;margin-bottom:10px">💰 Clientes (${clientes.length})</div>
+      <div style="background:white;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden">
+        <div style="padding:10px 14px;background:#f8fafc;border-bottom:1px solid #e5e7eb;display:grid;grid-template-columns:1.4fr 0.8fr 0.9fr 0.9fr auto auto;gap:10px;font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase">
+          <span>Cliente</span><span>WhatsApp</span><span>Valor ${mesLabel}</span><span>Chave PIX (cliente/opc.)</span><span></span><span></span>
+        </div>`;
+    
+    let filtrados = clientes;
+    if (somenteInad) filtrados = clientes.filter(([_,x]) => x.isInad);
+    
+    filtrados.forEach(([nome, info], idx) => {
+      const telKey = 'tel_cli|' + nome;
+      const pixKey = 'pix_cli|' + nome;
+      const valKey = 'valor_cli|' + nome + '|' + mesRef;
+      const tel = cfg[telKey] || '';
+      const pixCli = cfg[pixKey] || '';
+      const valorAuto = info.vals[mesRef] || 0;
+      const valorCustom = cfg[valKey];
+      const valor = valorCustom !== undefined ? valorCustom : valorAuto;
+      const idEnv = 'cob|' + nome;
+      const enviado = cfg.enviados && cfg.enviados[mesRef + '|' + idEnv];
+      
+      const nomeExibicao = nome.replace(/^\(\d+\)\s*/, '');
+      const nomeCurto = nomeExibicao.split(' ')[0] || nomeExibicao;
+      const chaveEfetiva = chavePixEmpresa;
+      
+      const msg = templateCobranca
+        .replace(/\{cliente\}/g, nomeCurto)
+        .replace(/\{mes\}/g, mesLabel)
+        .replace(/\{valor\}/g, _fmt(valor))
+        .replace(/\{chave\}/g, chaveEfetiva)
+        .replace(/\{empresa\}/g, nomeEmpresa);
+      const link = _notifWaLink(tel, msg);
+      const bg = idx % 2 === 0 ? 'white' : '#fafafa';
+      
+      html += `<div style="padding:10px 14px;border-bottom:1px solid #f1f5f9;display:grid;grid-template-columns:1.4fr 0.8fr 0.9fr 0.9fr auto auto;gap:10px;align-items:center;background:${bg}">
+        <span style="font-size:12.5px;color:#0f172a" title="${_esc(nome)}">${info.isInad ? '⚠️ ' : ''}${_esc(nomeExibicao)}</span>
+        <input type="tel" value="${_esc(tel)}" placeholder="11987654321" onchange="_notifUpdate('${telKey.replace(/'/g,"\\'")}',this.value); renderNotif();" style="padding:5px 8px;border:1px solid #d1d5db;border-radius:4px;font-family:Poppins;font-size:11.5px;box-sizing:border-box"/>
+        <input type="number" step="0.01" value="${valor || ''}" placeholder="0.00" onchange="_notifUpdate('${valKey.replace(/'/g,"\\'")}',parseFloat(this.value)||0); renderNotif();" style="padding:5px 8px;border:1px solid #d1d5db;border-radius:4px;font-family:Poppins;font-size:11.5px;text-align:right;box-sizing:border-box"/>
+        <input type="text" value="${_esc(pixCli)}" placeholder="opcional" onchange="_notifUpdate('${pixKey.replace(/'/g,"\\'")}',this.value)" style="padding:5px 8px;border:1px solid #d1d5db;border-radius:4px;font-family:Poppins;font-size:11.5px;box-sizing:border-box"/>
+        ${tel && valor > 0 ? `<a href="${link}" target="_blank" onclick="_notifMarcarEnviado('${idEnv.replace(/'/g,"\\'")}')" style="padding:6px 14px;background:${enviado?'#dcfce7':'#25D366'};color:${enviado?'#166534':'white'};border-radius:6px;text-decoration:none;font-size:11.5px;font-weight:700;white-space:nowrap">📱 ${enviado?'Reenviar':'WhatsApp'}</a>` : '<span style="font-size:11px;color:#94a3b8">preencha</span>'}
+        ${enviado ? `<button onclick="_notifDesmarcarEnviado('${idEnv.replace(/'/g,"\\'")}')" title="Desmarcar como enviado" style="padding:4px 8px;border:1px solid #d1d5db;background:white;border-radius:4px;cursor:pointer;font-size:10.5px">✕</button>` : '<span></span>'}
+      </div>`;
+    });
+    html += '</div></div>';
+    
+    html += `<div style="margin-top:14px;padding:14px 16px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;font-size:11.5px;color:#1e40af;line-height:1.6">
+      💡 <strong>Como funciona:</strong> ao clicar em 📱 WhatsApp, abre o app com a mensagem pronta. Você confirma o envio. O dashboard marca como "enviado" no mês de referência. Números salvos ficam no seu navegador (localStorage) — não vão pra API/servidor.
+    </div>`;
+  }
+  
+  html += '</div>';
+  container.innerHTML = html;
+}
 function renderKPIs() {
   const container = document.getElementById('kpisContent') || document.getElementById('mainArea');
   if (!container) return;
-  container.innerHTML = `
-    <div style="min-height:70vh;display:flex;align-items:center;justify-content:center;padding:40px">
-      <div style="max-width:520px;padding:40px;background:white;border-radius:14px;box-shadow:0 4px 20px rgba(0,0,0,0.08);text-align:center">
-        <div style="font-size:56px;margin-bottom:20px">🚧</div>
-        <h2 style="margin:0 0 12px;font-size:24px;font-weight:800;color:#0f172a">Menu em Construção</h2>
-        <p style="color:#64748b;line-height:1.6;font-size:14px;margin:0">Este menu está sendo reformulado. Em breve traremos a nova versão de KPI's Financeiros.</p>
+
+  // ============ Setup ============
+  const data = RAW_DATA_CAIXA || [];
+  const MONTHS_ALL = ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'];
+  const MONTH_LABELS_ALL = ['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
+  
+  // Respeitar filtro de mês global
+  const MONTHS_VIS = (window._MONTHS_VISIBLE && window._MONTHS_VISIBLE.length > 0) 
+    ? window._MONTHS_VISIBLE : MONTHS_ALL;
+  
+  const _fmtR = v => (v === null || v === undefined || isNaN(v)) ? '—' : 'R$ ' + Math.abs(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+  const _fmtN = v => (v === null || v === undefined || isNaN(v)) ? '—' : v.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+  const _fmtPct = v => (v === null || v === undefined || isNaN(v)) ? '—' : v.toFixed(1) + '%';
+  const _esc = s => String(s || '').replace(/[<>&"']/g, ch => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[ch]));
+
+  // Estado accordion
+  if (!window._kpiOpen) window._kpiOpen = { visao: true, efic: false, rec: false, bu: false, squads: false, trib: false, saude: false };
+  
+  // ============ Cálculos base ============
+  // Receita Mensalidades (base para Custo do Time)
+  const isMensalidadeBase = cat => {
+    const c = String(cat || '');
+    return c.includes('Mensalidades Clientes') 
+        || c.includes('Mensalidade Inadimplentes') || c.includes('Mensalidades Inadimplentes')
+        || c.includes('Taxa de Implementação') || c.includes('Taxa Implementação');
+  };
+  const isInadimplente = cat => String(cat || '').includes('Inadimplent');
+  const isImposto = cat => {
+    const c = String(cat || '').toLowerCase();
+    return c.includes('imposto') || c.includes('tributári') || c.includes('simples nacional') || c.includes('iof') || c.includes('irrf') || c.includes('inss') || c.includes('das ');
+  };
+  const isREC_CRED = cat => {
+    const c = String(cat || '');
+    return c.includes('Estratégia recrutamento') || c.includes('Estratégia Recrutamento')
+        || c.includes('Estratégia direto na conta') || c.includes('Estratégia Direto na Conta');
+  };
+  
+  // Prestadores PJ (do RH) — colaboradores
+  const prestadoresSet = new Set();
+  data.forEach(r => {
+    if (r.tipo !== '2. Contas a Pagar') return;
+    const cat = String(r.categoria || '');
+    if (!cat.includes('Remuneração')) return;
+    const forn = String(r.fornecedor || '').trim();
+    if (forn) prestadoresSet.add(forn);
+  });
+  const listaPrestadores = [...prestadoresSet].sort();
+  const qtdColaboradores = listaPrestadores.length;
+  
+  // Custo do Time (RH) por mês — usa localStorage
+  const custoTimeMes = {};
+  MONTHS_ALL.forEach(m => {
+    let tot = 0;
+    let temValor = false;
+    listaPrestadores.forEach(p => {
+      const v = _getRHValor(p, m);
+      if (v > 0) { tot += v; temValor = true; }
+    });
+    custoTimeMes[m] = temValor ? tot : null;  // null = vazio (não considerar como 0)
+  });
+  
+  // Receita total (por mês) - todas receitas operacionais
+  const isReceitaOp = r => {
+    if (r.tipo !== '1. Contas a Receber') return false;
+    if (r.conta !== 'Banco Inter' && r.conta !== 'Itaú Unibanco') return false;
+    const cat = String(r.categoria || '');
+    if (cat.includes('Ajuste')) return false;
+    if (cat.includes('Transferência')) return false;
+    return true;
+  };
+  
+  const recTotalMes = {};
+  const recMensalidadesMes = {};
+  const recInadimplenciaMes = {};
+  const recRecCredMes = {};
+  const recOperacaoMes = {};
+  MONTHS_ALL.forEach(m => { 
+    recTotalMes[m] = 0; recMensalidadesMes[m] = 0; recInadimplenciaMes[m] = 0;
+    recRecCredMes[m] = 0; recOperacaoMes[m] = 0;
+  });
+  data.forEach(r => {
+    if (!isReceitaOp(r)) return;
+    const mes = r.mesPagto;
+    if (!MONTHS_ALL.includes(mes)) return;
+    const v = Math.abs(r.valorPago || 0);
+    recTotalMes[mes] += v;
+    if (isMensalidadeBase(r.categoria)) recMensalidadesMes[mes] += v;
+    if (isInadimplente(r.categoria)) recInadimplenciaMes[mes] += v;
+    if (isREC_CRED(r.categoria)) recRecCredMes[mes] += v;
+    else recOperacaoMes[mes] += v;
+  });
+  
+  // Despesas Operacionais por mês
+  const despTotalMes = {};
+  const impostosMes = {};
+  MONTHS_ALL.forEach(m => { despTotalMes[m] = 0; impostosMes[m] = 0; });
+  data.forEach(r => {
+    if (r.tipo !== '2. Contas a Pagar') return;
+    if (r.conta !== 'Banco Inter' && r.conta !== 'Itaú Unibanco' && r.conta !== 'Cartão 2130') return;
+    const cat = String(r.categoria || '');
+    if (cat.includes('Ajuste')) return;
+    if (cat.includes('Transferência') && r.conta !== 'Banco Inter') return;
+    const mes = r.mesPagto;
+    if (!MONTHS_ALL.includes(mes)) return;
+    const v = Math.abs(r.valorPago || 0);
+    despTotalMes[mes] += v;
+    if (isImposto(cat)) impostosMes[mes] += v;
+  });
+  
+  // Resultado Op = Rec - Desp
+  const resultadoMes = {};
+  MONTHS_ALL.forEach(m => resultadoMes[m] = recTotalMes[m] - despTotalMes[m]);
+  
+  // Custo Time / Receita Mensalidades — % por mês (null se sem valor RH)
+  const pctCustoTimeMes = {};
+  MONTHS_ALL.forEach(m => {
+    if (custoTimeMes[m] === null || recMensalidadesMes[m] === 0) {
+      pctCustoTimeMes[m] = null;
+    } else {
+      pctCustoTimeMes[m] = (custoTimeMes[m] / recMensalidadesMes[m]) * 100;
+    }
+  });
+  
+  // Margem Op %
+  const margemMes = {};
+  MONTHS_ALL.forEach(m => {
+    if (recTotalMes[m] === 0) margemMes[m] = null;
+    else margemMes[m] = (resultadoMes[m] / recTotalMes[m]) * 100;
+  });
+  
+  // % Inadimplência sobre Mensalidades
+  const pctInadimplenciaMes = {};
+  MONTHS_ALL.forEach(m => {
+    const denom = recMensalidadesMes[m];
+    pctInadimplenciaMes[m] = denom > 0 ? (recInadimplenciaMes[m] / denom) * 100 : null;
+  });
+  
+  // % Impostos sobre Receita
+  const pctImpostosMes = {};
+  MONTHS_ALL.forEach(m => {
+    pctImpostosMes[m] = recTotalMes[m] > 0 ? (impostosMes[m] / recTotalMes[m]) * 100 : null;
+  });
+  
+  // Totais (soma dos meses visíveis)
+  const sumVis = obj => MONTHS_VIS.reduce((s, m) => s + (obj[m] || 0), 0);
+  const sumVisNull = obj => {
+    let s = 0, tem = false;
+    MONTHS_VIS.forEach(m => { if (obj[m] !== null && obj[m] !== undefined) { s += obj[m]; tem = true; }});
+    return tem ? s : null;
+  };
+  
+  const totRec = sumVis(recTotalMes);
+  const totDesp = sumVis(despTotalMes);
+  const totResultado = totRec - totDesp;
+  const totMargem = totRec > 0 ? (totResultado/totRec)*100 : null;
+  const totMensalidades = sumVis(recMensalidadesMes);
+  const totInadimplencia = sumVis(recInadimplenciaMes);
+  const totRecCred = sumVis(recRecCredMes);
+  const totOperacao = sumVis(recOperacaoMes);
+  const totImpostos = sumVis(impostosMes);
+  const totCustoTime = sumVisNull(custoTimeMes);
+  const pctCustoTimeAno = (totCustoTime !== null && totMensalidades > 0) ? (totCustoTime/totMensalidades)*100 : null;
+  const pctInadimplenciaAno = totMensalidades > 0 ? (totInadimplencia/totMensalidades)*100 : null;
+  const pctImpostosAno = totRec > 0 ? (totImpostos/totRec)*100 : null;
+  const recPorColab = qtdColaboradores > 0 ? totRec / qtdColaboradores : null;
+  
+  // Semáforos
+  const semCustoTime = pctCustoTimeAno === null ? 'gray' : (pctCustoTimeAno <= 30 ? 'green' : (pctCustoTimeAno <= 35 ? 'yellow' : 'red'));
+  const semMargem = totMargem === null ? 'gray' : (totMargem >= 15 ? 'green' : (totMargem >= 5 ? 'yellow' : 'red'));
+  const semInadimplencia = pctInadimplenciaAno === null ? 'gray' : (pctInadimplenciaAno <= 5 ? 'green' : (pctInadimplenciaAno <= 10 ? 'yellow' : 'red'));
+  const corSem = c => ({green:'#166534', yellow:'#92400e', red:'#991b1b', gray:'#64748b'}[c]);
+  const bgSem = c => ({green:'#dcfce7', yellow:'#fef3c7', red:'#fee2e2', gray:'#f1f5f9'}[c]);
+  const iconSem = c => ({green:'🟢', yellow:'🟡', red:'🔴', gray:'⚪'}[c]);
+  
+  // ============ HTML ============
+  const accHead = (key, icon, title, subtitle) => {
+    const open = window._kpiOpen[key];
+    return `<div style="background:white;border:1px solid #e5e7eb;border-radius:10px;margin-bottom:14px;overflow:hidden">
+      <div onclick="window._kpiOpen['${key}']=!window._kpiOpen['${key}']; renderKPIs();" 
+        style="padding:14px 18px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;background:${open?'#f8fafc':'white'};border-bottom:${open?'1px solid #e5e7eb':'none'}">
+        <div>
+          <div style="font-size:15px;font-weight:800;color:#0f172a">${icon} ${title}</div>
+          ${subtitle ? `<div style="font-size:11.5px;color:#64748b;margin-top:2px">${subtitle}</div>` : ''}
+        </div>
+        <span style="font-size:14px;color:#6b7280">${open?'▼':'▶'}</span>
+      </div>`;
+  };
+  const accClose = () => `</div>`;
+  const accBody = (key, content) => window._kpiOpen[key] ? `<div style="padding:16px 18px">${content}</div>` : '';
+  
+  // Card de KPI (usado na Visão Geral)
+  const kpiCard = (label, valor, sub, cor) => {
+    cor = cor || '#0f172a';
+    return `<div style="background:white;border:1px solid #e5e7eb;border-radius:10px;padding:16px;flex:1;min-width:180px">
+      <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;font-weight:600;margin-bottom:8px">${label}</div>
+      <div style="font-size:20px;font-weight:800;color:${cor}">${valor}</div>
+      ${sub ? `<div style="font-size:11px;color:#64748b;margin-top:4px">${sub}</div>` : ''}
+    </div>`;
+  };
+  
+  // Tabela mês a mês genérica
+  const tabelaMes = (linhas) => {
+    let h = `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr style="background:#f8fafc"><th style="text-align:left;padding:8px 10px;font-size:11px;color:#64748b">Indicador</th>`;
+    MONTHS_VIS.forEach(m => h += `<th style="text-align:right;padding:8px 8px;font-size:11px;color:#64748b">${MONTH_LABELS_ALL[MONTHS_ALL.indexOf(m)]}</th>`);
+    h += `<th style="text-align:right;padding:8px 10px;font-size:11px;color:#64748b;background:#f3f4f6">TOTAL</th></tr></thead><tbody>`;
+    linhas.forEach(l => {
+      h += `<tr style="border-top:1px solid #f1f5f9"><td style="padding:8px 10px;font-weight:600;color:#334155">${l.label}</td>`;
+      let tot = l.total !== undefined ? l.total : 0;
+      let computeTot = l.total === undefined;
+      MONTHS_VIS.forEach(m => {
+        const v = l.valores[m];
+        h += `<td style="text-align:right;padding:8px 8px;color:${l.cor||'#0f172a'}">${l.fmt ? l.fmt(v) : (v === null || v === undefined ? '—' : _fmtR(v))}</td>`;
+        if (computeTot && v !== null && v !== undefined) tot += v;
+      });
+      h += `<td style="text-align:right;padding:8px 10px;font-weight:700;color:${l.cor||'#0f172a'};background:#f9fafb">${l.fmtTotal ? l.fmtTotal(tot) : (l.fmt ? l.fmt(tot) : _fmtR(tot))}</td></tr>`;
+    });
+    h += `</tbody></table></div>`;
+    return h;
+  };
+  
+  let html = `<div style="padding:20px;max-width:1400px;margin:0 auto">
+    <h2 style="margin:0 0 4px;color:#0f172a">📊 KPI Financeiro</h2>
+    <p style="margin:0 0 20px;color:#64748b;font-size:12.5px">Camada de análise gerencial sobre a estrutura financeira</p>`;
+  
+  // ============ 1. VISÃO GERAL ============
+  html += accHead('visao', '📊', 'Visão Geral', 'Principais indicadores financeiros');
+  html += accBody('visao', `
+    <div style="display:flex;flex-wrap:wrap;gap:12px">
+      ${kpiCard('Receita', _fmtR(totRec), null, '#166534')}
+      ${kpiCard('Despesas', _fmtR(totDesp), null, '#991b1b')}
+      ${kpiCard('Resultado Operacional', _fmtR(totResultado), null, totResultado >= 0 ? '#166534' : '#991b1b')}
+      ${kpiCard('Margem Operacional', _fmtPct(totMargem), null, corSem(semMargem))}
+      ${kpiCard('Custo do Time', totCustoTime === null ? '—' : _fmtR(totCustoTime), pctCustoTimeAno !== null ? _fmtPct(pctCustoTimeAno) + ' das mensalidades' : 'Preencha o RH', corSem(semCustoTime))}
+      ${kpiCard('Receita / Colaborador', recPorColab === null ? '—' : _fmtR(recPorColab), qtdColaboradores + ' colaboradores', '#0f172a')}
+      ${kpiCard('Inadimplência', _fmtR(totInadimplencia), pctInadimplenciaAno !== null ? _fmtPct(pctInadimplenciaAno) + ' das mensalidades' : null, corSem(semInadimplencia))}
+    </div>
+  `);
+  html += accClose();
+  
+  // ============ 2. EFICIÊNCIA ============
+  const custoTimeVals = {};
+  MONTHS_ALL.forEach(m => custoTimeVals[m] = custoTimeMes[m]);
+  
+  html += accHead('efic', '⚙️', 'Eficiência', 'Custo do Time · Receita por Colaborador · Margem Op');
+  html += accBody('efic', `
+    <!-- CUSTO DO TIME -->
+    <div style="margin-bottom:20px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-size:13.5px;font-weight:700;color:#0f172a">Custo do Time ÷ Mensalidades <span style="color:#64748b;font-weight:500;font-size:11.5px">(meta ≤ 30%)</span></div>
+        <div style="padding:5px 12px;background:${bgSem(semCustoTime)};color:${corSem(semCustoTime)};border-radius:6px;font-size:11.5px;font-weight:700">${iconSem(semCustoTime)} ${pctCustoTimeAno === null ? 'Sem dados no RH' : _fmtPct(pctCustoTimeAno) + (pctCustoTimeAno <= 30 ? ' — Dentro da meta' : ' — Atenção')}</div>
+      </div>
+      ${tabelaMes([
+        {label: 'Receita mensalidades', valores: recMensalidadesMes, cor: '#166534'},
+        {label: 'Custo do time (RH)', valores: custoTimeVals, cor: '#991b1b', fmt: v => v === null || v === undefined ? '—' : _fmtR(v)},
+        {label: '% do custo do time', valores: pctCustoTimeMes, cor: '#0f172a', fmt: v => v === null || v === undefined ? '—' : _fmtPct(v), fmtTotal: () => pctCustoTimeAno === null ? '—' : _fmtPct(pctCustoTimeAno), total: pctCustoTimeAno}
+      ])}
+      <div style="margin-top:8px;font-size:11px;color:#64748b">Base: Mensalidades Clientes + Mensalidade Inadimplentes + Taxa de Implementação. Custo: Fechamento da Folha preenchido no menu RH.</div>
+    </div>
+    
+    <!-- RECEITA POR COLABORADOR -->
+    <div style="margin-bottom:20px">
+      <div style="font-size:13.5px;font-weight:700;color:#0f172a;margin-bottom:10px">Receita por Colaborador</div>
+      <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:14px;display:flex;gap:24px;flex-wrap:wrap">
+        <div><div style="font-size:11px;color:#64748b">Receita total (período)</div><div style="font-size:18px;font-weight:800;color:#166534">${_fmtR(totRec)}</div></div>
+        <div><div style="font-size:11px;color:#64748b">Colaboradores</div><div style="font-size:18px;font-weight:800;color:#0f172a">${qtdColaboradores}</div></div>
+        <div><div style="font-size:11px;color:#64748b">Receita / colaborador</div><div style="font-size:18px;font-weight:800;color:#166534">${recPorColab === null ? '—' : _fmtR(recPorColab)}</div></div>
       </div>
     </div>
-  `;
+    
+    <!-- MARGEM OPERACIONAL -->
+    <div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-size:13.5px;font-weight:700;color:#0f172a">Margem Operacional</div>
+        <div style="padding:5px 12px;background:${bgSem(semMargem)};color:${corSem(semMargem)};border-radius:6px;font-size:11.5px;font-weight:700">${iconSem(semMargem)} ${_fmtPct(totMargem)}</div>
+      </div>
+      ${tabelaMes([
+        {label: 'Receita', valores: recTotalMes, cor: '#166534'},
+        {label: 'Despesas', valores: despTotalMes, cor: '#991b1b'},
+        {label: 'Resultado Op', valores: resultadoMes, cor: '#0f172a'},
+        {label: 'Margem %', valores: margemMes, fmt: v => v === null ? '—' : _fmtPct(v), fmtTotal: () => _fmtPct(totMargem), total: totMargem}
+      ])}
+    </div>
+  `);
+  html += accClose();
+  
+  // ============ 3. RECEITA ============
+  html += accHead('rec', '💰', 'Receita', 'Mensalidades · Inadimplência');
+  html += accBody('rec', `
+    <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+      ${kpiCard('Mensalidades', _fmtR(totMensalidades), 'Clientes + Inadimplentes + Taxa Impl.', '#166534')}
+      ${kpiCard('Inadimplência', _fmtR(totInadimplencia), pctInadimplenciaAno !== null ? _fmtPct(pctInadimplenciaAno) + ' das mensalidades' : null, corSem(semInadimplencia))}
+    </div>
+    <div style="font-size:13.5px;font-weight:700;color:#0f172a;margin:12px 0 8px">Evolução mensal</div>
+    ${tabelaMes([
+      {label: 'Mensalidades', valores: recMensalidadesMes, cor: '#166534'},
+      {label: 'Inadimplência', valores: recInadimplenciaMes, cor: '#991b1b'},
+      {label: '% inadimplência', valores: pctInadimplenciaMes, fmt: v => v === null ? '—' : _fmtPct(v), fmtTotal: () => _fmtPct(pctInadimplenciaAno), total: pctInadimplenciaAno}
+    ])}
+  `);
+  html += accClose();
+  
+  // ============ 4. BU ============
+  const resOperacaoMes = {}, resRecCredMes = {};
+  MONTHS_ALL.forEach(m => {
+    resOperacaoMes[m] = recOperacaoMes[m];
+    resRecCredMes[m] = recRecCredMes[m];
+  });
+  
+  html += accHead('bu', '🏢', 'BU — Estrutura Gerencial', 'Operação · Rec Cred');
+  html += accBody('bu', `
+    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:12px;color:#1e40af">
+      ℹ️ REC CRED = Estratégia Recrutamento + Estratégia Direto na Conta. OPERAÇÃO = todas as demais receitas. Neste momento, apenas receitas são classificadas por BU.
+    </div>
+    <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+      ${kpiCard('OPERAÇÃO — Receita', _fmtR(totOperacao), null, '#166534')}
+      ${kpiCard('REC CRED — Receita', _fmtR(totRecCred), null, '#166534')}
+      ${kpiCard('CONSOLIDADO', _fmtR(totOperacao + totRecCred), 'Op + Rec Cred', '#0f172a')}
+    </div>
+    ${tabelaMes([
+      {label: 'OPERAÇÃO', valores: recOperacaoMes, cor: '#166534'},
+      {label: 'REC CRED', valores: recRecCredMes, cor: '#166534'},
+      {label: 'Consolidado', valores: Object.fromEntries(MONTHS_ALL.map(m => [m, recOperacaoMes[m]+recRecCredMes[m]])), cor: '#0f172a'}
+    ])}
+  `);
+  html += accClose();
+  
+  // ============ 5. SQUADS ============
+  html += accHead('squads', '👥', 'Squads', 'Em construção');
+  html += accBody('squads', `
+    <div style="text-align:center;padding:30px 20px;color:#64748b">
+      <div style="font-size:36px;margin-bottom:12px">🚧</div>
+      <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:6px">Receita por Squad — Em construção</div>
+      <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:12px">Custo por Squad — Em construção</div>
+      <div style="font-size:12px;max-width:500px;margin:0 auto;line-height:1.5">Estrutura de distribuição de clientes e colaboradores entre squads ainda está sendo definida.</div>
+    </div>
+  `);
+  html += accClose();
+  
+  // ============ 6. TRIBUTÁRIO ============
+  html += accHead('trib', '🧾', 'Tributário', 'Total de impostos · % sobre receita');
+  html += accBody('trib', `
+    <div style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+      ${kpiCard('Total de impostos', _fmtR(totImpostos), null, '#991b1b')}
+      ${kpiCard('% sobre receita', _fmtPct(pctImpostosAno), null, '#0f172a')}
+    </div>
+    ${tabelaMes([
+      {label: 'Impostos', valores: impostosMes, cor: '#991b1b'},
+      {label: '% sobre receita', valores: pctImpostosMes, fmt: v => v === null ? '—' : _fmtPct(v), fmtTotal: () => _fmtPct(pctImpostosAno), total: pctImpostosAno}
+    ])}
+  `);
+  html += accClose();
+  
+  // ============ 7. SAÚDE + PAINEL ATENÇÃO ============
+  const alertas = [];
+  if (pctCustoTimeAno !== null && pctCustoTimeAno > 30) alertas.push({icon: '⚠️', txt: `Custo do Time em ${_fmtPct(pctCustoTimeAno)} (acima de 30%)`});
+  if (totMargem !== null && totMargem < 5) alertas.push({icon: '⚠️', txt: `Margem Operacional em ${_fmtPct(totMargem)} (abaixo de 5%)`});
+  if (pctInadimplenciaAno !== null && pctInadimplenciaAno > 10) alertas.push({icon: '⚠️', txt: `Inadimplência em ${_fmtPct(pctInadimplenciaAno)} (acima de 10%)`});
+  
+  html += accHead('saude', '❤️', 'Saúde Financeira', `${alertas.length} alerta(s) ativos`);
+  html += accBody('saude', `
+    <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+      <div style="flex:1;min-width:180px;background:${bgSem(semCustoTime)};border-radius:8px;padding:14px">
+        <div style="font-size:11px;color:${corSem(semCustoTime)};font-weight:700;text-transform:uppercase;margin-bottom:6px">${iconSem(semCustoTime)} Custo do Time</div>
+        <div style="font-size:16px;font-weight:800;color:${corSem(semCustoTime)}">${pctCustoTimeAno === null ? 'Sem dados' : _fmtPct(pctCustoTimeAno)}</div>
+      </div>
+      <div style="flex:1;min-width:180px;background:${bgSem(semMargem)};border-radius:8px;padding:14px">
+        <div style="font-size:11px;color:${corSem(semMargem)};font-weight:700;text-transform:uppercase;margin-bottom:6px">${iconSem(semMargem)} Margem Op</div>
+        <div style="font-size:16px;font-weight:800;color:${corSem(semMargem)}">${_fmtPct(totMargem)}</div>
+      </div>
+      <div style="flex:1;min-width:180px;background:${bgSem(semInadimplencia)};border-radius:8px;padding:14px">
+        <div style="font-size:11px;color:${corSem(semInadimplencia)};font-weight:700;text-transform:uppercase;margin-bottom:6px">${iconSem(semInadimplencia)} Inadimplência</div>
+        <div style="font-size:16px;font-weight:800;color:${corSem(semInadimplencia)}">${_fmtPct(pctInadimplenciaAno)}</div>
+      </div>
+    </div>
+    <div style="font-size:13.5px;font-weight:700;color:#0f172a;margin:12px 0 8px">Painel de Atenção</div>
+    ${alertas.length === 0 
+      ? '<div style="padding:16px;background:#dcfce7;color:#166534;border-radius:8px;text-align:center;font-weight:600">✅ Nenhum indicador fora do objetivo</div>' 
+      : '<div style="display:flex;flex-direction:column;gap:8px">' + alertas.map(a => `<div style="padding:12px 14px;background:#fef2f2;color:#991b1b;border-left:4px solid #ef4444;border-radius:4px;font-size:13px;font-weight:600">${a.icon} ${a.txt}</div>`).join('') + '</div>'
+    }
+  `);
+  html += accClose();
+  
+  html += `</div>`;
+  container.innerHTML = html;
 }
 
-// =====================================================================================
-// MENU RH — Folha de pagamento dos prestadores PJ
-// Lista fornecedores da categoria "Remuneração Operacional PJ"
-// Cada linha = prestador, cada coluna = mês, valores editáveis
-// Total por mês (fechamento folha) e total anual por prestador
-// =====================================================================================
+
 function _getRHValor(fornecedor, mes) {
   try {
     const saved = localStorage.getItem('rh_folha_v1');
@@ -2143,7 +2804,7 @@ function showSection(section) {
   if (btn) btn.classList.add('active');
   
   // Esconder TODAS as seções (Growper + Scalia)
-  ['mainSection','areaSection','cardSection','recebiveisSection','kpisSection','rhSection','dreSection','pjsSection','margemSection','ticketSection','scaliaMainSection2','scaliaCardSection2','scaliaKitsSection2'].forEach(id => {
+  ['mainSection','areaSection','cardSection','recebiveisSection','kpisSection','rhSection','notifSection','dreSection','pjsSection','margemSection','ticketSection','scaliaMainSection2','scaliaCardSection2','scaliaKitsSection2'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add('hidden');
   });
@@ -2166,7 +2827,7 @@ function showSection(section) {
   const selContaWrap = document.getElementById('selContaWrap');
   
   // CARTÃO DE CRÉDITO, KITS ou RH: filtros minimalistas
-  if (section === 'card' || section === 'scaliaKits' || section === 'kits' || section === 'rh' || section === 'kpis' || section === 'recebiveis') {
+  if (section === 'card' || section === 'scaliaKits' || section === 'kits' || section === 'rh' || section === 'kpis' || section === 'recebiveis' || section === 'notif') {
     viewBtns.classList.add('hidden');
     if (selConta) selConta.style.display = 'none';
     if (selConciliado) selConciliado.style.display = 'none';
@@ -2239,9 +2900,14 @@ document.addEventListener('click', function(e) {
 });
 
 function refreshCurrent() {
-  if (currentSection === 'main') renderMain();
+  if (currentSection === 'main') {
+    // Prefere window.renderMain (versão NOVA que respeita filtro de mês)
+    if (typeof window.renderMain === 'function') window.renderMain();
+    else renderMain();
+  }
   else if (currentSection === 'kpis') renderKPIs();
   else if (currentSection === 'rh') renderRH();
+  else if (currentSection === 'notif') renderNotif();
   else if (currentSection === 'area') renderArea();
   else if (currentSection === 'card') renderCard();
   else if (currentSection === 'recebiveis') renderRecebiveis();
