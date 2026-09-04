@@ -761,6 +761,9 @@ body.scalia-mode .company-badge {
           
         </div>
         <button id="btnExportExcelInline" onclick="exportarMenuPrincipal()" style="display:none;margin-left:8px;background:#065f46;color:white;border:none;padding:8px 14px;border-radius:6px;font-family:Poppins,sans-serif;font-weight:600;font-size:12.5px;cursor:pointer;align-items:center;gap:6px;white-space:nowrap" title="Exportar Menu Principal para Excel">📊 Exportar Excel</button>
+        <button id="btnModeloProj" onclick="window._downloadModeloProjetado()" style="display:none;margin-left:6px;background:#f59e0b;color:white;border:none;padding:8px 14px;border-radius:6px;font-family:Poppins,sans-serif;font-weight:600;font-size:12.5px;cursor:pointer;white-space:nowrap" title="Baixar modelo Excel para importar projetados">📥 Modelo Projetado</button>
+        <button id="btnImportProj" onclick="document.getElementById('inputImportProj').click()" style="display:none;margin-left:6px;background:#7c3aed;color:white;border:none;padding:8px 14px;border-radius:6px;font-family:Poppins,sans-serif;font-weight:600;font-size:12.5px;cursor:pointer;white-space:nowrap" title="Importar projetados de planilha">📤 Importar Projetado</button>
+        <input type="file" id="inputImportProj" accept=".xlsx,.xls" style="display:none" onchange="window._importarProjetado(event)"/>
         <!-- Sub-abas de recebíveis agora ficam dentro da seção -->
       </div>
     </div>
@@ -2678,9 +2681,16 @@ function renderRH() {
   });
   
   let html = `<div style="padding:20px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <h2 style="margin:0;color:#0f172a">👥 RH — Folha de Pagamento PJ</h2>
-      <div style="font-size:11px;color:#64748b">${listaPrestadores.length} prestadores • Limite folha ≤ 30% do faturamento</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px">
+      <div>
+        <h2 style="margin:0;color:#0f172a">👥 RH — Folha de Pagamento PJ</h2>
+        <div style="font-size:11px;color:#64748b;margin-top:4px">${listaPrestadores.length} prestadores • Limite folha ≤ 30% do faturamento</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onclick="window._exportarRH()" style="background:#065f46;color:white;border:none;padding:8px 14px;border-radius:6px;font-family:Poppins,sans-serif;font-weight:600;font-size:12.5px;cursor:pointer">📊 Exportar planilha</button>
+        <button onclick="document.getElementById('inputImportRH').click()" style="background:#7c3aed;color:white;border:none;padding:8px 14px;border-radius:6px;font-family:Poppins,sans-serif;font-weight:600;font-size:12.5px;cursor:pointer">📥 Importar planilha</button>
+        <input type="file" id="inputImportRH" accept=".xlsx,.xls" style="display:none" onchange="window._importarRH(event)"/>
+      </div>
     </div>
     <div class="table-container">
     <table>
@@ -2877,6 +2887,127 @@ document.addEventListener('click', function(e) {
     if (dd) dd.style.display = 'none';
   }
 });
+
+
+// ================= EXCEL: IMPORT/EXPORT PROJETADO =================
+window._downloadModeloProjetado = function() {
+  if (typeof XLSX === 'undefined') { alert('Biblioteca não carregou. Recarregue a página.'); return; }
+  const MONTH_LABELS = ['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
+  const rows = [['Grupo','Categoria', ...MONTH_LABELS]];
+  // Adicionar linhas exemplo (categorias reais do dashboard atual)
+  const cats = [];
+  if (typeof RAW_DATA_CAIXA !== 'undefined' && RAW_DATA_CAIXA) {
+    const receitas = new Set(); const despesas = {};
+    RAW_DATA_CAIXA.forEach(r => {
+      if (r.tipo === '1. Contas a Receber') receitas.add(r.categoria);
+      else if (r.tipo === '2. Contas a Pagar') {
+        if (!r.categoria) return;
+        if (!despesas[r.categoria]) despesas[r.categoria] = true;
+      }
+    });
+    [...receitas].sort().forEach(cat => rows.push(['RECEITA', cat, '','','','','','','','','','','','']));
+    Object.keys(despesas).sort().forEach(cat => rows.push(['DESPESA', cat, '','','','','','','','','','','','']));
+  }
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Projetado');
+  XLSX.writeFile(wb, 'projetado_modelo.xlsx');
+};
+
+window._importarProjetado = function(evt) {
+  const file = evt.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const wb = XLSX.read(data, {type: 'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {header: 1});
+      const MONTHS_ALL = ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'];
+      let count = 0;
+      for (let i = 1; i < rows.length; i++) {
+        const r = rows[i];
+        if (!r || r.length < 3) continue;
+        const grupo = String(r[0] || '').trim().toUpperCase();
+        const cat = String(r[1] || '').trim();
+        if (!cat) continue;
+        const keyPrefix = grupo === 'RECEITA' ? 'cat_rec|' : 'cat_desp|';
+        for (let j = 0; j < 12; j++) {
+          const val = parseFloat(r[2 + j]);
+          if (!isNaN(val) && val !== 0) {
+            const key = grupo === 'RECEITA' ? 'cat_rec|' + cat : 'cat_desp|_import_|' + cat;
+            if (typeof setProjetadoValue === 'function') {
+              setProjetadoValue(key, MONTHS_ALL[j], val);
+              count++;
+            }
+          }
+        }
+      }
+      alert(count + ' valores projetados importados. Ctrl+F5 para atualizar visualmente.');
+      if (typeof window.renderMain === 'function') window.renderMain();
+    } catch(err) { alert('Erro na importação: ' + err.message); }
+    evt.target.value = '';
+  };
+  reader.readAsArrayBuffer(file);
+};
+
+// ================= EXCEL: IMPORT/EXPORT RH =================
+window._exportarRH = function() {
+  if (typeof XLSX === 'undefined') { alert('Biblioteca não carregou.'); return; }
+  const MONTH_LABELS = ['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
+  const MONTHS_ALL = ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'];
+  const prestadoresSet = new Set();
+  (RAW_DATA_CAIXA || []).forEach(r => {
+    if (r.tipo !== '2. Contas a Pagar') return;
+    if (!String(r.categoria || '').includes('Remuneração')) return;
+    const f = String(r.fornecedor || '').trim();
+    if (f) prestadoresSet.add(f);
+  });
+  const rows = [['Prestador', ...MONTH_LABELS]];
+  [...prestadoresSet].sort().forEach(p => {
+    const linha = [p];
+    MONTHS_ALL.forEach(m => linha.push(_getRHValor(p, m) || ''));
+    rows.push(linha);
+  });
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Folha PJ');
+  XLSX.writeFile(wb, 'folha_pagamento_pj_2026.xlsx');
+};
+
+window._importarRH = function(evt) {
+  const file = evt.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const wb = XLSX.read(data, {type: 'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {header: 1});
+      const MONTHS_ALL = ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'];
+      let count = 0;
+      for (let i = 1; i < rows.length; i++) {
+        const r = rows[i];
+        if (!r || r.length < 2) continue;
+        const prestador = String(r[0] || '').trim();
+        if (!prestador) continue;
+        for (let j = 0; j < 12; j++) {
+          const val = parseFloat(r[1 + j]);
+          if (!isNaN(val) && val > 0) {
+            _setRHValor(prestador, MONTHS_ALL[j], val);
+            count++;
+          }
+        }
+      }
+      alert(count + ' valores importados para o RH.');
+      if (typeof renderRH === 'function') renderRH();
+    } catch(err) { alert('Erro: ' + err.message); }
+    evt.target.value = '';
+  };
+  reader.readAsArrayBuffer(file);
+};
 
 function refreshCurrent() {
   if (currentSection === 'main') {
@@ -3829,7 +3960,9 @@ function renderCard() {
     html += `<tr style="background:#fef2f2;font-weight:800"><td style="padding:12px 14px;cursor:pointer;position:sticky;left:0;background:#fef2f2;z-index:5;color:#991b1b" onclick="_toggleExpand('${dKey}')"><span style="display:inline-block;width:16px">${dOpen?'▼':'▶'}</span> ${_esc(dept)}</td>`;
     MONTHS.forEach(m => {
       const v = dObj.totMes[m] || 0;
-      html += `<td style="text-align:right;padding:12px 8px;background:#fef2f2;color:#991b1b;font-weight:800" class="value-neg">${v === 0 ? '—' : _fmt(v)}</td>`;
+      const nDp = window._getNotaForn ? window._getNotaForn('carddept|'+dept, m) : '';
+      const mkDp = nDp ? '<span style="color:#f59e0b;font-size:9px;margin-right:2px">●</span>' : '';
+      html += `<td oncontextmenu="event.preventDefault(); window._abrirNotaForn('carddept|${dept.replace(/'/g,"\\'")}','${m}','R$ '+'${_fmt(v)}'); return false;" title="${nDp ? '📝 ' + nDp.replace(/"/g,'&quot;') : 'Clique direito para nota'}" style="text-align:right;padding:12px 8px;background:#fef2f2;color:#991b1b;font-weight:800;cursor:context-menu" class="value-neg">${mkDp}${v === 0 ? '—' : _fmt(v)}</td>`;
     });
     html += `<td style="text-align:right;padding:12px 12px;background:#fef2f2;color:#991b1b;font-weight:800" class="value-neg">${_fmt(totDept)}</td></tr>`;
     
@@ -3842,7 +3975,9 @@ function renderCard() {
       html += `<tr class="cat-row"><td style="padding:8px 14px;padding-left:52px;cursor:pointer" title="${_esc(cat)}" onclick="_toggleExpand('${cKey}')"><span style="display:inline-block;width:14px;color:var(--primary);font-weight:700">${cOpen?'▼':'▶'}</span> ${_esc(cat)}</td>`;
       MONTHS.forEach(m => {
         const v = catObj.totMes[m] || 0;
-        html += `<td style="text-align:right;padding:8px;font-size:11.5px" class="${v === 0 ? 'value-zero' : 'value-neg'}">${v === 0 ? '—' : _fmt(v)}</td>`;
+        const nCc = window._getNotaForn ? window._getNotaForn('cardcat|'+dept+'|'+cat, m) : '';
+        const mkCc = nCc ? '<span style="color:#f59e0b;font-size:9px;margin-right:2px">●</span>' : '';
+        html += `<td oncontextmenu="event.preventDefault(); window._abrirNotaForn('cardcat|${dept.replace(/'/g,"\\'")}|${cat.replace(/'/g,"\\'")}','${m}','R$ '+'${_fmt(v)}'); return false;" title="${nCc ? '📝 ' + nCc.replace(/"/g,'&quot;') : 'Clique direito para nota'}" style="text-align:right;padding:8px;font-size:11.5px;cursor:context-menu" class="${v === 0 ? 'value-zero' : 'value-neg'}">${mkCc}${v === 0 ? '—' : _fmt(v)}</td>`;
       });
       html += `<td style="text-align:right;padding:8px 12px;font-weight:700" class="value-neg">${_fmt(totCat)}</td></tr>`;
       
@@ -3853,7 +3988,9 @@ function renderCard() {
         html += `<tr><td style="padding:6px 14px;padding-left:86px;font-size:11.5px;color:var(--text-secondary)" title="${_esc(forn)}">↳ ${_esc(forn)}</td>`;
         MONTHS.forEach(m => {
           const v = fObj.totMes[m] || 0;
-          html += `<td style="text-align:right;padding:6px;font-size:11px" class="${v === 0 ? 'value-zero' : 'value-neg'}">${v === 0 ? '—' : _fmt(v)}</td>`;
+          const nFc = window._getNotaForn ? window._getNotaForn(forn, m) : '';
+          const mkFc = nFc ? '<span style="color:#f59e0b;font-size:9px;margin-right:2px">●</span>' : '';
+          html += `<td oncontextmenu="event.preventDefault(); window._abrirNotaForn('${forn.replace(/'/g,"\\'")}','${m}','R$ '+'${_fmt(v)}'); return false;" title="${nFc ? '📝 ' + nFc.replace(/"/g,'&quot;') : 'Clique direito para nota'}" style="text-align:right;padding:6px;font-size:11px;cursor:context-menu" class="${v === 0 ? 'value-zero' : 'value-neg'}">${mkFc}${v === 0 ? '—' : _fmt(v)}</td>`;
         });
         html += `<td style="text-align:right;padding:6px 12px;font-weight:600;font-size:11px" class="value-neg">${_fmt(totF)}</td></tr>`;
       });
@@ -4306,17 +4443,17 @@ function getValorMes(cliente, mes) {
 }
 
 function renderRecebiveis() {
-  const container = document.getElementById('recebiveisContent') || document.getElementById('mainArea');
-  const html = `
+  const container = document.getElementById('recebiveisContent');
+  if (!container) return;
+  container.innerHTML = `
     <div style="min-height:70vh;display:flex;align-items:center;justify-content:center;padding:40px">
       <div style="max-width:520px;padding:40px;background:white;border-radius:14px;box-shadow:0 4px 20px rgba(0,0,0,0.08);text-align:center">
         <div style="font-size:56px;margin-bottom:20px">🚧</div>
         <h2 style="margin:0 0 12px;font-size:24px;font-weight:800;color:#0f172a">Menu em Construção</h2>
-        <p style="color:#64748b;line-height:1.6;font-size:14px;margin:0">Este menu está sendo reformulado. Em breve traremos a nova versão de Recebíveis com melhorias.</p>
+        <p style="color:#64748b;line-height:1.6;font-size:14px;margin:0">O menu Recebíveis está sendo reformulado. Em breve traremos a nova versão.</p>
       </div>
     </div>
   `;
-  if (container) container.innerHTML = html;
 }
 
 
@@ -4924,146 +5061,19 @@ function renderDRE() {
 
 // =================== PJs (07.01 mês a mês: Dept→Cat→Colaborador) ===================
 function renderPJs() {
-  // Menu ÁREAS: mesmo padrão do Principal, mas por departamento com Receitas e Despesas
-  const container = document.getElementById('pjsContent') || document.getElementById('mainArea');
-  const MONTHS = ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'];
-  const MONTH_NAMES = ['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
-  const MONTHS_ALL = ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'];
+  const container = document.getElementById('pjsContent');
   if (!container) return;
-  const data = (currentView === 'caixa') ? RAW_DATA_CAIXA : RAW_DATA_COMP;
-  
-  // Filtrar: todas as contas correntes (Inter + Itaú + Cartão), ignorar aplicações
-  const rows = data.filter(r => {
-    if (currentConciliado !== 'all' && r.conciliado !== currentConciliado) return false;
-    if (r.conta === 'Banco Inter (Aplicação)' || r.conta === 'Investimentos Banco Inter' || r.conta === 'Investimentos Itaú Unibanco') return false;
-    return true;
-  });
-  
-  // Nome do depto sem prefixo, e tipo derivado do prefixo original (R = Receita, D = Despesa)
-  const _cleanDept = raw => String(raw || '').replace(/^[RD]\d+\s*-\s*/, '').replace(/^\d+\s+/, '').trim() || '(Sem Departamento)';
-  const _deptTipo = raw => {
-    const s = String(raw || '').replace(/^\d+\s+/, '');
-    if (/^R/.test(s)) return 'R';
-    if (/^D/.test(s)) return 'D';
-    return '';
-  };
-  
-  // Agrupar: Depto (nome limpo) -> {receita: {totMes, cats}, despesa: {totMes, cats}}
-  // Uma mesma "área" pode ter R e D (ex: Performance)
-  const areas = new Map();
-  rows.forEach(r => {
-    const raw = r.departamento || '';
-    const tipo = r.departamento_tipo || _deptTipo(raw);
-    if (tipo !== 'R' && tipo !== 'D') return;  // ignora movimentos sem R/D
-    const nome = _cleanDept(raw);
-    const cat = String(r.categoria || '(Sem Categoria)');
-    const forn = String(r.fornecedor || '(Sem Fornecedor)');
-    const mes = (currentView === 'caixa') ? r.mesPagto : r.mesRegistro;
-    if (!MONTHS.includes(mes)) return;
-    const val = Math.abs(r.valorPago || r.valorConta || 0);
-    
-    if (!areas.has(nome)) areas.set(nome, { R: null, D: null });
-    const a = areas.get(nome);
-    if (!a[tipo]) { a[tipo] = { totMes: {}, cats: new Map() }; MONTHS.forEach(m => a[tipo].totMes[m] = 0); }
-    const bloco = a[tipo];
-    bloco.totMes[mes] += val;
-    if (!bloco.cats.has(cat)) { bloco.cats.set(cat, { totMes: {}, forns: new Map() }); MONTHS.forEach(m => bloco.cats.get(cat).totMes[m] = 0); }
-    const cObj = bloco.cats.get(cat);
-    cObj.totMes[mes] += val;
-    if (!cObj.forns.has(forn)) { cObj.forns.set(forn, { totMes: {} }); MONTHS.forEach(m => cObj.forns.get(forn).totMes[m] = 0); }
-    cObj.forns.get(forn).totMes[mes] += val;
-  });
-  
-  const sumTot = obj => MONTHS.reduce((s, m) => s + (obj.totMes[m] || 0), 0);
-  
-  // Ordenar áreas por soma total (R+D)
-  const areasList = [...areas.entries()].sort((a, b) => {
-    const ta = (a[1].R ? sumTot(a[1].R) : 0) + (a[1].D ? sumTot(a[1].D) : 0);
-    const tb = (b[1].R ? sumTot(b[1].R) : 0) + (b[1].D ? sumTot(b[1].D) : 0);
-    return tb - ta;
-  });
-  
-  let html = `
-    <div style="padding:20px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-        <h2 style="margin:0;color:#0f172a">🏢 Áreas</h2>
-        <div style="display:flex;gap:8px">
-          <button onclick="_setViewPJ('caixa')" style="padding:6px 14px;border:1px solid ${currentView==='caixa'?'#10b981':'#d1d5db'};background:${currentView==='caixa'?'#10b981':'white'};color:${currentView==='caixa'?'white':'#374151'};border-radius:6px;cursor:pointer;font-family:Poppins;font-size:12px">Caixa</button>
-          <button onclick="_setViewPJ('comp')" style="padding:6px 14px;border:1px solid ${currentView==='comp'?'#10b981':'#d1d5db'};background:${currentView==='comp'?'#10b981':'white'};color:${currentView==='comp'?'white':'#374151'};border-radius:6px;cursor:pointer;font-family:Poppins;font-size:12px">Competência</button>
-        </div>
+  container.innerHTML = `
+    <div style="min-height:70vh;display:flex;align-items:center;justify-content:center;padding:40px">
+      <div style="max-width:520px;padding:40px;background:white;border-radius:14px;box-shadow:0 4px 20px rgba(0,0,0,0.08);text-align:center">
+        <div style="font-size:56px;margin-bottom:20px">🚧</div>
+        <h2 style="margin:0 0 12px;font-size:24px;font-weight:800;color:#0f172a">Menu em Construção</h2>
+        <p style="color:#64748b;line-height:1.6;font-size:14px;margin:0">O menu Áreas está sendo reformulado. Em breve traremos a nova versão com indicadores por área.</p>
       </div>
-      <div class="table-container">
-      <table>
-        <thead><tr>
-          <th style="min-width:260px">Área / Categoria / Fornecedor</th>
-          ${MONTHS.map(m => `<th>${MONTH_NAMES[MONTHS_ALL.indexOf(m)]}</th>`).join('')}
-          <th>Total</th>
-        </tr></thead>
-        <tbody>`;
-  
-  const renderBloco = (aKey, bloco, tipo, corBg, corTxt, label) => {
-    if (!bloco) return;
-    const bKey = aKey + '_' + tipo;
-    const bOpen = _expanded.has(bKey);
-    const totB = sumTot(bloco);
-    html += `<tr style="background:${corBg};font-weight:600"><td style="padding:7px 14px;padding-left:36px;cursor:pointer;color:${corTxt};font-size:12px" onclick="_toggleExpand('${bKey}')"><span style="display:inline-block;width:14px">${bOpen?'▼':'▶'}</span> ${label}</td>`;
-    MONTHS.forEach(m => {
-      const v = bloco.totMes[m] || 0;
-      html += `<td style="text-align:right;padding:7px 8px;color:${corTxt};font-size:11.5px">${v === 0 ? '—' : _fmt(v)}</td>`;
-    });
-    html += `<td style="text-align:right;padding:7px 12px;color:${corTxt};font-weight:700">${_fmt(totB)}</td></tr>`;
-    if (!bOpen) return;
-    
-    [...bloco.cats.entries()].sort((a, b) => sumTot(b[1]) - sumTot(a[1])).forEach(([cat, cObj]) => {
-      const cKey = bKey + '_c_' + cat.replace(/\W/g, '_');
-      const cOpen = _expanded.has(cKey);
-      const totC = sumTot(cObj);
-      html += `<tr><td style="padding:5px 14px;padding-left:64px;font-size:11.5px;cursor:pointer" onclick="_toggleExpand('${cKey}')"><span style="display:inline-block;width:14px">${cOpen?'▼':'▶'}</span> ${_esc(cat)}</td>`;
-      MONTHS.forEach(m => {
-        const v = cObj.totMes[m] || 0;
-        html += `<td style="text-align:right;padding:5px 8px;font-size:11px">${v === 0 ? '—' : _fmt(v)}</td>`;
-      });
-      html += `<td style="text-align:right;padding:5px 12px;font-size:11px;font-weight:600">${_fmt(totC)}</td></tr>`;
-      if (!cOpen) return;
-      [...cObj.forns.entries()].sort((a, b) => sumTot(b[1]) - sumTot(a[1])).forEach(([forn, fObj]) => {
-        const totF = sumTot(fObj);
-        html += `<tr><td style="padding:4px 14px;padding-left:96px;font-size:10.5px;color:#6b7280">${_esc(forn)}</td>`;
-        MONTHS.forEach(m => {
-          const v = fObj.totMes[m] || 0;
-          html += `<td style="text-align:right;padding:4px 8px;font-size:10.5px;color:#6b7280">${v === 0 ? '—' : _fmt(v)}</td>`;
-        });
-        html += `<td style="text-align:right;padding:4px 12px;font-size:10.5px">${_fmt(totF)}</td></tr>`;
-      });
-    });
-  };
-  
-  areasList.forEach(([area, obj]) => {
-    const aKey = 'area_' + area.replace(/\W/g, '_');
-    const aOpen = _expanded.has(aKey);
-    
-    // Total operacional da área por mês = Receita - Despesa
-    const totOp = {}; MONTHS.forEach(m => totOp[m] = 0);
-    if (obj.R) MONTHS.forEach(m => totOp[m] += obj.R.totMes[m] || 0);
-    if (obj.D) MONTHS.forEach(m => totOp[m] -= obj.D.totMes[m] || 0);
-    const totOpAno = MONTHS.reduce((s, m) => s + totOp[m], 0);
-    
-    // Cabeçalho da área
-    html += `<tr style="background:#e0f2fe;font-weight:800"><td style="padding:11px 14px;cursor:pointer;position:sticky;left:0;background:#e0f2fe;z-index:5;color:#075985" onclick="_toggleExpand('${aKey}')"><span style="display:inline-block;width:16px">${aOpen?'▼':'▶'}</span> 🏢 ${_esc(area)}</td>`;
-    MONTHS.forEach(m => {
-      const v = totOp[m];
-      html += `<td style="text-align:right;padding:11px 8px;color:${v >= 0 ? '#065f46' : '#991b1b'}">${v === 0 ? '—' : _fmtSigned(v)}</td>`;
-    });
-    html += `<td style="text-align:right;padding:11px 12px;color:${totOpAno >= 0 ? '#065f46' : '#991b1b'};font-weight:800">${_fmtSigned(totOpAno)}</td></tr>`;
-    
-    if (aOpen) {
-      renderBloco(aKey, obj.R, 'R', '#dcfce7', '#166534', '📥 Receitas');
-      renderBloco(aKey, obj.D, 'D', '#fef2f2', '#991b1b', '📤 Despesas');
-    }
-  });
-  
-  html += `</tbody></table></div></div>`;
-  container.innerHTML = html;
+    </div>
+  `;
 }
+
 
 function _setViewPJ(v) { currentView = v; renderPJs(); }
 
@@ -6862,7 +6872,13 @@ if (document.readyState === 'loading') {
   // ============ Escolha dados por seção/view ============
   function _getDataForSection(section) {
     // Menu Principal → respeita botão Caixa/Competência
-    if (section === 'main') {
+    const btnExp = document.getElementById('btnExportExcelInline'); const btnMod = document.getElementById('btnModeloProj'); const btnImp = document.getElementById('btnImportProj');
+  if (section === 'main') {
+    if (btnExp) btnExp.style.display = 'inline-flex'; if (btnMod) btnMod.style.display = 'inline-block'; if (btnImp) btnImp.style.display = 'inline-block';
+  } else {
+    if (btnExp) btnExp.style.display = 'none'; if (btnMod) btnMod.style.display = 'none'; if (btnImp) btnImp.style.display = 'none';
+  }
+  if (section === 'main') {
       if (typeof currentView !== 'undefined' && currentView === 'competencia') {
         return { data: RAW_DATA_COMP, mesKey: 'mesRegistro', valKey: 'valorPago', section: 'main' };
       }
@@ -6954,7 +6970,7 @@ if (document.readyState === 'loading') {
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
           <div>
             <div style="font-size:13px;color:#64748b;text-transform:uppercase;letter-spacing:0.3px;font-weight:600;margin-bottom:4px">📝 Comentário / Nota</div>
-            <div style="font-size:15px;font-weight:700;color:#0f172a">${forn.replace(/^cat\|/, '').replace(/[<>&"']/g, ch => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[ch]))}</div>
+            <div style="font-size:15px;font-weight:700;color:#0f172a">${forn.replace(/^(cat|catrec|grupo|sg|total)\|/, '').replace(/_/g, ' ').replace(/[<>&"']/g, ch => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[ch]))}</div>
             <div style="font-size:12px;color:#64748b;margin-top:2px">${mesLabel} • ${valorTexto || ''}</div>
           </div>
           <button onclick="document.getElementById('_modalNotaForn').remove()" style="border:none;background:transparent;font-size:22px;cursor:pointer;color:#94a3b8;line-height:1">×</button>
@@ -7441,7 +7457,7 @@ if (document.readyState === 'loading') {
       </td>`;
       MONTHS.forEach(m => {
         const v = totRecMes[m] || 0;
-        hCells += `<td style="text-align:right;padding:12px 8px;background:#f0fdf4;color:#166534;font-weight:800" class="value-pos">${v === 0 ? '—' : _fmt(v)}</td>`;
+        {const notaRec = window._getNotaForn ? window._getNotaForn('total|receitas_op', m) : ''; const markRec = notaRec ? '<span style="color:#f59e0b;font-size:9px;margin-right:2px">●</span>' : ''; hCells += `<td oncontextmenu="event.preventDefault(); window._abrirNotaForn('total|receitas_op','${m}','R$ '+'${_fmt(v)}'); return false;" title="${notaRec ? '📝 ' + notaRec.replace(/"/g,'&quot;') : 'Clique direito para nota'}" style="text-align:right;padding:12px 8px;background:#f0fdf4;color:#166534;font-weight:800;cursor:context-menu" class="value-pos">${markRec}${v === 0 ? '—' : _fmt(v)}</td>`;}
         if (projetadoVisible[m]) {
           // Soma projetados de TODAS categorias de receita
           let pvSoma = 0;
@@ -7483,7 +7499,7 @@ if (document.readyState === 'loading') {
           </td>`;
           MONTHS.forEach(m => {
             const v = sgTotMes[m] || 0;
-            sgCells += `<td style="text-align:right;padding:10px 8px;background:#ecfdf5;color:#065f46;font-weight:700" class="value-pos">${v === 0 ? '—' : _fmt(v)}</td>`;
+            {const notaSg = window._getNotaForn ? window._getNotaForn('sg|'+subgrupo, m) : ''; const markSg = notaSg ? '<span style="color:#f59e0b;font-size:9px;margin-right:2px">●</span>' : ''; sgCells += `<td oncontextmenu="event.preventDefault(); window._abrirNotaForn('sg|${subgrupo.replace(/'/g,"\\'")}','${m}','R$ '+'${_fmt(v)}'); return false;" title="${notaSg ? '📝 ' + notaSg.replace(/"/g,'&quot;') : 'Clique direito para nota'}" style="text-align:right;padding:10px 8px;background:#ecfdf5;color:#065f46;font-weight:700;cursor:context-menu" class="value-pos">${markSg}${v === 0 ? '—' : _fmt(v)}</td>`;}
             if (projetadoVisible[m]) {
               let pvSoma = 0;
               [...sgMap.keys()].forEach(cat => pvSoma += getProjetado('cat_rec|'+cat, m));
@@ -7522,7 +7538,7 @@ if (document.readyState === 'loading') {
             if (v > 0) {
               const ck = key + '_' + m;
               _drillCache[ck] = { titulo: cat, subtitulo: MONTH_NAMES[parseInt(m.split('-')[1],10)-1], items: g.items.filter(it => it.mes === m) };
-              cells += `<td onclick="_showLancamentos('${ck}')" style="text-align:right;padding:8px;cursor:pointer;font-size:11.5px" class="value-pos">${_fmt(v)}</td>`;
+              {const notaCr = window._getNotaForn ? window._getNotaForn('catrec|'+cat, m) : ''; const markCr = notaCr ? '<span style="color:#f59e0b;font-size:9px;margin-right:2px">●</span>' : ''; cells += `<td onclick="_showLancamentos('${ck}')" oncontextmenu="event.preventDefault(); window._abrirNotaForn('catrec|${cat.replace(/'/g,"\\'")}','${m}','R$ '+'${_fmt(v)}'); return false;" title="${notaCr ? '📝 ' + notaCr.replace(/"/g,'&quot;') : 'Clique direito para nota'}" style="text-align:right;padding:8px;cursor:pointer;font-size:11.5px" class="value-pos">${markCr}${_fmt(v)}</td>`;}
             } else {
               cells += `<td style="text-align:right;padding:8px;font-size:11.5px" class="value-zero">—</td>`;
             }
@@ -7593,7 +7609,7 @@ if (document.readyState === 'loading') {
       </td>`;
     MONTHS.forEach(m => {
       const v = (totDespMes[m] || 0) + (_cartaoIncluir ? (totCartaoMes[m] || 0) : 0);
-      dhCells += `<td style="text-align:right;padding:12px 8px;background:#fef2f2;color:#991b1b;font-weight:800" class="value-neg">${v === 0 ? '—' : _fmt(v)}</td>`;
+      {const notaD = window._getNotaForn ? window._getNotaForn('total|despesas_op', m) : ''; const markD = notaD ? '<span style="color:#f59e0b;font-size:9px;margin-right:2px">●</span>' : ''; dhCells += `<td oncontextmenu="event.preventDefault(); window._abrirNotaForn('total|despesas_op','${m}','R$ '+'${_fmt(v)}'); return false;" title="${notaD ? '📝 ' + notaD.replace(/"/g,'&quot;') : 'Clique direito para nota'}" style="text-align:right;padding:12px 8px;background:#fef2f2;color:#991b1b;font-weight:800;cursor:context-menu" class="value-neg">${markD}${v === 0 ? '—' : _fmt(v)}</td>`;}
       if (projetadoVisible[m]) {
         // Soma projetados de TODAS categorias de despesa em todos os grupos
         let pvSoma = 0;
@@ -7622,7 +7638,7 @@ if (document.readyState === 'loading') {
       </td>`;
       MONTHS.forEach(m => {
         const v = totGrupoMes[grupo][m] || 0;
-        sgCells += `<td style="text-align:right;padding:10px 8px;background:#fef7f7;color:#7f1d1d;font-weight:700" class="value-neg">${v === 0 ? '—' : _fmt(v)}</td>`;
+        {const notaGrp = window._getNotaForn ? window._getNotaForn('grupo|'+grupo, m) : ''; const markGrp = notaGrp ? '<span style="color:#f59e0b;font-size:9px;margin-right:2px">●</span>' : ''; sgCells += `<td oncontextmenu="event.preventDefault(); window._abrirNotaForn('grupo|${grupo.replace(/'/g,"\\'")}','${m}','R$ '+'${_fmt(v)}'); return false;" title="${notaGrp ? '📝 ' + notaGrp.replace(/"/g,'&quot;') : 'Clique direito para nota'}" style="text-align:right;padding:10px 8px;background:#fef7f7;color:#7f1d1d;font-weight:700;cursor:context-menu" class="value-neg">${markGrp}${v === 0 ? '—' : _fmt(v)}</td>`;}
         if (projetadoVisible[m]) {
           let pvSoma = 0;
           const catsGrp = despesasPorGrupo.get(grupo);
