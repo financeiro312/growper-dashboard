@@ -5996,239 +5996,149 @@ function renderRecebiveis() {
   const container = document.getElementById('recebiveisContent');
   if (!container) return;
   
-  const _fmtR = v => (v === null || v === undefined || isNaN(v)) ? '—' : 'R$ ' + Math.abs(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+  const clientes = window.CLIENTES_ELO || [];
+  
+  const _fmtR = v => 'R$ ' + Number(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+  const _fmtRs = v => 'R$ ' + Number(v).toLocaleString('pt-BR', {minimumFractionDigits:0, maximumFractionDigits:0});
   const _esc = s => String(s || '').replace(/[<>&"']/g, ch => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[ch]));
   
-  // Estado localStorage: mensalidades do Elo importadas
-  const _getElo = () => { try { return JSON.parse(localStorage.getItem('elo_mensalidades_v1') || '{}'); } catch(e) { return {}; } };
-  const _setElo = (d) => { try { localStorage.setItem('elo_mensalidades_v1', JSON.stringify(d)); } catch(e) {} };
+  const FAIXAS = {
+    1500: { nome: 'Basic', cor: '#94a3b8' },
+    2000: { nome: 'Starter', cor: '#3b82f6' },
+    3000: { nome: 'Plus', cor: '#10b981' },
+    4500: { nome: 'Premium', cor: '#f59e0b' },
+    5500: { nome: 'Master', cor: '#8b5cf6' },
+    6500: { nome: 'Business', cor: '#ec4899' }
+  };
   
-  const eloData = _getElo();
-  if (!eloData.clientes) eloData.clientes = []; // [{nome, valorMensalidade, matchOmie}]
-  if (!eloData.ultimaSync) eloData.ultimaSync = null;
+  if (!window._recFiltro) window._recFiltro = 'todos';
+  if (!window._recBusca) window._recBusca = '';
   
-  // Clientes atuais no sistema (Omie) - categoria Mensalidades
-  const clientesOmie = new Set();
-  (RAW_DATA_CAIXA || []).forEach(r => {
-    if (r.tipo !== '1. Contas a Receber') return;
-    const cat = String(r.categoria || '');
-    if (!cat.includes('Mensalidades Clientes') && !cat.includes('Inadimplent')) return;
-    const c = String(r.fornecedor || '').trim();
-    if (c) clientesOmie.add(c);
+  const porFaixa = {};
+  clientes.forEach(([id, nome, mensalidade]) => {
+    if (!porFaixa[mensalidade]) porFaixa[mensalidade] = [];
+    porFaixa[mensalidade].push({ id, nome, mensalidade });
   });
-  const listaOmie = [...clientesOmie].sort();
   
-  // Match: para cada cliente Elo, achar match no Omie por similaridade de nome
-  const matchNome = (nomeElo, listaOmie) => {
-    const norm = s => String(s || '').toLowerCase().replace(/[^a-zà-ú0-9]/gi, '').trim();
-    const nElo = norm(nomeElo);
-    if (!nElo) return null;
-    // 1. Match exato
-    let hit = listaOmie.find(o => norm(o) === nElo);
-    if (hit) return hit;
-    // 2. Contém
-    hit = listaOmie.find(o => norm(o).includes(nElo) || nElo.includes(norm(o)));
-    if (hit) return hit;
-    return null;
-  };
+  const totalGeral = clientes.reduce((s, c) => s + c[2], 0);
+  const totalClientes = clientes.length;
   
-  // Handlers
-  window._eloImportar = function() {
-    const modal = document.createElement('div');
-    modal.id = '_eloModal';
-    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px';
-    modal.innerHTML = `
-      <div style="background:white;border-radius:14px;padding:28px;max-width:640px;width:100%;max-height:90vh;overflow-y:auto">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
-          <div>
-            <div style="font-size:18px;font-weight:800;color:#0f172a">📥 Importar do Elo</div>
-            <div style="font-size:12px;color:#64748b;margin-top:4px">Cole abaixo o JSON ou lista de clientes do Elo (formato: um por linha, "Nome | Valor" ou JSON)</div>
-          </div>
-          <button onclick="document.getElementById('_eloModal').remove()" style="border:none;background:transparent;font-size:22px;cursor:pointer;color:#94a3b8">×</button>
-        </div>
-        <textarea id="_eloInput" rows="12" placeholder="Formato aceito 1 - Texto (um por linha):
-Cliente A | 3500
-Cliente B | 2800
-
-Formato aceito 2 - JSON:
-[
-  { &quot;nome&quot;: &quot;Cliente A&quot;, &quot;valor&quot;: 3500 },
-  { &quot;nome&quot;: &quot;Cliente B&quot;, &quot;valor&quot;: 2800 }
-]" style="width:100%;padding:12px;border:1px solid #d1d5db;border-radius:8px;font-family:monospace;font-size:12.5px;box-sizing:border-box;resize:vertical"></textarea>
-        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">
-          <button onclick="document.getElementById('_eloModal').remove()" style="padding:10px 18px;border:1px solid #d1d5db;background:white;border-radius:8px;cursor:pointer;font-family:Poppins;font-size:12.5px">Cancelar</button>
-          <button onclick="window._eloProcessar(document.getElementById('_eloInput').value); document.getElementById('_eloModal').remove()" style="padding:10px 18px;border:none;background:#0f172a;color:white;border-radius:8px;cursor:pointer;font-family:Poppins;font-size:12.5px;font-weight:700">📥 Importar</button>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(modal);
-  };
-  
-  window._eloProcessar = function(texto) {
-    if (!texto || !texto.trim()) return;
-    const clientes = [];
-    const t = texto.trim();
-    // Tenta JSON primeiro
-    try {
-      const arr = JSON.parse(t);
-      if (Array.isArray(arr)) {
-        arr.forEach(item => {
-          const nome = String(item.nome || item.cliente || item.name || '').trim();
-          const valor = parseFloat(item.valor || item.mensalidade || item.value || 0);
-          if (nome) clientes.push({ nome, valorMensalidade: valor });
-        });
-      }
-    } catch(e) {
-      // Fallback: linha por linha "Nome | Valor"
-      t.split('\n').forEach(linha => {
-        const parts = linha.split(/[|;,\t]/);
-        if (parts.length >= 2) {
-          const nome = parts[0].trim();
-          const valor = parseFloat(String(parts[1]).replace(/[^0-9,.]/g, '').replace(',', '.')) || 0;
-          if (nome) clientes.push({ nome, valorMensalidade: valor });
-        }
-      });
-    }
-    if (clientes.length === 0) { alert('Não foi possível processar. Verifique o formato.'); return; }
-    // Auto-match com Omie
-    clientes.forEach(c => { c.matchOmie = matchNome(c.nome, listaOmie); });
-    const eloData = _getElo();
-    eloData.clientes = clientes;
-    eloData.ultimaSync = new Date().toISOString();
-    _setElo(eloData);
-    alert(clientes.length + ' clientes importados. ' + clientes.filter(c => c.matchOmie).length + ' com match no Omie.');
-    renderRecebiveis();
-  };
-  
-  window._eloAjustarMatch = function(idx, novoMatch) {
-    const eloData = _getElo();
-    if (eloData.clientes[idx]) {
-      eloData.clientes[idx].matchOmie = novoMatch || null;
-      _setElo(eloData);
-      renderRecebiveis();
-    }
-  };
-  
-  window._eloRemover = function(idx) {
-    const eloData = _getElo();
-    eloData.clientes.splice(idx, 1);
-    _setElo(eloData);
-    renderRecebiveis();
-  };
-  
-  window._eloLimparTudo = function() {
-    if (!confirm('Limpar todos os dados importados do Elo?')) return;
-    _setElo({ clientes: [], ultimaSync: null });
-    renderRecebiveis();
-  };
-  
-  // Estatísticas
-  const totMensalidades = eloData.clientes.reduce((s, c) => s + (Number(c.valorMensalidade) || 0), 0);
-  const comMatch = eloData.clientes.filter(c => c.matchOmie).length;
-  const semMatch = eloData.clientes.length - comMatch;
-  const semColor = { green:'#10b981', yellow:'#f59e0b', red:'#ef4444' };
-  const semBg = { green:'rgba(16,185,129,0.1)', yellow:'rgba(245,158,11,0.1)', red:'rgba(239,68,68,0.1)' };
-  
-  const ultSyncStr = eloData.ultimaSync ? new Date(eloData.ultimaSync).toLocaleString('pt-BR') : 'Nunca';
+  const busca = window._recBusca.toLowerCase().trim();
+  let listaFiltrada = clientes.filter(([id, nome, m]) => {
+    if (window._recFiltro !== 'todos' && String(m) !== window._recFiltro) return false;
+    if (busca && !nome.toLowerCase().includes(busca) && !id.includes(busca)) return false;
+    return true;
+  });
+  listaFiltrada.sort((a, b) => b[2] - a[2] || a[1].localeCompare(b[1]));
+  const totalFiltrado = listaFiltrada.reduce((s, c) => s + c[2], 0);
   
   let html = `<div style="padding:28px 24px;max-width:1500px;margin:0 auto;background:#f5f5f7;min-height:100vh">
     
-    <!-- HERO -->
-    <div style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#065f46 100%);border-radius:20px;padding:36px 40px;margin-bottom:24px;color:white;position:relative;overflow:hidden">
-      <div style="position:absolute;top:0;right:0;width:400px;height:400px;background:radial-gradient(circle,rgba(16,185,129,0.15),transparent 70%);pointer-events:none"></div>
-      <div style="position:relative">
+    <div style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#064e3b 100%);border-radius:20px;padding:36px 40px;margin-bottom:24px;color:white;position:relative;overflow:hidden">
+      <div style="position:absolute;top:0;right:0;width:400px;height:400px;background:radial-gradient(circle,rgba(16,185,129,0.15) 0%,transparent 70%);pointer-events:none"></div>
+      <div style="position:relative;z-index:1">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:20px">
           <div>
-            <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:2px;font-weight:700;margin-bottom:8px">💰 Recebíveis · Integração Elo</div>
-            <h1 style="margin:0;font-size:32px;font-weight:800;letter-spacing:-1px;line-height:1.1">Mensalidades de Clientes</h1>
-            <p style="margin:8px 0 0;color:#cbd5e1;font-size:13px">Sincronização com o Elo · Cross-check com Omie</p>
+            <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:2px;font-weight:700;margin-bottom:8px">💰 Recebíveis · Mensalidades</div>
+            <h1 style="margin:0;font-size:32px;font-weight:800;letter-spacing:-1px;line-height:1.1">Base de Clientes Ativos</h1>
+            <p style="margin:8px 0 0;color:#cbd5e1;font-size:13px">Sincronizado do Elo · setembro 2026 · fechamento pode alterar com semanas em aberto</p>
           </div>
-          <div style="display:flex;gap:10px;flex-wrap:wrap">
-            <button onclick="window._eloImportar()" style="background:#10b981;color:white;border:none;padding:11px 20px;border-radius:8px;font-family:Poppins;font-weight:700;font-size:12.5px;cursor:pointer">📥 Importar do Elo</button>
-            ${eloData.clientes.length > 0 ? `<button onclick="window._eloLimparTudo()" style="background:rgba(255,255,255,0.1);color:white;border:1px solid rgba(255,255,255,0.2);padding:11px 20px;border-radius:8px;font-family:Poppins;font-weight:600;font-size:12.5px;cursor:pointer">🗑️ Limpar</button>` : ''}
-          </div>
+          <button onclick="alert('Para atualizar, peça no Claude: \'Atualize a base de recebíveis do Elo\'')" style="background:rgba(255,255,255,0.1);color:white;border:1px solid rgba(255,255,255,0.2);padding:10px 18px;border-radius:8px;font-family:Poppins;font-weight:600;font-size:12.5px;cursor:pointer">🔄 Sincronizar Elo</button>
         </div>
+        
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:20px;margin-top:32px;padding-top:24px;border-top:1px solid rgba(255,255,255,0.1)">
           <div>
-            <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">Clientes Elo</div>
-            <div style="font-size:26px;font-weight:800;color:#f8fafc;letter-spacing:-0.5px">${eloData.clientes.length}</div>
+            <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">Total a Cobrar</div>
+            <div style="font-size:24px;font-weight:800;color:#10b981;letter-spacing:-0.5px">${_fmtRs(totalGeral)}</div>
+            <div style="font-size:10.5px;color:#94a3b8;margin-top:2px">setembro 2026</div>
           </div>
           <div>
-            <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">Mensalidades Total</div>
-            <div style="font-size:22px;font-weight:800;color:#10b981;letter-spacing:-0.5px">${_fmtR(totMensalidades)}</div>
+            <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">Clientes Ativos</div>
+            <div style="font-size:26px;font-weight:800;color:#f8fafc;letter-spacing:-0.5px">${totalClientes}</div>
+            <div style="font-size:10.5px;color:#94a3b8;margin-top:2px">base recorrente</div>
           </div>
           <div>
-            <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">Com match Omie</div>
-            <div style="font-size:26px;font-weight:800;color:#10b981;letter-spacing:-0.5px">${comMatch}</div>
+            <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">Ticket Médio</div>
+            <div style="font-size:22px;font-weight:800;color:#f8fafc;letter-spacing:-0.5px">${_fmtRs(totalGeral / totalClientes)}</div>
+            <div style="font-size:10.5px;color:#94a3b8;margin-top:2px">por cliente</div>
           </div>
           <div>
-            <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">Sem match</div>
-            <div style="font-size:26px;font-weight:800;color:${semMatch>0?'#f59e0b':'#f8fafc'};letter-spacing:-0.5px">${semMatch}</div>
-          </div>
-          <div>
-            <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">Última sync</div>
-            <div style="font-size:14px;font-weight:700;color:#cbd5e1;letter-spacing:-0.3px;margin-top:6px">${ultSyncStr}</div>
+            <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">ARR Projetado</div>
+            <div style="font-size:22px;font-weight:800;color:#10b981;letter-spacing:-0.5px">${_fmtRs(totalGeral * 12)}</div>
+            <div style="font-size:10.5px;color:#94a3b8;margin-top:2px">MRR × 12</div>
           </div>
         </div>
       </div>
-    </div>`;
-  
-  if (eloData.clientes.length === 0) {
-    html += `<div style="background:white;border-radius:16px;padding:60px 40px;border:1px solid #e2e8f0;text-align:center">
-      <div style="font-size:56px;margin-bottom:16px">📥</div>
-      <h3 style="margin:0 0 8px;font-size:18px;color:#0f172a">Nenhum dado importado ainda</h3>
-      <p style="color:#64748b;font-size:13px;max-width:500px;margin:0 auto 20px;line-height:1.6">Clique em <strong>📥 Importar do Elo</strong> para trazer as mensalidades dos clientes. O sistema fará automaticamente o cruzamento (match) com os clientes que já existem no Omie.</p>
-      <div style="background:#f8fafc;border-radius:10px;padding:16px 20px;max-width:520px;margin:0 auto;text-align:left;font-size:11.5px;color:#64748b;line-height:1.7">
-        <strong style="color:#0f172a">Como funciona:</strong><br>
-        1. Cole nome + valor de mensalidade de cada cliente do Elo<br>
-        2. Sistema faz match automático com a base do Omie<br>
-        3. Ajuste manualmente os matches que não bateram<br>
-        4. Use como fonte de verdade cruzada para conciliação
+    </div>
+    
+    <div style="background:white;border-radius:16px;padding:24px;margin-bottom:20px;border:1px solid #e2e8f0">
+      <div style="font-size:15px;font-weight:800;color:#0f172a;margin-bottom:16px">📊 Distribuição por Faixa</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
+        <div onclick="window._recFiltro='todos'; renderRecebiveis()" style="background:${window._recFiltro==='todos'?'#0f172a':'#f8fafc'};color:${window._recFiltro==='todos'?'white':'#0f172a'};padding:14px 16px;border-radius:12px;cursor:pointer;border:1px solid ${window._recFiltro==='todos'?'#0f172a':'#e2e8f0'}">
+          <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;opacity:0.7">Todos</div>
+          <div style="font-size:22px;font-weight:800;margin-top:4px">${totalClientes}</div>
+          <div style="font-size:10.5px;margin-top:2px;opacity:0.8">${_fmtRs(totalGeral)}</div>
+        </div>
+        ${Object.entries(FAIXAS).map(([v, info]) => {
+          const lista = porFaixa[Number(v)] || [];
+          const total = lista.reduce((s, c) => s + c.mensalidade, 0);
+          const ativo = window._recFiltro === v;
+          return `<div onclick="window._recFiltro='${v}'; renderRecebiveis()" style="background:${ativo?info.cor+'22':'#f8fafc'};color:#0f172a;padding:14px 16px;border-radius:12px;cursor:pointer;border:1px solid ${ativo?info.cor:'#e2e8f0'};border-left:4px solid ${info.cor}">
+            <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:${info.cor}">${info.nome} · ${_fmtRs(Number(v))}</div>
+            <div style="font-size:22px;font-weight:800;margin-top:4px">${lista.length}</div>
+            <div style="font-size:10.5px;margin-top:2px;color:#64748b">${_fmtRs(total)}</div>
+          </div>`;
+        }).join('')}
       </div>
-    </div>`;
-  } else {
-    html += `<div style="background:white;border-radius:16px;padding:24px;border:1px solid #e2e8f0">
-      <div style="font-size:15px;font-weight:800;color:#0f172a;margin-bottom:16px">📊 Clientes importados do Elo</div>
-      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12.5px">
-        <thead>
-          <tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0">
-            <th style="padding:12px 14px;text-align:left;font-size:10.5px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:700">Cliente (Elo)</th>
-            <th style="padding:12px 14px;text-align:right;font-size:10.5px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:700">Mensalidade</th>
-            <th style="padding:12px 14px;text-align:left;font-size:10.5px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:700">Match Omie</th>
-            <th style="padding:12px 14px;text-align:center;font-size:10.5px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:700">Status</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          ${eloData.clientes.map((c, idx) => {
-            const hasMatch = !!c.matchOmie;
-            const status = hasMatch ? { cor:'#10b981', bg:'#d1fae5', ico:'✓', txt:'Vinculado' } : { cor:'#f59e0b', bg:'#fef3c7', ico:'⚠', txt:'Sem match' };
-            return `<tr style="border-bottom:1px solid #f1f5f9">
-              <td style="padding:10px 14px;color:#0f172a;font-weight:600">${_esc(c.nome)}</td>
-              <td style="padding:10px 14px;text-align:right;color:#166534;font-weight:700">${_fmtR(c.valorMensalidade)}</td>
-              <td style="padding:10px 14px">
-                <select onchange="window._eloAjustarMatch(${idx}, this.value)" style="width:100%;max-width:280px;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-family:Poppins;font-size:11.5px">
-                  <option value="">— Nenhum —</option>
-                  ${listaOmie.map(o => `<option value="${_esc(o)}" ${c.matchOmie===o?'selected':''}>${_esc(o)}</option>`).join('')}
-                </select>
-              </td>
-              <td style="padding:10px 14px;text-align:center">
-                <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;background:${status.bg};color:${status.cor};border-radius:6px;font-size:11.5px;font-weight:700"><span>${status.ico}</span> ${status.txt}</span>
-              </td>
-              <td style="padding:10px 14px"><button onclick="window._eloRemover(${idx})" style="background:#fee2e2;color:#991b1b;border:none;padding:6px 10px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700">✕</button></td>
-            </tr>`;
-          }).join('')}
-          <tr style="background:#f0fdf4;border-top:2px solid #10b981">
-            <td style="padding:14px;font-weight:800;color:#166534">TOTAL</td>
-            <td style="padding:14px;text-align:right;font-weight:800;color:#166534;font-size:14px">${_fmtR(totMensalidades)}</td>
-            <td colspan="3"></td>
-          </tr>
-        </tbody>
-      </table></div>
-    </div>`;
-  }
-  
-  html += '</div>';
+    </div>
+    
+    <div style="background:white;border-radius:16px;padding:24px;border:1px solid #e2e8f0">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px">
+        <div>
+          <div style="font-size:15px;font-weight:800;color:#0f172a">📋 Lista de Clientes</div>
+          <div style="font-size:11.5px;color:#64748b;margin-top:2px">${listaFiltrada.length} de ${totalClientes} clientes · ${_fmtR(totalFiltrado)}</div>
+        </div>
+        <input type="text" placeholder="🔍 Buscar por nome ou ID..." value="${_esc(window._recBusca)}" oninput="window._recBusca=this.value; renderRecebiveis(); const el=document.querySelector('input[placeholder=\'🔍 Buscar por nome ou ID...\']'); if(el){el.focus(); el.setSelectionRange(el.value.length,el.value.length)}" style="padding:10px 14px;border:1px solid #e2e8f0;border-radius:8px;font-family:Poppins;font-size:12.5px;width:280px;outline:none"/>
+      </div>
+      
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+          <thead>
+            <tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0">
+              <th style="padding:12px 14px;text-align:left;font-size:10.5px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;width:70px">ID Elo</th>
+              <th style="padding:12px 14px;text-align:left;font-size:10.5px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:700">Cliente (formato Omie)</th>
+              <th style="padding:12px 14px;text-align:center;font-size:10.5px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:700">Faixa</th>
+              <th style="padding:12px 14px;text-align:right;font-size:10.5px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:700">Mensalidade</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${listaFiltrada.length === 0 ? '<tr><td colspan="4" style="padding:40px;text-align:center;color:#94a3b8">Nenhum cliente encontrado</td></tr>' :
+              listaFiltrada.map(([id, nome, m]) => {
+                const faixa = FAIXAS[m] || { nome: '—', cor: '#94a3b8' };
+                const nomeOmie = '(' + id + ') ' + nome;
+                return `<tr style="border-bottom:1px solid #f1f5f9">
+                  <td style="padding:10px 14px;color:#64748b;font-weight:700;font-size:11.5px">#${id}</td>
+                  <td style="padding:10px 14px;color:#0f172a;font-weight:600">${_esc(nomeOmie)}</td>
+                  <td style="padding:10px 14px;text-align:center"><span style="display:inline-block;padding:3px 10px;background:${faixa.cor}22;color:${faixa.cor};border-radius:5px;font-size:10.5px;font-weight:800">${faixa.nome}</span></td>
+                  <td style="padding:10px 14px;text-align:right;font-weight:800;color:#166534;font-size:13px">${_fmtR(m)}</td>
+                </tr>`;
+              }).join('')
+            }
+          </tbody>
+          <tfoot>
+            <tr style="background:#f0fdf4;border-top:2px solid #10b981">
+              <td colspan="3" style="padding:14px;font-weight:800;color:#166534">TOTAL (${listaFiltrada.length} clientes)</td>
+              <td style="padding:14px;text-align:right;font-weight:800;color:#166534;font-size:14px">${_fmtR(totalFiltrado)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+    
+    <div style="margin-top:16px;padding:14px 18px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;font-size:12px;color:#1e40af;line-height:1.6">
+      💡 <strong>Fonte:</strong> integração com sistema Elo. O nome do cliente é apresentado no formato <code>(ID) Nome</code> para facilitar reconciliação com Omie. As semanas do mês corrente ainda em aberto podem alterar as faixas — sincronize novamente quando necessário.
+    </div>
+  </div>`;
   container.innerHTML = html;
 }
 
@@ -10021,5 +9931,6 @@ setTimeout(() => { if (typeof _atualizarLabelConta === 'function') _atualizarLab
 })();
 </script>
 
+<script>window.CLIENTES_ELO = [["23","Inter",5500],["25","Central",5500],["59","Premium",4500],["49","Apollo",4500],["60","Vince",4500],["35","N1",3000],["105","Aprove",3000],["102","Max Vision",3000],["7","Simplifica",3000],["116","Votre",3000],["185","Seven",3000],["97","Unific",3000],["221","Matrix",3000],["22","Eros",3000],["34","Dakal",3000],["20","Peres",3000],["85","Metta",3000],["104","Global-Soluções",3000],["150","Agilli",3000],["6","Nexus",2000],["107","3M",2000],["2","Hedge",2000],["15","Rooster",2000],["1","Avanti",2000],["123","Argos",2000],["134","Allure",2000],["48","Dr Lion",2000],["11","Rox",2000],["79","Really",2000],["5","Fast",2000],["19","Aps",2000],["135","Taurus",2000],["30","Odhara",2000],["136","Triumphus",2000],["13","Jardini",2000],["3","Fly Mediações",2000],["33","Absoluta",2000],["77","Hit",2000],["47","Falcon",2000],["53","Horus",2000],["8","Idealy",2000],["78","Martan",2000],["92","Reduzy",2000],["73","Nomade",2000],["196","Valon",2000],["200","Seven Assessoria",2000],["52","LR",2000],["84","Calefe",2000],["113","Lume",2000],["62","Acolitar",2000],["215","Artemis",2000],["89","Stage",2000],["14","GVA Intermediações",2000],["9","Get",2000],["16","Global",2000],["58","Equilibra",2000],["82","Visional",2000],["212","Sathor",2000],["130","Valen",2000],["18","Revision",2000],["50","SW",2000],["100","Rocket",2000],["155","Apex",2000],["55","Domus",2000],["226","TH",2000],["106","Facto",2000],["26","Century",2000],["51","T2",2000],["27","Royal",2000],["98","Fortune",2000],["170","Hocket Assessoria",2000],["114","Ability",2000],["36","Lion",2000],["132","Monteiro",2000],["88","Atlas",2000],["121","Torres",2000],["142","Vittra",2000],["17","Hunting",2000],["109","Dillan",2000],["208","Novacredit",2000],["91","Golder",2000],["29","Platino",2000],["57","Otto",2000],["69","Dallas",2000],["163","Novare",2000],["181","Vória",2000],["129","Revalor",2000],["217","Billions",2000],["227","SJ Negociações",2000],["54","Hawk",2000],["37","Rs Quality",2000],["21","Lotus",2000],["80","Kronos",2000],["157","Soft",2000],["66","Eleven",2000],["161","Axis",2000],["140","Soares",2000],["171","ACT",2000],["32","Laportec",2000],["211","ACR",2000],["220","Alimac",2000],["159","RL Intermediações",1500],["10","Senza",1500],["119","Themis",1500],["12","Alfa",1500],["173","Valore",1500],["219","Hive",1500],["213","Juros Zeros",1500],["201","Vision",1500],["223","7D",1500],["93","Tiger",1500],["44","Kennom",1500],["86","Planum",1500],["214","Recovery",1500],["216","Essencial",1500],["139","Galatha",1500],["101","Poup",1500],["115","Walltrix",1500],["154","Finexa",1500],["194","Ratecred",1500],["74","Inova AVF",1500],["180","Revisa Pro",1500],["76","Inova Serviços",1500],["38","Andrade",1500],["193","RDS",1500],["224","Ápice",1500],["153","Emet Assessoria",1500],["158","Alpha Equilibrio",1500],["188","Guardiã",1500],["43","HR",1500],["225","Avora",1500],["183","Imperiali",1500],["125","GRS",1500],["192","IZ Intermediações",1500],["87","Revox",1500],["174","Promiss",1500],["228","Zyron",1500],["149","ReNova",1500],["111","Refine",1500],["222","Alphex",1500],["169","Revisa Forte",1500],["122","Conect",1500],["146","Fox Negociações",1500],["167","Souza Mundial",1500],["172","Veritas",1500],["127","Lex Prime",1500],["210","Granprime",1500],["45","Atitude",1500],["67","Ativa",1500],["148","Henq Assessoria",1500],["138","Ross",1500],["197","RevisaCred",1500],["145","Prime Intermediações",1500],["229","Martins",1500],["131","Fox",1500],["209","Kapel",1500],["165","Azul Revisional",1500]];</script>
 </body>
 </html>
