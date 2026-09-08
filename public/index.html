@@ -5993,7 +5993,9 @@ function getValorMes(cliente, mes) {
 }
 
 function renderRecebiveis() {
+  console.log('[Recebíveis] renderRecebiveis chamado, CLIENTES_ELO length:', (window.CLIENTES_ELO || []).length);
   const container = document.getElementById('recebiveisContent');
+  console.log('[Recebíveis] container encontrado:', !!container);
   if (!container) return;
   
   const clientes = window.CLIENTES_ELO || [];
@@ -6098,7 +6100,7 @@ function renderRecebiveis() {
           <div style="font-size:15px;font-weight:800;color:#0f172a">📋 Lista de Clientes</div>
           <div style="font-size:11.5px;color:#64748b;margin-top:2px">${listaFiltrada.length} de ${totalClientes} clientes · ${_fmtR(totalFiltrado)}</div>
         </div>
-        <input type="text" placeholder="🔍 Buscar por nome ou ID..." value="${_esc(window._recBusca)}" oninput="window._recBusca=this.value; renderRecebiveis(); const el=document.querySelector('input[placeholder=\'🔍 Buscar por nome ou ID...\']'); if(el){el.focus(); el.setSelectionRange(el.value.length,el.value.length)}" style="padding:10px 14px;border:1px solid #e2e8f0;border-radius:8px;font-family:Poppins;font-size:12.5px;width:280px;outline:none"/>
+        <input type="text" placeholder="🔍 Buscar por nome ou ID..." value="${_esc(window._recBusca)}" id="_recBuscaInput" oninput="window._recBusca=this.value; renderRecebiveis(); const el=document.getElementById('_recBuscaInput'); if(el){el.focus(); el.setSelectionRange(el.value.length,el.value.length)}" style="padding:10px 14px;border:1px solid #e2e8f0;border-radius:8px;font-family:Poppins;font-size:12.5px;width:280px;outline:none"/>
       </div>
       
       <div style="overflow-x:auto">
@@ -9630,13 +9632,6 @@ if (document.readyState === 'loading') {
   };
 
 
-  // =====================================================================================
-  // RECEBÍVEIS com status pago/inadimplente/parcial
-  // =====================================================================================
-  window.renderRecebiveis = function() {
-    // Delega para a função global (a versão nova)
-    if (typeof renderRecebiveis === 'function') renderRecebiveis();
-  };
 
 
   // =====================================================================================
