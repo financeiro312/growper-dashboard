@@ -4407,6 +4407,14 @@ style="width:100%;max-width:110px;padding:4px 6px;${bordaNota};border-radius:4px
 
 
 function showSection(section) {
+  // Toggle selYear global: esconder no menu Recebíveis (tem próprio filtro de ano)
+  try {
+    const selY = document.getElementById('selYear');
+    if (selY) {
+      selY.style.display = (arguments[0] === 'recebiveis') ? 'none' : '';
+    }
+  } catch(e) {}
+
   // Em modo Scalia, redirecionar Growper section → Scalia section
   if (currentCompany === 'scalia') {
     if (section === 'main') section = 'scaliaMain';
@@ -6189,6 +6197,12 @@ function renderRecebiveis() {
             <p style="margin:8px 0 0;color:#cbd5e1;font-size:13px">Mensalidade Elo × Realizado no fluxo de caixa · ${ANO}</p>
           </div>
           <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+            <div style="display:flex;gap:6px;align-items:center">
+              <span style="font-size:10.5px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:700">Ano</span>
+              <select onchange="window._recAno=this.value; window._recExpandidos=new Set(); renderRecebiveis()" style="background:rgba(255,255,255,0.1);color:white;border:1px solid rgba(255,255,255,0.2);padding:8px 12px;border-radius:8px;font-family:Poppins;font-weight:700;font-size:13px;cursor:pointer">
+                ${anosDisponiveis.map(a => `<option value="${a}" ${a===ANO?'selected':''} style="background:#0f172a">${a}</option>`).join('')}
+              </select>
+            </div>
             <div style="display:flex;gap:6px;align-items:center">
               <span style="font-size:10.5px;color:${filtroMesAtivo?'#fbbf24':'#94a3b8'};text-transform:uppercase;letter-spacing:1px;font-weight:700">Mês ${filtroMesAtivo?'●':''}</span>
               <select onchange="window._recMesFiltro=this.value; renderRecebiveis()" style="background:${filtroMesAtivo?'rgba(251,191,36,0.2)':'rgba(255,255,255,0.1)'};color:white;border:1px solid ${filtroMesAtivo?'#fbbf24':'rgba(255,255,255,0.2)'};padding:8px 12px;border-radius:8px;font-family:Poppins;font-weight:700;font-size:13px;cursor:pointer">
