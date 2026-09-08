@@ -1093,7 +1093,7 @@ const STRUCTURE = [
     ]},
   { id: 'distribuicao', label: '💼 DISTRIBUIÇÃO DOS SÓCIOS', type: 'despesa',
     groups: [
-      { id: 'distrib', label: 'Distribuição de Lucros / Dividendos', cats: ['13.04'] },
+      { id: 'distrib', label: 'Distribuição de Lucros / Dividendos', cats: ['13.04', '13.06', '13.07'] },
     ]},
   { id: 'impostos', label: '📋 IMPOSTOS', type: 'despesa',
     groups: [
@@ -1117,7 +1117,7 @@ const CATS_MAPEADAS = [
   '05.02','05.03','05.08','05.15','08.01','08.08','08.09',
   '05.01','05.12','05.14',
   '07.07','10.01','10.10','10.12',
-  '13.04',
+  '13.04','13.06','13.07',
   '05.06','06.02','06.05','07.02','07.03','07.04','07.11','08.05','08.07','08.14','12.01',
 ];
 
@@ -6005,7 +6005,6 @@ function renderRecebiveis() {
   if (!container) return;
   
   const MENS = window.MENSALIDADES_ELO || {};
-  const dataCaixa = (typeof RAW_DATA_CAIXA !== 'undefined' ? RAW_DATA_CAIXA : []) || [];
   
   // === Overrides locais (do localStorage) ===
   window._recOvElo = window._recOvElo || (function() {
@@ -6023,6 +6022,7 @@ function renderRecebiveis() {
   if (!window._recMesFiltro) window._recMesFiltro = 'todos';
   if (!window._recBusca) window._recBusca = '';
   if (!window._recExpandidos) window._recExpandidos = new Set();
+  if (!window._recFiltroStatus) window._recFiltroStatus = null; // 'pago'|'diferenca'|...|null
   
   const ANO = window._recAno;
   const MONTH_LABELS = ['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
@@ -6035,7 +6035,6 @@ function renderRecebiveis() {
   
   const anosSet = new Set();
   Object.keys(MENS).forEach(k => anosSet.add(k.slice(0,4)));
-  dataCaixa.forEach(r => { if (r.mesPagto) anosSet.add(r.mesPagto.slice(0,4)); });
   anosSet.add(anoAtual);
   const anosDisponiveis = Array.from(anosSet).sort();
   
@@ -6073,65 +6072,27 @@ function renderRecebiveis() {
     });
   });
   
-  // === Recebimentos do Omie ===
-  const recebPorId = {};
-  dataCaixa.forEach(r => {
-    if (r.tipo !== '1. Contas a Receber') return;
-    if (r.conta !== 'Banco Inter' && r.conta !== 'Itaú Unibanco') return;
-    const cat = String(r.categoria || '');
-    if (!cat.includes('Mensalidades Clientes') && !cat.includes('Inadimplent')) return;
-    const mes = r.mesPagto;
-    if (!MONTHS.includes(mes)) return;
-    const fornStr = String(r.fornecedor || '');
-    const idMatch = fornStr.match(/^\s*\((\d+)\)/);
-    if (!idMatch) return;
-    const id = idMatch[1];
-    if (!recebPorId[id]) recebPorId[id] = {};
-    if (!recebPorId[id][mes]) recebPorId[id][mes] = { valor: 0, conciliado: true };
-    recebPorId[id][mes].valor += Math.abs(r.valorPago || 0);
-    if (r.conciliado === false || r.conciliado === 'Não' || r.conciliado === 'N') {
-      recebPorId[id][mes].conciliado = false;
-    }
-  });
-  
-  // === Status por cliente/mês (com override Realizado) ===
+  // === Status por cliente/mês (Realizado 100% manual — override ou Excel) ===
   function statusMes(id, mes) {
     const esperada = mensaPorMes[mes][id] ? mensaPorMes[mes][id].mensa : null;
-    
-    // Override Realizado tem prioridade
     const keyR = id + '|' + mes;
     const ovR = window._recOvReal[keyR];
-    if (ovR) {
-      return {
-        status: ovR.status,
-        recebido: ovR.valor,
-        esperado: esperada === null ? 0 : esperada,
-        override: ovR,
-        recebidoOrig: (recebPorId[id] && recebPorId[id][mes]) ? recebPorId[id][mes].valor : 0
-      };
-    }
-    
-    const rec = recebPorId[id] && recebPorId[id][mes];
     const mesFuturo = mes > mesAtual;
     
     if (esperada === null || esperada === undefined) {
-      if (rec && rec.valor > 0) return { status: 'diferenca', recebido: rec.valor, esperado: 0 };
+      if (ovR) return { status: ovR.status, recebido: ovR.valor, esperado: 0, override: ovR };
       return { status: 'sem_regua', recebido: 0, esperado: 0 };
     }
     
-    if (esperada === 0) {
-      return { status: 'isento', recebido: rec ? rec.valor : 0, esperado: 0 };
+    if (ovR) {
+      return { status: ovR.status, recebido: ovR.valor, esperado: esperada, override: ovR };
     }
     
-    if (!rec || rec.valor === 0) {
-      return mesFuturo 
-        ? { status: 'pendente', recebido: 0, esperado: esperada }
-        : { status: 'inadimplente', recebido: 0, esperado: esperada };
-    }
+    if (esperada === 0) return { status: 'isento', recebido: 0, esperado: 0 };
     
-    const diff = Math.abs(rec.valor - esperada);
-    if (diff < 0.01) return { status: 'pago', recebido: rec.valor, esperado: esperada };
-    return { status: 'diferenca', recebido: rec.valor, esperado: esperada };
+    return mesFuturo 
+      ? { status: 'pendente', recebido: 0, esperado: esperada }
+      : { status: 'inadimplente', recebido: 0, esperado: esperada };
   }
   
   const STATUS_INFO = {
@@ -6148,6 +6109,14 @@ function renderRecebiveis() {
     .map(([id, nome]) => [id, nome])
     .filter(([id, nome]) => {
       if (busca && !nome.toLowerCase().includes(busca) && !id.includes(busca)) return false;
+      // Filtro de status
+      if (window._recFiltroStatus) {
+        // Se filtrou 1 mês: verifica só aquele mês
+        // Se todos: verifica se ALGUM mês do cliente bate com o status
+        const mesesCheck = window._recMesFiltro === 'todos' ? MONTHS : [window._recMesFiltro];
+        const bate = mesesCheck.some(mm => statusMes(id, mm).status === window._recFiltroStatus);
+        if (!bate) return false;
+      }
       return true;
     });
   
@@ -6242,11 +6211,27 @@ function renderRecebiveis() {
     </div>
     
     <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:12px;position:relative">
-      <button onclick="const m=document.getElementById('_recExcelMenu'); m.style.display = m.style.display==='block'?'none':'block'" style="padding:6px 12px;background:white;color:#64748b;border:1px solid #e2e8f0;border-radius:8px;font-family:Poppins;font-weight:600;font-size:11.5px;cursor:pointer;display:inline-flex;align-items:center;gap:6px" title="Preencher mensalidades Jan → Jun via Excel">
-        <span style="font-size:14px">📥</span> Excel
+      <!-- Botão Realizado -->
+      <button onclick="const m=document.getElementById('_recRealMenu'); const m2=document.getElementById('_recExcelMenu'); if(m2)m2.style.display='none'; m.style.display = m.style.display==='block'?'none':'block'" style="padding:6px 12px;background:white;color:#065f46;border:1px solid #86efac;border-radius:8px;font-family:Poppins;font-weight:600;font-size:11.5px;cursor:pointer;display:inline-flex;align-items:center;gap:6px" title="Import/export dos valores realizados por Excel">
+        <span style="font-size:14px">📊</span> Realizado
         <span style="font-size:9px;color:#94a3b8">▾</span>
       </button>
-      <div id="_recExcelMenu" style="display:none;position:absolute;top:calc(100% + 4px);right:0;background:white;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 8px 24px rgba(15,23,42,0.08);padding:6px;z-index:100;min-width:220px">
+      <div id="_recRealMenu" style="display:none;position:absolute;top:calc(100% + 4px);right:180px;background:white;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 8px 24px rgba(15,23,42,0.08);padding:6px;z-index:100;min-width:260px">
+        <div style="font-size:9px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:700;padding:6px 12px 4px">Realizado (mês a mês)</div>
+        <button onclick="_recDownloadModeloReal();document.getElementById('_recRealMenu').style.display='none'" style="width:100%;text-align:left;padding:9px 12px;background:transparent;border:none;border-radius:6px;font-family:Poppins;font-size:12px;color:#334155;cursor:pointer;display:flex;align-items:center;gap:8px" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">📄 Baixar modelo (vazio)</button>
+        <button onclick="_recExportarRealizado();document.getElementById('_recRealMenu').style.display='none'" style="width:100%;text-align:left;padding:9px 12px;background:transparent;border:none;border-radius:6px;font-family:Poppins;font-size:12px;color:#334155;cursor:pointer;display:flex;align-items:center;gap:8px" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">💾 Exportar dados atuais</button>
+        <label style="width:100%;padding:9px 12px;background:transparent;border-radius:6px;font-family:Poppins;font-size:12px;color:#334155;cursor:pointer;display:flex;align-items:center;gap:8px" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">📤 Subir Excel preenchido<input type="file" accept=".xlsx,.xls" onchange="_recUploadRealizado(event);document.getElementById('_recRealMenu').style.display='none'" style="display:none"/></label>
+        <div style="height:1px;background:#f1f5f9;margin:4px 0"></div>
+        <button onclick="if(confirm('Limpar TODOS os valores realizados manuais?')){localStorage.removeItem('rec_ov_real_v1');window._recOvReal={};renderRecebiveis();}document.getElementById('_recRealMenu').style.display='none'" style="width:100%;text-align:left;padding:9px 12px;background:transparent;border:none;border-radius:6px;font-family:Poppins;font-size:12px;color:#dc2626;cursor:pointer;display:flex;align-items:center;gap:8px" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='transparent'">🗑️ Limpar realizados</button>
+      </div>
+      
+      <!-- Botão Excel Mensalidades (Jan-Jun) -->
+      <button onclick="const m=document.getElementById('_recExcelMenu'); const m2=document.getElementById('_recRealMenu'); if(m2)m2.style.display='none'; m.style.display = m.style.display==='block'?'none':'block'" style="padding:6px 12px;background:white;color:#64748b;border:1px solid #e2e8f0;border-radius:8px;font-family:Poppins;font-weight:600;font-size:11.5px;cursor:pointer;display:inline-flex;align-items:center;gap:6px" title="Preencher mensalidades Jan → Jun via Excel">
+        <span style="font-size:14px">📥</span> Mensalidades
+        <span style="font-size:9px;color:#94a3b8">▾</span>
+      </button>
+      <div id="_recExcelMenu" style="display:none;position:absolute;top:calc(100% + 4px);right:0;background:white;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 8px 24px rgba(15,23,42,0.08);padding:6px;z-index:100;min-width:240px">
+        <div style="font-size:9px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:700;padding:6px 12px 4px">Mensalidades Jan → Jun</div>
         <button onclick="_recDownloadModelo();document.getElementById('_recExcelMenu').style.display='none'" style="width:100%;text-align:left;padding:9px 12px;background:transparent;border:none;border-radius:6px;font-family:Poppins;font-size:12px;color:#334155;cursor:pointer;display:flex;align-items:center;gap:8px" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">📄 Baixar modelo</button>
         <label style="width:100%;padding:9px 12px;background:transparent;border-radius:6px;font-family:Poppins;font-size:12px;color:#334155;cursor:pointer;display:flex;align-items:center;gap:8px" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">📤 Subir Excel preenchido<input type="file" accept=".xlsx,.xls" onchange="_recUploadExcel(event);document.getElementById('_recExcelMenu').style.display='none'" style="display:none"/></label>
         <div style="height:1px;background:#f1f5f9;margin:4px 0"></div>
@@ -6275,10 +6260,14 @@ function renderRecebiveis() {
       <input type="text" id="_recBuscaInput" placeholder="🔍 Buscar por nome ou ID..." value="${_esc(window._recBusca)}" oninput="window._recBusca=this.value; renderRecebiveis(); const el=document.getElementById('_recBuscaInput'); if(el){el.focus(); el.setSelectionRange(el.value.length,el.value.length)}" style="padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;font-family:Poppins;font-size:12px;width:260px;outline:none"/>
     </div>
     
-    <div style="background:white;border-radius:12px;padding:12px 18px;margin-bottom:12px;border:1px solid #e2e8f0;display:flex;gap:20px;flex-wrap:wrap;align-items:center;font-size:11.5px">
-      <span style="color:#64748b;font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:0.5px">Status:</span>
-      ${Object.entries(STATUS_INFO).filter(([k]) => !['sem_regua'].includes(k)).map(([k, info]) => `<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:20px;height:20px;background:${info.bg};border-radius:5px;display:inline-flex;align-items:center;justify-content:center"><span style="display:inline-block;width:9px;height:9px;background:${info.cor};border-radius:50%"></span></span><span style="color:#334155;font-weight:600">${info.label}</span></span>`).join('')}
-      <span style="color:#94a3b8;font-size:10.5px;margin-left:auto">💡 clique no valor para editar · botão direito no valor mostra o comentário</span>
+    <div style="background:white;border-radius:12px;padding:12px 18px;margin-bottom:12px;border:1px solid #e2e8f0;display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:11.5px">
+      <span style="color:#64748b;font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:0.5px;margin-right:4px">Filtrar por status:</span>
+      ${Object.entries(STATUS_INFO).filter(([k]) => !['sem_regua'].includes(k)).map(([k, info]) => {
+        const ativo = window._recFiltroStatus === k;
+        return `<button onclick="window._recFiltroStatus = (window._recFiltroStatus==='${k}' ? null : '${k}'); renderRecebiveis()" title="Clique para filtrar por ${info.label}" style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;background:${ativo?info.bg:'transparent'};border:1.5px solid ${ativo?info.cor:'#e2e8f0'};border-radius:6px;font-family:Poppins;cursor:pointer;transition:all 0.15s;font-size:11.5px"><span style="width:16px;height:16px;background:${info.bg};border-radius:4px;display:inline-flex;align-items:center;justify-content:center"><span style="display:inline-block;width:8px;height:8px;background:${info.cor};border-radius:50%"></span></span><span style="color:${ativo?info.cor:'#334155'};font-weight:${ativo?'800':'600'}">${info.label}</span></button>`;
+      }).join('')}
+      ${window._recFiltroStatus ? `<button onclick="window._recFiltroStatus=null; renderRecebiveis()" style="padding:5px 10px;background:#f1f5f9;color:#64748b;border:1px solid #cbd5e1;border-radius:6px;font-family:Poppins;font-weight:700;font-size:10.5px;cursor:pointer">✕ Limpar</button>` : ''}
+      <span style="color:#94a3b8;font-size:10.5px;margin-left:auto">💡 clique no valor para editar · botão direito mostra o comentário</span>
     </div>
   `;
   
@@ -6364,7 +6353,7 @@ function renderRecebiveis() {
           } else {
             const bgTd = info.bg + '55';
             const diff = s.recebido - s.esperado;
-            const ttReal = s.override ? `Manual: ${_fmtR(s.override.valor)}${s.override.comentario?' · '+s.override.comentario:''} · Original Omie: ${_fmtR(s.recebidoOrig)}` : `Realizado (Omie): ${_fmtR(s.recebido)}`;
+            const ttReal = s.override ? `Manual: ${_fmtR(s.override.valor)}${s.override.comentario?' · '+s.override.comentario:''}` : `Sem lançamento manual`;
             const badgeR = s.override ? '<span style="position:absolute;top:1px;right:2px;font-size:8px;color:#2563eb">✏</span>' : '';
             const bordaOvR = s.override ? 'box-shadow:inset 0 0 0 2px #3b82f6;' : '';
             html += `<td onclick="_recEditar('${id}','${mes}','realizado')" oncontextmenu="event.preventDefault();_recMostrarComentario('${id}','${mes}','realizado');return false;" title="${_esc(ttReal)} · clique para editar" style="position:relative;cursor:pointer;padding:6px 8px;text-align:right;background:${bgTd};${bordaOvR}">
@@ -6519,11 +6508,198 @@ function _recUploadExcel(event) {
   reader.readAsArrayBuffer(file);
 }
 
+// === EXCEL DO REALIZADO (mês a mês, importar/exportar) ===
+
+function _recBuildRealizadoRows(comDados) {
+  const MENS = window.MENSALIDADES_ELO || {};
+  const MONTH_NOMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const MONTHS = MONTH_NOMES.map((_, i) => '2026-' + String(i+1).padStart(2,'0'));
+  
+  // Cabeçalho: ID | Nome | Jan Valor | Jan Status | Fev Valor | Fev Status | ...
+  const header = ['ID Cliente', 'Nome Cliente'];
+  MONTH_NOMES.forEach(nm => {
+    header.push(nm + ' Valor');
+    header.push(nm + ' Status');
+  });
+  
+  const rows = [header];
+  
+  // União de clientes
+  const clientesGlobais = {};
+  Object.keys(MENS).forEach(m => {
+    (MENS[m] || []).forEach(([id, nome, _]) => {
+      if (!clientesGlobais[id]) clientesGlobais[id] = nome;
+    });
+  });
+  const ordenados = Object.entries(clientesGlobais).sort((a,b) => a[1].localeCompare(b[1]));
+  
+  ordenados.forEach(([id, nome]) => {
+    const row = [id, nome];
+    MONTHS.forEach(mes => {
+      if (comDados) {
+        const key = id + '|' + mes;
+        const ov = (window._recOvReal || {})[key];
+        if (ov) {
+          row.push(ov.valor || 0);
+          row.push(ov.status || '');
+        } else {
+          row.push('');
+          row.push('');
+        }
+      } else {
+        row.push('');
+        row.push('');
+      }
+    });
+    rows.push(row);
+  });
+  
+  return rows;
+}
+
+function _recDownloadModeloReal() {
+  if (typeof XLSX === 'undefined') { alert('Biblioteca não carregou.'); return; }
+  const rows = _recBuildRealizadoRows(false);
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  // Larguras
+  const cols = [{wch:10}, {wch:32}];
+  for (let i = 0; i < 12; i++) { cols.push({wch:12}, {wch:14}); }
+  ws['!cols'] = cols;
+  XLSX.utils.book_append_sheet(wb, ws, 'Realizado');
+  
+  // Aba instruções
+  const inst = [
+    ['INSTRUÇÕES — REALIZADO POR MÊS'],[''],
+    ['1. Preencha o valor recebido de cada cliente em cada mês (colunas "Mês Valor").'],
+    ['2. Na coluna "Mês Status", coloque um dos seguintes valores:'],
+    ['   • pago — valor recebido igual à mensalidade Elo (verde)'],
+    ['   • diferenca — valor recebido diferente do esperado (amarelo)'],
+    ['   • inadimplente — cliente não pagou (vermelho)'],
+    ['   • pendente — mês futuro / ainda não vencido (cinza)'],
+    ['   • isento — cliente sem cobrança no mês (azul)'],
+    [''],
+    ['3. Se deixar valor E status vazios, o mês fica sem lançamento manual.'],
+    ['4. Se você preencher só status (sem valor), fica com valor 0.'],
+    ['5. Salve e faça upload no botão "Subir Excel preenchido".'],
+    [''],
+    ['REGRAS:'],
+    ['• A importação SOBRESCREVE os valores manuais atuais.'],
+    ['• Você pode exportar dados atuais, editar e reimportar.'],
+    ['• Os valores das mensalidades (Elo) não são afetados por este Excel — só os realizados.']
+  ];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(inst), 'Instruções');
+  XLSX.writeFile(wb, 'modelo_realizado_2026.xlsx');
+}
+
+function _recExportarRealizado() {
+  if (typeof XLSX === 'undefined') { alert('Biblioteca não carregou.'); return; }
+  const rows = _recBuildRealizadoRows(true);
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  const cols = [{wch:10}, {wch:32}];
+  for (let i = 0; i < 12; i++) { cols.push({wch:12}, {wch:14}); }
+  ws['!cols'] = cols;
+  XLSX.utils.book_append_sheet(wb, ws, 'Realizado');
+  XLSX.writeFile(wb, 'realizado_atual_' + new Date().toISOString().slice(0,10) + '.xlsx');
+}
+
+function _recUploadRealizado(event) {
+  if (typeof XLSX === 'undefined') { alert('Biblioteca não carregou.'); return; }
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const wb = XLSX.read(data, { type: 'array' });
+      const ws = wb.Sheets['Realizado'] || wb.Sheets[wb.SheetNames[0]];
+      if (!ws) { alert('Aba "Realizado" não encontrada.'); return; }
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+      if (rows.length < 2) { alert('Planilha vazia.'); return; }
+      
+      const header = rows[0].map(h => String(h||'').toLowerCase().trim());
+      const MONTH_NOMES = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+      const mesesMap = {};
+      MONTH_NOMES.forEach((nm, i) => { mesesMap[nm] = '2026-' + String(i+1).padStart(2,'0'); });
+      
+      // Achar colunas
+      const colId = header.findIndex(h => h.includes('id'));
+      const colNome = header.findIndex(h => h.includes('nome') || h.includes('cliente'));
+      if (colId < 0 || colNome < 0) { alert('Colunas "ID" e "Nome" não encontradas.'); return; }
+      
+      // Achar pares de valor/status por mês
+      const colsPorMes = {}; // mes -> {valor, status}
+      header.forEach((h, i) => {
+        MONTH_NOMES.forEach((nm) => {
+          if (h.startsWith(nm)) {
+            const mes = mesesMap[nm];
+            if (!colsPorMes[mes]) colsPorMes[mes] = {};
+            if (h.includes('valor')) colsPorMes[mes].valor = i;
+            if (h.includes('status')) colsPorMes[mes].status = i;
+          }
+        });
+      });
+      
+      const statusValidos = ['pago', 'diferenca', 'diferença', 'inadimplente', 'pendente', 'isento'];
+      const novoOv = {};
+      let cnt = 0, cntLinhas = 0;
+      
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        const id = String(row[colId] || '').trim();
+        if (!id) continue;
+        cntLinhas++;
+        Object.keys(colsPorMes).forEach(mes => {
+          const cols = colsPorMes[mes];
+          const rawVal = row[cols.valor];
+          const rawStat = String(row[cols.status] || '').toLowerCase().trim().replace('ç','c');
+          
+          const hasVal = rawVal !== '' && rawVal !== null && rawVal !== undefined && !isNaN(parseFloat(rawVal));
+          const hasStat = statusValidos.some(s => s.replace('ç','c') === rawStat);
+          
+          if (!hasVal && !hasStat) return;
+          
+          const val = hasVal ? parseFloat(String(rawVal).replace(/[^\d,.-]/g,'').replace(',','.')) : 0;
+          let stat = rawStat === 'diferenca' ? 'diferenca' : rawStat;
+          if (!hasStat) {
+            // Calcular status automático baseado no valor
+            const eloM = ((window.MENSALIDADES_ELO || {})[mes] || []).find(x => x[0] === id);
+            const esperado = eloM ? eloM[2] : 0;
+            if (val === 0) stat = mes > new Date().toISOString().slice(0,7) ? 'pendente' : 'inadimplente';
+            else if (Math.abs(val - esperado) < 0.01) stat = 'pago';
+            else stat = 'diferenca';
+          }
+          
+          const key = id + '|' + mes;
+          novoOv[key] = {
+            valor: val,
+            valor_original: 0,
+            status: stat,
+            comentario: 'Importado via Excel em ' + new Date().toLocaleDateString('pt-BR'),
+            updated_at: new Date().toISOString()
+          };
+          cnt++;
+        });
+      }
+      
+      window._recOvReal = novoOv;
+      localStorage.setItem('rec_ov_real_v1', JSON.stringify(novoOv));
+      alert(`✓ Sucesso!\n\n${cntLinhas} clientes lidos.\n${cnt} registros de realizado salvos.`);
+      renderRecebiveis();
+    } catch (err) {
+      alert('Erro: ' + err.message);
+      console.error(err);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
 // === EDIÇÃO DE VALORES (Elo e Realizado) ===
 
 function _recEditar(id, mes, tipo) {
   const MENS = window.MENSALIDADES_ELO || {};
-  const dc = (typeof RAW_DATA_CAIXA !== 'undefined' ? RAW_DATA_CAIXA : []) || [];
+  
   const MONTH_NOMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
   const nomeMes = MONTH_NOMES[parseInt(mes.slice(-2))-1] || mes;
   
@@ -6566,30 +6742,19 @@ function _recEditar(id, mes, tipo) {
       </div>
     `;
   } else {
-    // Realizado
+    // Realizado — 100% manual (sem Omie)
     const eloAtual = (MENS[mes] || []).find(x => x[0] === id);
     const esperado = eloAtual ? eloAtual[2] : 0;
-    // Recebimento original (do Omie)
-    let recebidoOrig = 0;
-    dc.forEach(r => {
-      if (r.tipo !== '1. Contas a Receber') return;
-      if (r.conta !== 'Banco Inter' && r.conta !== 'Itaú Unibanco') return;
-      const cat = String(r.categoria || '');
-      if (!cat.includes('Mensalidades Clientes') && !cat.includes('Inadimplent')) return;
-      if (r.mesPagto !== mes) return;
-      const im = String(r.fornecedor || '').match(/^\s*\((\d+)\)/);
-      if (im && im[1] === id) recebidoOrig += Math.abs(r.valorPago || 0);
-    });
     const ov = window._recOvReal[key] || {};
-    const valorAtual = ov.valor !== undefined ? ov.valor : recebidoOrig;
-    const statusAtual = ov.status || (recebidoOrig === 0 ? (mes > new Date().toISOString().slice(0,7) ? 'pendente' : 'inadimplente') : (Math.abs(recebidoOrig - esperado) < 0.01 ? 'pago' : 'diferenca'));
+    const valorAtual = ov.valor !== undefined ? ov.valor : 0;
+    const statusAtual = ov.status || (mes > new Date().toISOString().slice(0,7) ? 'pendente' : 'inadimplente');
     const coment = ov.comentario || '';
     
     document.getElementById('_recModalContent').innerHTML = `
       <div style="margin-bottom:20px">
-        <div style="font-size:11px;color:#065f46;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Editar Realizado (Fluxo de Caixa)</div>
+        <div style="font-size:11px;color:#065f46;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Editar Realizado (Manual)</div>
         <div style="font-size:20px;font-weight:800;color:#0f172a">(${id}) ${clienteNome}</div>
-        <div style="font-size:13px;color:#64748b;margin-top:4px">${nomeMes} · Esperado Elo: <strong>R$ ${(esperado||0).toLocaleString('pt-BR', {minimumFractionDigits:2})}</strong> · Original Omie: <strong>R$ ${recebidoOrig.toLocaleString('pt-BR', {minimumFractionDigits:2})}</strong></div>
+        <div style="font-size:13px;color:#64748b;margin-top:4px">${nomeMes} · Esperado Elo: <strong>R$ ${(esperado||0).toLocaleString('pt-BR', {minimumFractionDigits:2})}</strong></div>
       </div>
       <div style="margin-bottom:16px">
         <label style="display:block;font-size:11px;font-weight:700;color:#334155;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px">Valor recebido (R$)</label>
@@ -6612,7 +6777,7 @@ function _recEditar(id, mes, tipo) {
       <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
         ${ov.valor !== undefined ? '<button onclick="_recRemoverOverride(\'' + key + '\',\'realizado\')" style="padding:10px 16px;background:transparent;color:#dc2626;border:1px solid #dc2626;border-radius:8px;font-family:Poppins;font-weight:700;font-size:12px;cursor:pointer">🗑️ Remover ajuste</button>' : ''}
         <button onclick="_recFecharModal()" style="padding:10px 16px;background:transparent;color:#64748b;border:1px solid #cbd5e1;border-radius:8px;font-family:Poppins;font-weight:700;font-size:12px;cursor:pointer">Cancelar</button>
-        <button onclick="_recSalvarOverride('${key}','realizado',${recebidoOrig})" style="padding:10px 20px;background:#065f46;color:white;border:none;border-radius:8px;font-family:Poppins;font-weight:700;font-size:12px;cursor:pointer">Salvar ajuste</button>
+        <button onclick="_recSalvarOverride('${key}','realizado',0)" style="padding:10px 20px;background:#065f46;color:white;border:none;border-radius:8px;font-family:Poppins;font-weight:700;font-size:12px;cursor:pointer">Salvar ajuste</button>
       </div>
     `;
   }
