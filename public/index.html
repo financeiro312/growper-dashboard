@@ -734,7 +734,7 @@ body.scalia-mode .company-badge {
     <div class="nav-buttons">
       <button class="nav-btn active" data-section="main"><span class="nav-icon">📊</span><span>Principal</span></button>
       <button class="nav-btn" data-section="card"><span class="nav-icon">💳</span><span>Cartão de Crédito</span></button>
-      <button class="nav-btn" data-section="recebiveis"><span class="nav-icon">💰</span><span>Recebíveis</span></button>
+      <button class="nav-btn" data-section="recebiveis"><span class="nav-icon">💰</span><span>Mensalidades</span></button>
       <button class="nav-btn" data-section="kits"><span class="nav-icon">🎁</span><span>Orçamento de Kits</span></button>
       
       <button class="nav-btn" data-section="kpis"><span class="nav-icon">📊</span><span>KPI's Financeiro</span></button>
@@ -4439,7 +4439,7 @@ function showSection(section) {
   currentSection = section;
   const titles = {
     main: 'Dashboard Principal', area: 'Análise por Área',
-    card: 'Cartão de Crédito', recebiveis: 'Recebíveis', kpis: "KPI's Financeiros",
+    card: 'Cartão de Crédito', recebiveis: 'Mensalidades', kpis: "KPI's Financeiros",
     dre: 'DRE - Demonstração de Resultado', pjs: 'Análise de PJs',
     margem: 'Margem de Lucro', ticket: 'Ticket Médio',
     scaliaMain: 'Dashboard Principal', scaliaCard: 'Cartão de Crédito', scaliaKits: 'Orçamento de Kits', kits: 'Orçamento de Kits'
@@ -6135,12 +6135,12 @@ function renderRecebiveis() {
   }
   
   const STATUS_INFO = {
-    pago:         { cor: '#10b981', bg: '#d1fae5', icon: '✓', label: 'Pago' },
-    diferenca:    { cor: '#f59e0b', bg: '#fef3c7', icon: '△', label: 'Diferença' },
-    inadimplente: { cor: '#ef4444', bg: '#fee2e2', icon: '✗', label: 'Inadimplente' },
-    pendente:     { cor: '#94a3b8', bg: '#f1f5f9', icon: '○', label: 'Pendente' },
-    isento:       { cor: '#6366f1', bg: '#e0e7ff', icon: 'i', label: 'Isento' },
-    sem_regua:    { cor: '#cbd5e1', bg: '#f8fafc', icon: '–', label: 'Sem régua' }
+    pago:         { cor: '#10b981', bg: '#d1fae5', icon: '●', label: 'Pago' },
+    diferenca:    { cor: '#f59e0b', bg: '#fef3c7', icon: '●', label: 'Diferença' },
+    inadimplente: { cor: '#ef4444', bg: '#fee2e2', icon: '●', label: 'Inadimplente' },
+    pendente:     { cor: '#94a3b8', bg: '#f1f5f9', icon: '●', label: 'Pendente' },
+    isento:       { cor: '#6366f1', bg: '#e0e7ff', icon: '●', label: 'Isento' },
+    sem_regua:    { cor: '#cbd5e1', bg: '#f8fafc', icon: '●', label: 'Sem régua' }
   };
   
   const busca = window._recBusca.toLowerCase().trim();
@@ -6192,7 +6192,7 @@ function renderRecebiveis() {
       <div style="position:relative;z-index:1">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:20px;margin-bottom:24px">
           <div>
-            <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:2px;font-weight:700;margin-bottom:8px">💰 Recebíveis · Mensalidades</div>
+            <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:2px;font-weight:700;margin-bottom:8px">💰 Mensalidades por Cliente</div>
             <h1 style="margin:0;font-size:28px;font-weight:800;letter-spacing:-1px;line-height:1.1">Fechamento por Cliente</h1>
             <p style="margin:8px 0 0;color:#cbd5e1;font-size:13px">Mensalidade Elo × Realizado no fluxo de caixa · ${ANO}</p>
           </div>
@@ -6243,7 +6243,7 @@ function renderRecebiveis() {
     
     <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:12px;position:relative">
       <button onclick="const m=document.getElementById('_recExcelMenu'); m.style.display = m.style.display==='block'?'none':'block'" style="padding:6px 12px;background:white;color:#64748b;border:1px solid #e2e8f0;border-radius:8px;font-family:Poppins;font-weight:600;font-size:11.5px;cursor:pointer;display:inline-flex;align-items:center;gap:6px" title="Preencher mensalidades Jan → Jun via Excel">
-        <span style="font-size:14px">📥</span> Excel Jan-Jun
+        <span style="font-size:14px">📥</span> Excel
         <span style="font-size:9px;color:#94a3b8">▾</span>
       </button>
       <div id="_recExcelMenu" style="display:none;position:absolute;top:calc(100% + 4px);right:0;background:white;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 8px 24px rgba(15,23,42,0.08);padding:6px;z-index:100;min-width:220px">
@@ -6277,7 +6277,7 @@ function renderRecebiveis() {
     
     <div style="background:white;border-radius:12px;padding:12px 18px;margin-bottom:12px;border:1px solid #e2e8f0;display:flex;gap:20px;flex-wrap:wrap;align-items:center;font-size:11.5px">
       <span style="color:#64748b;font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:0.5px">Status:</span>
-      ${Object.entries(STATUS_INFO).filter(([k]) => !['sem_regua'].includes(k)).map(([k, info]) => `<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:20px;height:20px;background:${info.bg};color:${info.cor};border-radius:5px;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:11px">${info.icon}</span><span style="color:#334155;font-weight:600">${info.label}</span></span>`).join('')}
+      ${Object.entries(STATUS_INFO).filter(([k]) => !['sem_regua'].includes(k)).map(([k, info]) => `<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:20px;height:20px;background:${info.bg};border-radius:5px;display:inline-flex;align-items:center;justify-content:center"><span style="display:inline-block;width:9px;height:9px;background:${info.cor};border-radius:50%"></span></span><span style="color:#334155;font-weight:600">${info.label}</span></span>`).join('')}
       <span style="color:#94a3b8;font-size:10.5px;margin-left:auto">💡 clique no valor para editar · botão direito no valor mostra o comentário</span>
     </div>
   `;
@@ -6370,8 +6370,9 @@ function renderRecebiveis() {
             html += `<td onclick="_recEditar('${id}','${mes}','realizado')" oncontextmenu="event.preventDefault();_recMostrarComentario('${id}','${mes}','realizado');return false;" title="${_esc(ttReal)} · clique para editar" style="position:relative;cursor:pointer;padding:6px 8px;text-align:right;background:${bgTd};${bordaOvR}">
               ${badgeR}
               <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
-                <span style="display:inline-flex;align-items:center;gap:4px;padding:2px 7px;background:${info.bg};color:${info.cor};border-radius:5px;font-size:9.5px;font-weight:800;line-height:1">
-                  ${info.icon} ${info.label}
+                <span style="display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:3px 8px;background:${info.bg};color:${info.cor};border-radius:5px;font-size:9.5px;font-weight:800;line-height:1">
+                  <span style="display:inline-block;width:8px;height:8px;background:${info.cor};border-radius:50%;flex-shrink:0"></span>
+                  <span>${info.label}</span>
                 </span>
                 <span style="font-size:11.5px;font-weight:800;color:${s.status==='pago'?'#166534':s.status==='diferenca'?'#92400e':s.status==='inadimplente'?'#991b1b':s.status==='isento'?'#4338ca':'#64748b'}">${_fmtR(s.recebido)}</span>
                 ${s.status==='diferenca' && s.esperado > 0 ? `<span style="font-size:9px;color:${diff<0?'#991b1b':'#166534'};font-weight:700">Δ ${diff>0?'+':''}${_fmtR(diff)}</span>` : ''}
@@ -6398,9 +6399,9 @@ function renderRecebiveis() {
       html += `<td style="padding:8px;text-align:right;background:#dcfce7">
         <div style="font-size:11px;font-weight:800;color:#166534">${_fmtRs(t.recebido)}</div>
         <div style="font-size:9px;color:#64748b;margin-top:2px">
-          <span style="color:#10b981">${cnt.pago}✓</span>
-          <span style="color:#f59e0b;margin-left:4px">${cnt.diferenca}△</span>
-          <span style="color:#ef4444;margin-left:4px">${cnt.inadimplente}✗</span>
+          <span style="display:inline-flex;align-items:center;gap:3px;color:#166534">${cnt.pago}<span style="display:inline-block;width:7px;height:7px;background:#10b981;border-radius:50%"></span></span>
+          <span style="display:inline-flex;align-items:center;gap:3px;margin-left:5px;color:#92400e">${cnt.diferenca}<span style="display:inline-block;width:7px;height:7px;background:#f59e0b;border-radius:50%"></span></span>
+          <span style="display:inline-flex;align-items:center;gap:3px;margin-left:5px;color:#991b1b">${cnt.inadimplente}<span style="display:inline-block;width:7px;height:7px;background:#ef4444;border-radius:50%"></span></span>
         </div>
       </td>`;
     }
@@ -6597,11 +6598,11 @@ function _recEditar(id, mes, tipo) {
       <div style="margin-bottom:16px">
         <label style="display:block;font-size:11px;font-weight:700;color:#334155;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px">Status</label>
         <select id="_recEdStatus" style="width:100%;padding:12px 14px;border:2px solid #cbd5e1;border-radius:8px;font-family:Poppins;font-size:13px;font-weight:600;color:#0f172a;outline:none;cursor:pointer">
-          <option value="pago" ${statusAtual==='pago'?'selected':''}>✓ Pago</option>
-          <option value="diferenca" ${statusAtual==='diferenca'?'selected':''}>△ Diferença</option>
-          <option value="inadimplente" ${statusAtual==='inadimplente'?'selected':''}>✗ Inadimplente</option>
-          <option value="pendente" ${statusAtual==='pendente'?'selected':''}>○ Pendente</option>
-          <option value="isento" ${statusAtual==='isento'?'selected':''}>i Isento</option>
+          <option value="pago" ${statusAtual==='pago'?'selected':''}>🟢 Pago</option>
+          <option value="diferenca" ${statusAtual==='diferenca'?'selected':''}>🟡 Diferença</option>
+          <option value="inadimplente" ${statusAtual==='inadimplente'?'selected':''}>🔴 Inadimplente</option>
+          <option value="pendente" ${statusAtual==='pendente'?'selected':''}>⚪ Pendente</option>
+          <option value="isento" ${statusAtual==='isento'?'selected':''}>🔵 Isento</option>
         </select>
       </div>
       <div style="margin-bottom:20px">
