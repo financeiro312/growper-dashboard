@@ -5999,57 +5999,73 @@ function renderRecebiveis() {
   const MENS = window.MENSALIDADES_ELO || {};
   const dataCaixa = (typeof RAW_DATA_CAIXA !== 'undefined' ? RAW_DATA_CAIXA : []) || [];
   
+  // === Overrides locais (do localStorage) ===
+  window._recOvElo = window._recOvElo || (function() {
+    try { return JSON.parse(localStorage.getItem('rec_ov_elo_v1') || '{}'); } catch(e) { return {}; }
+  })();
+  window._recOvReal = window._recOvReal || (function() {
+    try { return JSON.parse(localStorage.getItem('rec_ov_real_v1') || '{}'); } catch(e) { return {}; }
+  })();
+  
   const _fmtR = v => (v === null || v === undefined || isNaN(v) || v === 0) ? '—' : 'R$ ' + Math.abs(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
   const _fmtRs = v => (v === null || v === undefined || isNaN(v)) ? '—' : 'R$ ' + Math.abs(v).toLocaleString('pt-BR', {minimumFractionDigits:0, maximumFractionDigits:0});
   const _esc = s => String(s || '').replace(/[<>&"']/g, ch => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[ch]));
   
-  // Estado
   if (!window._recAno) window._recAno = '2026';
   if (!window._recMesFiltro) window._recMesFiltro = 'todos';
   if (!window._recBusca) window._recBusca = '';
-  if (!window._recExpandidos) window._recExpandidos = new Set(); // meses expandidos
+  if (!window._recExpandidos) window._recExpandidos = new Set();
   
   const ANO = window._recAno;
   const MONTH_LABELS = ['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
   const MONTH_NOMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
   const MONTHS = MONTH_LABELS.map((_, i) => ANO + '-' + String(i+1).padStart(2,'0'));
   
-  // Mês atual
   const hoje = new Date();
   const mesAtual = hoje.toISOString().slice(0, 7);
   const anoAtual = String(hoje.getFullYear());
   
-  // Anos disponíveis: MENSALIDADES_ELO + RAW_DATA_CAIXA + ano atual
   const anosSet = new Set();
   Object.keys(MENS).forEach(k => anosSet.add(k.slice(0,4)));
   dataCaixa.forEach(r => { if (r.mesPagto) anosSet.add(r.mesPagto.slice(0,4)); });
   anosSet.add(anoAtual);
   const anosDisponiveis = Array.from(anosSet).sort();
   
-  // Meses exibidos
   const mesesExibidos = window._recMesFiltro === 'todos' ? MONTHS : [window._recMesFiltro];
   
-  // === Mapa de mensalidade Elo por cliente/mês: mensa[mes][id] = { nome, mensa } ===
+  // Se filtrou 1 mês, força-o a ficar expandido para mostrar realizado direto
+  if (window._recMesFiltro !== 'todos') {
+    window._recExpandidos.add(window._recMesFiltro);
+  }
+  
+  // === Mensalidade Elo por cliente/mês (com override) ===
   const mensaPorMes = {};
   MONTHS.forEach(m => {
     mensaPorMes[m] = {};
     const lista = MENS[m] || [];
     lista.forEach(([id, nome, mensa]) => {
-      mensaPorMes[m][id] = { nome, mensa };
+      mensaPorMes[m][id] = { nome, mensa, mensaOrig: mensa };
+    });
+    // Aplicar overrides Elo
+    Object.keys(window._recOvElo).forEach(key => {
+      const [oid, omes] = key.split('|');
+      if (omes === m) {
+        if (!mensaPorMes[m][oid]) mensaPorMes[m][oid] = { nome: '(sem nome)', mensa: 0, mensaOrig: null };
+        mensaPorMes[m][oid].mensa = window._recOvElo[key].valor;
+        mensaPorMes[m][oid].override = window._recOvElo[key];
+      }
     });
   });
   
-  // === União de todos os clientes (id -> nome mais recente) ===
-  const clientesGlobais = {}; // id -> nome
+  // === União de clientes ===
+  const clientesGlobais = {};
   MONTHS.forEach(m => {
-    const lista = MENS[m] || [];
-    lista.forEach(([id, nome, _]) => {
-      clientesGlobais[id] = nome; // nome do mês mais recente sobrescreve
+    Object.entries(mensaPorMes[m]).forEach(([id, obj]) => {
+      clientesGlobais[id] = obj.nome;
     });
   });
   
-  // === Mapa de recebimentos (fluxo de caixa) por cliente/mês ===
-  // recebPorId[id][mes] = { valor, conciliado }
+  // === Recebimentos do Omie ===
   const recebPorId = {};
   dataCaixa.forEach(r => {
     if (r.tipo !== '1. Contas a Receber') return;
@@ -6070,21 +6086,32 @@ function renderRecebiveis() {
     }
   });
   
-  // === Status por cliente/mês ===
-  // Retorna: { status, recebido, esperado }
+  // === Status por cliente/mês (com override Realizado) ===
   function statusMes(id, mes) {
     const esperada = mensaPorMes[mes][id] ? mensaPorMes[mes][id].mensa : null;
+    
+    // Override Realizado tem prioridade
+    const keyR = id + '|' + mes;
+    const ovR = window._recOvReal[keyR];
+    if (ovR) {
+      return {
+        status: ovR.status,
+        recebido: ovR.valor,
+        esperado: esperada === null ? 0 : esperada,
+        override: ovR,
+        recebidoOrig: (recebPorId[id] && recebPorId[id][mes]) ? recebPorId[id][mes].valor : 0
+      };
+    }
+    
     const rec = recebPorId[id] && recebPorId[id][mes];
     const mesFuturo = mes > mesAtual;
     
     if (esperada === null || esperada === undefined) {
-      // Cliente não estava na régua do Elo neste mês
       if (rec && rec.valor > 0) return { status: 'diferenca', recebido: rec.valor, esperado: 0 };
       return { status: 'sem_regua', recebido: 0, esperado: 0 };
     }
     
     if (esperada === 0) {
-      // Isento
       return { status: 'isento', recebido: rec ? rec.valor : 0, esperado: 0 };
     }
     
@@ -6095,11 +6122,8 @@ function renderRecebiveis() {
     }
     
     const diff = Math.abs(rec.valor - esperada);
-    if (diff < 0.01) {
-      return { status: 'pago', recebido: rec.valor, esperado: esperada };
-    } else {
-      return { status: 'diferenca', recebido: rec.valor, esperado: esperada };
-    }
+    if (diff < 0.01) return { status: 'pago', recebido: rec.valor, esperado: esperada };
+    return { status: 'diferenca', recebido: rec.valor, esperado: esperada };
   }
   
   const STATUS_INFO = {
@@ -6111,7 +6135,6 @@ function renderRecebiveis() {
     sem_regua:    { cor: '#cbd5e1', bg: '#f8fafc', icon: '–', label: 'Sem régua' }
   };
   
-  // === Lista filtrada ===
   const busca = window._recBusca.toLowerCase().trim();
   let listaFiltrada = Object.entries(clientesGlobais)
     .map(([id, nome]) => [id, nome])
@@ -6120,14 +6143,13 @@ function renderRecebiveis() {
       return true;
     });
   
-  // Ordenar: por total anual (soma das mensalidades de todos os meses) DESC, depois por nome
   listaFiltrada.sort(([idA, nomeA], [idB, nomeB]) => {
     const totA = MONTHS.reduce((s,m) => s + (mensaPorMes[m][idA] ? mensaPorMes[m][idA].mensa : 0), 0);
     const totB = MONTHS.reduce((s,m) => s + (mensaPorMes[m][idB] ? mensaPorMes[m][idB].mensa : 0), 0);
     return totB - totA || nomeA.localeCompare(nomeB);
   });
   
-  // === Totais gerais ===
+  // Totais
   let totalEsperadoAno = 0, totalRecebidoAno = 0;
   const contadoresPorMes = {};
   const totaisMes = {};
@@ -6144,15 +6166,19 @@ function renderRecebiveis() {
     totalRecebidoAno += totaisMes[mes].recebido;
   });
   
-  // Clientes ativos (setembro por padrão, ou mês filtrado)
   const mesRefKpi = window._recMesFiltro === 'todos' ? mesAtual : window._recMesFiltro;
   const clientesAtivos = (MENS[mesRefKpi] || []).length;
   const mrrRef = (MENS[mesRefKpi] || []).reduce((s, c) => s + c[2], 0);
   
-  // === HTML ===
+  // Contar overrides ativos
+  const nOvElo = Object.keys(window._recOvElo).length;
+  const nOvReal = Object.keys(window._recOvReal).length;
+  
+  const filtroMesAtivo = window._recMesFiltro !== 'todos';
+  const nomeMesFiltro = filtroMesAtivo ? MONTH_NOMES[parseInt(window._recMesFiltro.slice(-2))-1] : '';
+  
   let html = `<div style="padding:28px 24px;max-width:1900px;margin:0 auto;background:#f5f5f7;min-height:100vh">
     
-    <!-- HERO -->
     <div style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#064e3b 100%);border-radius:20px;padding:32px 36px;margin-bottom:20px;color:white;position:relative;overflow:hidden">
       <div style="position:absolute;top:0;right:0;width:400px;height:400px;background:radial-gradient(circle,rgba(16,185,129,0.15) 0%,transparent 70%);pointer-events:none"></div>
       <div style="position:relative;z-index:1">
@@ -6160,7 +6186,7 @@ function renderRecebiveis() {
           <div>
             <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:2px;font-weight:700;margin-bottom:8px">💰 Recebíveis · Mensalidades</div>
             <h1 style="margin:0;font-size:28px;font-weight:800;letter-spacing:-1px;line-height:1.1">Fechamento por Cliente</h1>
-            <p style="margin:8px 0 0;color:#cbd5e1;font-size:13px">Mensalidade Elo (variável mês a mês) × Realizado no fluxo de caixa · ${ANO}</p>
+            <p style="margin:8px 0 0;color:#cbd5e1;font-size:13px">Mensalidade Elo × Realizado no fluxo de caixa · ${ANO}${filtroMesAtivo ? ' · <strong style="color:#fbbf24">Filtro: ' + nomeMesFiltro + '</strong>' : ''}</p>
           </div>
           <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
             <div style="display:flex;gap:6px;align-items:center">
@@ -6170,13 +6196,14 @@ function renderRecebiveis() {
               </select>
             </div>
             <div style="display:flex;gap:6px;align-items:center">
-              <span style="font-size:10.5px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:700">Mês</span>
-              <select onchange="window._recMesFiltro=this.value; renderRecebiveis()" style="background:rgba(255,255,255,0.1);color:white;border:1px solid rgba(255,255,255,0.2);padding:8px 12px;border-radius:8px;font-family:Poppins;font-weight:700;font-size:13px;cursor:pointer">
-                <option value="todos" ${window._recMesFiltro==='todos'?'selected':''} style="background:#0f172a">Todos os meses</option>
+              <span style="font-size:10.5px;color:${filtroMesAtivo?'#fbbf24':'#94a3b8'};text-transform:uppercase;letter-spacing:1px;font-weight:700">Mês ${filtroMesAtivo?'●':''}</span>
+              <select onchange="window._recMesFiltro=this.value; renderRecebiveis()" style="background:${filtroMesAtivo?'rgba(251,191,36,0.2)':'rgba(255,255,255,0.1)'};color:white;border:1px solid ${filtroMesAtivo?'#fbbf24':'rgba(255,255,255,0.2)'};padding:8px 12px;border-radius:8px;font-family:Poppins;font-weight:700;font-size:13px;cursor:pointer">
+                <option value="todos" ${window._recMesFiltro==='todos'?'selected':''} style="background:#0f172a">📅 Todos os meses</option>
+                <option disabled style="background:#0f172a">──────────</option>
                 ${MONTHS.map((m, i) => `<option value="${m}" ${window._recMesFiltro===m?'selected':''} style="background:#0f172a">${MONTH_NOMES[i]}</option>`).join('')}
               </select>
+              ${filtroMesAtivo ? `<button onclick="window._recMesFiltro='todos'; renderRecebiveis()" title="Limpar filtro" style="background:#fbbf24;color:#78350f;border:none;padding:8px 10px;border-radius:8px;font-weight:800;cursor:pointer;font-size:11px">✕</button>` : ''}
             </div>
-            <button onclick="alert('Para atualizar, peça no Claude: \'Atualize as mensalidades do Elo\'')" style="background:rgba(255,255,255,0.1);color:white;border:1px solid rgba(255,255,255,0.2);padding:8px 14px;border-radius:8px;font-family:Poppins;font-weight:600;font-size:12px;cursor:pointer">🔄 Sync Elo</button>
           </div>
         </div>
         
@@ -6189,28 +6216,23 @@ function renderRecebiveis() {
           <div>
             <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">Clientes na régua</div>
             <div style="font-size:22px;font-weight:800;color:#f8fafc">${clientesAtivos}</div>
-            <div style="font-size:10px;color:#94a3b8;margin-top:2px">no mês de referência</div>
           </div>
           <div>
             <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">Recebido no período</div>
             <div style="font-size:22px;font-weight:800;color:#10b981">${_fmtRs(totalRecebidoAno)}</div>
-            <div style="font-size:10px;color:#94a3b8;margin-top:2px">fluxo de caixa</div>
           </div>
           <div>
             <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">Esperado no período</div>
             <div style="font-size:22px;font-weight:800;color:#f8fafc">${_fmtRs(totalEsperadoAno)}</div>
-            <div style="font-size:10px;color:#94a3b8;margin-top:2px">soma das mensalidades</div>
           </div>
           <div>
             <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">Cobertura</div>
             <div style="font-size:22px;font-weight:800;color:${totalRecebidoAno/totalEsperadoAno >= 0.9 ? '#10b981' : totalRecebidoAno/totalEsperadoAno >= 0.7 ? '#f59e0b' : '#ef4444'}">${totalEsperadoAno>0 ? ((totalRecebidoAno/totalEsperadoAno)*100).toFixed(1) + '%' : '—'}</div>
-            <div style="font-size:10px;color:#94a3b8;margin-top:2px">recebido / esperado</div>
           </div>
         </div>
       </div>
     </div>
     
-    <!-- Ações Excel manual -->
     <div style="background:linear-gradient(135deg,#fef3c7 0%,#fef9c3 100%);border-radius:12px;padding:14px 18px;margin-bottom:12px;border:1px solid #fde047;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
       <div style="display:flex;align-items:center;gap:10px">
         <span style="font-size:20px">📥</span>
@@ -6229,40 +6251,48 @@ function renderRecebiveis() {
       </div>
     </div>
     
-    <!-- Busca + info -->
+    ${(nOvElo + nOvReal) > 0 ? `
+    <div style="background:linear-gradient(135deg,#dbeafe 0%,#bfdbfe 100%);border-radius:12px;padding:12px 18px;margin-bottom:12px;border:1px solid #60a5fa;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:18px">✏️</span>
+        <div>
+          <div style="font-size:12px;font-weight:800;color:#1e40af">${nOvElo + nOvReal} ajuste${(nOvElo+nOvReal)>1?'s':''} manual${(nOvElo+nOvReal)>1?'is':''} ativo${(nOvElo+nOvReal)>1?'s':''}</div>
+          <div style="font-size:10.5px;color:#1e3a8a">${nOvElo} no valor Elo · ${nOvReal} no valor Realizado. Só valem no dashboard, não afetam Elo/Omie.</div>
+        </div>
+      </div>
+      <button onclick="if(confirm('Limpar TODOS os ajustes manuais (Elo e Realizado)?')){localStorage.removeItem('rec_ov_elo_v1');localStorage.removeItem('rec_ov_real_v1');window._recOvElo={};window._recOvReal={};renderRecebiveis();}" style="padding:6px 12px;background:transparent;color:#1e40af;border:1px solid #60a5fa;border-radius:6px;font-family:Poppins;font-weight:600;font-size:11px;cursor:pointer">Limpar ajustes</button>
+    </div>
+    ` : ''}
+    
     <div style="background:white;border-radius:12px;padding:14px 18px;margin-bottom:16px;border:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
       <div>
         <span style="font-size:13px;font-weight:800;color:#0f172a">${listaFiltrada.length} clientes</span>
-        <span style="font-size:11.5px;color:#64748b;margin-left:8px">${window._recMesFiltro==='todos' ? 'ano completo' : 'em ' + MONTH_NOMES[parseInt(window._recMesFiltro.slice(-2))-1]}</span>
+        <span style="font-size:11.5px;color:#64748b;margin-left:8px">${filtroMesAtivo ? 'em ' + nomeMesFiltro : 'ano completo'}</span>
       </div>
       <input type="text" id="_recBuscaInput" placeholder="🔍 Buscar por nome ou ID..." value="${_esc(window._recBusca)}" oninput="window._recBusca=this.value; renderRecebiveis(); const el=document.getElementById('_recBuscaInput'); if(el){el.focus(); el.setSelectionRange(el.value.length,el.value.length)}" style="padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;font-family:Poppins;font-size:12px;width:260px;outline:none"/>
     </div>
     
-    <!-- LEGENDA -->
     <div style="background:white;border-radius:12px;padding:12px 18px;margin-bottom:12px;border:1px solid #e2e8f0;display:flex;gap:20px;flex-wrap:wrap;align-items:center;font-size:11.5px">
-      <span style="color:#64748b;font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:0.5px">Status realizado:</span>
+      <span style="color:#64748b;font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:0.5px">Status:</span>
       ${Object.entries(STATUS_INFO).filter(([k]) => !['sem_regua'].includes(k)).map(([k, info]) => `<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:20px;height:20px;background:${info.bg};color:${info.cor};border-radius:5px;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:11px">${info.icon}</span><span style="color:#334155;font-weight:600">${info.label}</span></span>`).join('')}
-      <span style="color:#94a3b8;font-size:10.5px;margin-left:auto">💡 clique na setinha ▸ do mês para abrir a coluna "Realizado"</span>
+      <span style="color:#94a3b8;font-size:10.5px;margin-left:auto">💡 clique no valor para editar · botão direito no valor mostra o comentário</span>
     </div>
   `;
   
-  // === TABELA ===
   html += `<div style="background:white;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden">
     <div id="_recScrollTop" style="overflow-x:auto;overflow-y:hidden;height:16px;border-bottom:1px solid #e2e8f0"><div id="_recScrollTopInner" style="height:1px"></div></div>
-      <div id="_recScrollMain" style="overflow-x:auto" onscroll="const t=document.getElementById('_recScrollTop');if(t)t.scrollLeft=this.scrollLeft">
-      <table id="_recTable" style="width:100%;border-collapse:collapse;font-size:11.5px">
-        <thead>
-          <tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0">
-            <th style="padding:12px 14px;text-align:left;font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;position:sticky;left:0;background:#f8fafc;z-index:2;min-width:240px">Cliente</th>`;
+    <div id="_recScrollMain" style="overflow-x:auto" onscroll="const t=document.getElementById('_recScrollTop');if(t)t.scrollLeft=this.scrollLeft">
+    <table id="_recTable" style="width:100%;border-collapse:collapse;font-size:11.5px">
+      <thead>
+        <tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0">
+          <th style="padding:12px 14px;text-align:left;font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;position:sticky;left:0;background:#f8fafc;z-index:2;min-width:240px">Cliente</th>`;
   
-  // Colunas de meses (cada mês pode expandir para 2 sub-colunas)
   mesesExibidos.forEach((mes) => {
     const mesLbl = MONTH_LABELS[parseInt(mes.slice(-2)) - 1];
     const expandido = window._recExpandidos.has(mes);
     const temDados = (MENS[mes] || []).length > 0;
     
     if (expandido) {
-      // Duas sub-colunas: Elo | Realizado
       html += `<th colspan="2" onclick="if(window._recExpandidos.has('${mes}'))window._recExpandidos.delete('${mes}'); else window._recExpandidos.add('${mes}'); renderRecebiveis()" style="padding:10px 8px;text-align:center;font-size:11px;color:#0f172a;text-transform:uppercase;letter-spacing:0.5px;font-weight:800;cursor:pointer;user-select:none;background:#e0e7ff;border-left:2px solid #6366f1"><span style="font-size:10px;color:#64748b">▾</span> ${mesLbl}</th>`;
     } else {
       html += `<th onclick="if(window._recExpandidos.has('${mes}'))window._recExpandidos.delete('${mes}'); else window._recExpandidos.add('${mes}'); renderRecebiveis()" style="padding:10px 8px;text-align:center;font-size:11px;color:${temDados?'#0f172a':'#cbd5e1'};text-transform:uppercase;letter-spacing:0.5px;font-weight:800;cursor:pointer;user-select:none;background:#f8fafc;border-left:1px solid #e2e8f0;min-width:100px"><span style="font-size:10px;color:#64748b">▸</span> ${mesLbl}</th>`;
@@ -6270,7 +6300,6 @@ function renderRecebiveis() {
   });
   html += `</tr>`;
   
-  // Sub-header quando expandido (Elo / Realizado)
   const temExpansao = mesesExibidos.some(m => window._recExpandidos.has(m));
   if (temExpansao) {
     html += `<tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0">
@@ -6288,7 +6317,6 @@ function renderRecebiveis() {
   
   html += `</thead><tbody>`;
   
-  // === Linhas de clientes ===
   if (listaFiltrada.length === 0) {
     const totalCols = mesesExibidos.reduce((s, m) => s + (window._recExpandidos.has(m) ? 2 : 1), 1);
     html += `<tr><td colspan="${totalCols}" style="padding:40px;text-align:center;color:#94a3b8">Nenhum cliente encontrado</td></tr>`;
@@ -6307,24 +6335,37 @@ function renderRecebiveis() {
         const info = STATUS_INFO[s.status];
         const naRegua = mensaPorMes[mes][id] !== undefined;
         const mensaEsperada = naRegua ? mensaPorMes[mes][id].mensa : null;
+        const ovEloAqui = mensaPorMes[mes][id] && mensaPorMes[mes][id].override;
         
-        // Coluna Elo (sempre)
+        // ==== COLUNA ELO ====
+        const keyElo = id + '|' + mes;
+        const ttEloOrig = ovEloAqui ? `Original Elo: ${_fmtR(mensaPorMes[mes][id].mensaOrig)} · Ajustado: ${_fmtR(ovEloAqui.valor)}${ovEloAqui.comentario?' · '+ovEloAqui.comentario:''}` : (mensaEsperada!==null?`Elo: ${_fmtR(mensaEsperada)}`:'Sem régua no Elo');
+        const badgeEd = ovEloAqui ? '<span style="position:absolute;top:1px;right:2px;font-size:8px;color:#2563eb">✏</span>' : '';
+        const bordaOv = ovEloAqui ? 'box-shadow:inset 0 0 0 2px #3b82f6;' : '';
+        
+        const clickAttrs = `onclick="_recEditar('${id}','${mes}','elo')" oncontextmenu="event.preventDefault();_recMostrarComentario('${id}','${mes}','elo');return false;" title="${_esc(ttEloOrig)} · clique para editar" style="position:relative;cursor:pointer;padding:8px;text-align:right;`;
+        
         if (mensaEsperada === null) {
-          html += `<td style="padding:8px;text-align:right;color:#cbd5e1;background:#fafafa;border-left:${expandido?'2px solid #6366f1':'1px solid #e2e8f0'};font-size:11px">—</td>`;
+          html += `<td ${clickAttrs}color:#cbd5e1;background:#fafafa;border-left:${expandido?'2px solid #6366f1':'1px solid #e2e8f0'};font-size:11px;${bordaOv}">${badgeEd}—</td>`;
         } else if (mensaEsperada === 0) {
-          html += `<td style="padding:8px;text-align:right;color:#6366f1;background:#eef2ff;border-left:${expandido?'2px solid #6366f1':'1px solid #e2e8f0'};font-size:10.5px;font-weight:700" title="Isento">isento</td>`;
+          html += `<td ${clickAttrs}color:#6366f1;background:#eef2ff;border-left:${expandido?'2px solid #6366f1':'1px solid #e2e8f0'};font-size:10.5px;font-weight:700;${bordaOv}">${badgeEd}isento</td>`;
         } else {
-          html += `<td style="padding:8px;text-align:right;color:#334155;background:#fafafa;border-left:${expandido?'2px solid #6366f1':'1px solid #e2e8f0'};font-weight:600">${_fmtR(mensaEsperada)}</td>`;
+          html += `<td ${clickAttrs}color:#334155;background:#fafafa;border-left:${expandido?'2px solid #6366f1':'1px solid #e2e8f0'};font-weight:600;${bordaOv}">${badgeEd}${_fmtR(mensaEsperada)}</td>`;
         }
         
-        // Coluna Realizado (só quando expandido)
+        // ==== COLUNA REALIZADO (só quando expandido) ====
         if (expandido) {
           if (s.status === 'sem_regua') {
-            html += `<td style="padding:8px;text-align:center;background:#fafafa;color:#cbd5e1">—</td>`;
+            const clickR = `onclick="_recEditar('${id}','${mes}','realizado')" oncontextmenu="event.preventDefault();_recMostrarComentario('${id}','${mes}','realizado');return false;" title="Clique para lançar valor realizado"`;
+            html += `<td ${clickR} style="cursor:pointer;padding:8px;text-align:center;background:#fafafa;color:#cbd5e1">—</td>`;
           } else {
             const bgTd = info.bg + '55';
             const diff = s.recebido - s.esperado;
-            html += `<td style="padding:6px 8px;text-align:right;background:${bgTd}">
+            const ttReal = s.override ? `Manual: ${_fmtR(s.override.valor)}${s.override.comentario?' · '+s.override.comentario:''} · Original Omie: ${_fmtR(s.recebidoOrig)}` : `Realizado (Omie): ${_fmtR(s.recebido)}`;
+            const badgeR = s.override ? '<span style="position:absolute;top:1px;right:2px;font-size:8px;color:#2563eb">✏</span>' : '';
+            const bordaOvR = s.override ? 'box-shadow:inset 0 0 0 2px #3b82f6;' : '';
+            html += `<td onclick="_recEditar('${id}','${mes}','realizado')" oncontextmenu="event.preventDefault();_recMostrarComentario('${id}','${mes}','realizado');return false;" title="${_esc(ttReal)} · clique para editar" style="position:relative;cursor:pointer;padding:6px 8px;text-align:right;background:${bgTd};${bordaOvR}">
+              ${badgeR}
               <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
                 <span style="display:inline-flex;align-items:center;gap:4px;padding:2px 7px;background:${info.bg};color:${info.cor};border-radius:5px;font-size:9.5px;font-weight:800;line-height:1">
                   ${info.icon} ${info.label}
@@ -6341,7 +6382,6 @@ function renderRecebiveis() {
     });
   }
   
-  // === Rodapé: totais ===
   html += `<tfoot>
     <tr style="background:#f0fdf4;border-top:2px solid #10b981">
       <td style="padding:12px 14px;font-weight:800;color:#166534;text-align:left;position:sticky;left:0;background:#f0fdf4;border-right:1px solid #d1fae5">TOTAL (${listaFiltrada.length})</td>`;
@@ -6350,10 +6390,7 @@ function renderRecebiveis() {
     const expandido = window._recExpandidos.has(mes);
     const t = totaisMes[mes];
     const cnt = contadoresPorMes[mes];
-    
-    // Coluna Elo do rodapé
     html += `<td style="padding:8px;text-align:right;background:#f0fdf4;color:#166534;font-weight:800;border-left:${expandido?'2px solid #6366f1':'1px solid #d1fae5'};font-size:11px">${_fmtRs(t.esperado)}</td>`;
-    
     if (expandido) {
       html += `<td style="padding:8px;text-align:right;background:#dcfce7">
         <div style="font-size:11px;font-weight:800;color:#166534">${_fmtRs(t.recebido)}</div>
@@ -6369,19 +6406,21 @@ function renderRecebiveis() {
   html += `</tr></tfoot></table></div></div>
     
     <div style="margin-top:14px;padding:12px 16px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;font-size:11.5px;color:#1e40af;line-height:1.6">
-      💡 <strong>Como funciona</strong>: cada coluna de mês mostra a <strong>mensalidade do Elo</strong> daquele mês (que varia conforme o investimento do cliente na semana). 
-      Clique na <strong>setinha ▸</strong> do mês para abrir uma coluna "Realizado" com o valor efetivamente recebido no fluxo de caixa. 
-      <strong style="color:#166534">🟢 Pago</strong>: valor bate · 
-      <strong style="color:#92400e">🟡 Diferença</strong>: valor difere (mostra Δ) · 
-      <strong style="color:#991b1b">🔴 Inadimplente</strong>: sem recebimento · 
-      <strong style="color:#64748b">⚪ Pendente</strong>: mês futuro · 
-      <strong style="color:#4338ca">🔵 Isento</strong>: mensalidade zerada no Elo.
+      💡 <strong>Editar valores</strong>: clique em qualquer célula (Elo ou Realizado) para ajustar valor + comentário. 
+      Ajustes ficam com <strong style="color:#2563eb">✏ borda azul</strong> e não afetam Elo/Omie — só o dashboard. 
+      <strong>Botão direito</strong> mostra o comentário salvo.
+    </div>
+    
+    <!-- Modal de edição -->
+    <div id="_recModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.7);z-index:9999;align-items:center;justify-content:center" onclick="if(event.target===this)_recFecharModal()">
+      <div style="background:white;border-radius:16px;padding:28px;width:min(500px,90%);max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+        <div id="_recModalContent"></div>
+      </div>
     </div>
   </div>`;
   
   container.innerHTML = html;
   
-  // Sincronizar scrollbar top com a largura da tabela
   setTimeout(() => {
     const scMain = document.getElementById('_recScrollMain');
     const scTop = document.getElementById('_recScrollTop');
@@ -6394,14 +6433,13 @@ function renderRecebiveis() {
   }, 50);
 }
 
-// === FUNÇÕES AUXILIARES: EXCEL MANUAL ===
+// === FUNÇÕES AUXILIARES ===
+
 function _recDownloadModelo() {
   if (typeof XLSX === 'undefined') { alert('Biblioteca não carregou. Recarregue a página.'); return; }
-  // Cabeçalhos
   const rows = [
     ['ID Cliente', 'Nome Cliente', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho']
   ];
-  // Preencher com clientes conhecidos (a partir de julho, pra dar base ao usuário)
   const mens = window.MENSALIDADES_ELO || {};
   const clientesConhecidos = {};
   ['2026-07','2026-08','2026-09'].forEach(m => {
@@ -6409,47 +6447,29 @@ function _recDownloadModelo() {
       if (!clientesConhecidos[id]) clientesConhecidos[id] = nome;
     });
   });
-  // Ordenar por nome
   const ordenados = Object.entries(clientesConhecidos).sort((a,b) => a[1].localeCompare(b[1]));
-  ordenados.forEach(([id, nome]) => {
-    rows.push([id, nome, '', '', '', '', '', '']);
-  });
-  // Instruções (linha extra)
+  ordenados.forEach(([id, nome]) => rows.push([id, nome, '', '', '', '', '', '']));
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet(rows);
-  // Larguras
   ws['!cols'] = [{wch:10}, {wch:32}, {wch:12}, {wch:12}, {wch:12}, {wch:12}, {wch:12}, {wch:12}];
   XLSX.utils.book_append_sheet(wb, ws, 'Mensalidades');
-  
-  // Aba de instruções
   const inst = [
-    ['INSTRUÇÕES DE PREENCHIMENTO'],
-    [''],
+    ['INSTRUÇÕES DE PREENCHIMENTO'],[''],
     ['1. Preencha os valores de mensalidade de cada cliente em cada mês (Janeiro até Junho)'],
     ['2. Deixe em branco (ou 0) se o cliente não teve mensalidade naquele mês'],
     ['3. Você pode adicionar clientes novos no final da lista com ID + Nome'],
-    ['4. Salve o arquivo e faça upload no botão "Subir Excel preenchido"'],
-    [''],
-    ['CAMPOS:'],
-    ['• ID Cliente: número identificador único (mesmo do Elo/Omie)'],
-    ['• Nome Cliente: como aparece nas notas'],
-    ['• Janeiro a Junho: valor da mensalidade em reais (ex: 2000, 3000, 4500)'],
-    [''],
-    ['REGRAS:'],
-    ['• A partir de julho/2026, os dados vêm automáticos do Elo (não preencher)'],
-    ['• Isento: preencher 0'],
-    ['• Cliente sem régua no mês: deixar em branco']
+    ['4. Salve o arquivo e faça upload no botão "Subir Excel preenchido"'],[''],
+    ['CAMPOS:'],['• ID Cliente: número identificador único (mesmo do Elo/Omie)'],
+    ['• Nome Cliente: como aparece nas notas'],['• Janeiro a Junho: valor da mensalidade em reais']
   ];
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(inst), 'Instruções');
-  
   XLSX.writeFile(wb, 'modelo_mensalidades_jan_jun_2026.xlsx');
 }
 
 function _recUploadExcel(event) {
-  if (typeof XLSX === 'undefined') { alert('Biblioteca não carregou. Recarregue a página.'); return; }
+  if (typeof XLSX === 'undefined') { alert('Biblioteca não carregou.'); return; }
   const file = event.target.files[0];
   if (!file) return;
-  
   const reader = new FileReader();
   reader.onload = function(e) {
     try {
@@ -6457,60 +6477,204 @@ function _recUploadExcel(event) {
       const wb = XLSX.read(data, { type: 'array' });
       const ws = wb.Sheets['Mensalidades'] || wb.Sheets[wb.SheetNames[0]];
       if (!ws) { alert('Aba "Mensalidades" não encontrada.'); return; }
-      
       const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
       if (rows.length < 2) { alert('Planilha vazia.'); return; }
-      
-      // Mapear cabeçalhos → índice de mês
       const header = rows[0].map(h => String(h||'').toLowerCase().trim());
       const mesesMap = {
-        'janeiro': '2026-01', 'jan': '2026-01',
-        'fevereiro': '2026-02', 'fev': '2026-02',
-        'março': '2026-03', 'marco': '2026-03', 'mar': '2026-03',
-        'abril': '2026-04', 'abr': '2026-04',
-        'maio': '2026-05', 'mai': '2026-05',
-        'junho': '2026-06', 'jun': '2026-06'
+        'janeiro':'2026-01','jan':'2026-01','fevereiro':'2026-02','fev':'2026-02',
+        'março':'2026-03','marco':'2026-03','mar':'2026-03','abril':'2026-04','abr':'2026-04',
+        'maio':'2026-05','mai':'2026-05','junho':'2026-06','jun':'2026-06'
       };
-      const colMes = {}; // mes -> índice
-      header.forEach((h, i) => {
-        if (mesesMap[h]) colMes[mesesMap[h]] = i;
-      });
+      const colMes = {};
+      header.forEach((h, i) => { if (mesesMap[h]) colMes[mesesMap[h]] = i; });
       const colId = header.findIndex(h => h.includes('id'));
       const colNome = header.findIndex(h => h.includes('nome') || h.includes('cliente'));
       if (colId < 0 || colNome < 0) { alert('Colunas "ID" e "Nome" não encontradas.'); return; }
-      
-      // Construir estrutura por mês
-      const novo = { '2026-01': [], '2026-02': [], '2026-03': [], '2026-04': [], '2026-05': [], '2026-06': [] };
-      let contadorClientes = 0;
+      const novo = {'2026-01':[],'2026-02':[],'2026-03':[],'2026-04':[],'2026-05':[],'2026-06':[]};
+      let cnt = 0;
       for (let i = 1; i < rows.length; i++) {
         const row = rows[i];
         const id = String(row[colId] || '').trim();
         const nome = String(row[colNome] || '').trim();
         if (!id || !nome) continue;
-        contadorClientes++;
+        cnt++;
         Object.keys(novo).forEach(mes => {
           const idx = colMes[mes];
           if (idx === undefined) return;
           const raw = row[idx];
           const val = parseFloat(String(raw).replace(/[^\d,.-]/g, '').replace(',', '.'));
-          if (!isNaN(val) && val >= 0) {
-            novo[mes].push([id, nome, val]);
-          }
+          if (!isNaN(val) && val >= 0) novo[mes].push([id, nome, val]);
         });
       }
-      
-      // Salvar
       localStorage.setItem('mensalidades_manuais_v1', JSON.stringify(novo));
-      
-      const totalMeses = Object.values(novo).reduce((s, arr) => s + arr.length, 0);
-      alert(`✓ Sucesso!\n\n${contadorClientes} clientes lidos.\n${totalMeses} registros salvos (Jan-Jun).\n\nA página será recarregada.`);
+      const total = Object.values(novo).reduce((s, a) => s + a.length, 0);
+      alert(`✓ Sucesso! ${cnt} clientes lidos. ${total} registros salvos (Jan-Jun).`);
       location.reload();
-    } catch (err) {
-      alert('Erro ao ler Excel: ' + err.message);
-      console.error(err);
-    }
+    } catch (err) { alert('Erro: ' + err.message); }
   };
   reader.readAsArrayBuffer(file);
+}
+
+// === EDIÇÃO DE VALORES (Elo e Realizado) ===
+
+function _recEditar(id, mes, tipo) {
+  const MENS = window.MENSALIDADES_ELO || {};
+  const dc = (typeof RAW_DATA_CAIXA !== 'undefined' ? RAW_DATA_CAIXA : []) || [];
+  const MONTH_NOMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const nomeMes = MONTH_NOMES[parseInt(mes.slice(-2))-1] || mes;
+  
+  // Buscar cliente
+  let clienteNome = '';
+  Object.keys(MENS).forEach(m => {
+    (MENS[m] || []).forEach(([cid, cnome]) => {
+      if (cid === id) clienteNome = cnome;
+    });
+  });
+  
+  const key = id + '|' + mes;
+  
+  if (tipo === 'elo') {
+    // Valor atual Elo
+    const eloAtual = (MENS[mes] || []).find(x => x[0] === id);
+    const valorOrig = eloAtual ? eloAtual[2] : 0;
+    const ov = window._recOvElo[key] || {};
+    const valorAtual = ov.valor !== undefined ? ov.valor : valorOrig;
+    const coment = ov.comentario || '';
+    
+    document.getElementById('_recModalContent').innerHTML = `
+      <div style="margin-bottom:20px">
+        <div style="font-size:11px;color:#4338ca;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Editar Mensalidade Elo</div>
+        <div style="font-size:20px;font-weight:800;color:#0f172a">(${id}) ${clienteNome}</div>
+        <div style="font-size:13px;color:#64748b;margin-top:4px">${nomeMes} · Valor original Elo: <strong>R$ ${(valorOrig||0).toLocaleString('pt-BR', {minimumFractionDigits:2})}</strong></div>
+      </div>
+      <div style="margin-bottom:16px">
+        <label style="display:block;font-size:11px;font-weight:700;color:#334155;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px">Novo valor (R$)</label>
+        <input id="_recEdVal" type="number" step="0.01" value="${valorAtual}" style="width:100%;padding:12px 14px;border:2px solid #cbd5e1;border-radius:8px;font-family:Poppins;font-size:16px;font-weight:700;color:#0f172a;outline:none" autofocus/>
+      </div>
+      <div style="margin-bottom:20px">
+        <label style="display:block;font-size:11px;font-weight:700;color:#334155;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px">Comentário / Justificativa</label>
+        <textarea id="_recEdComent" rows="3" placeholder="Ex: Negociação com cliente, desconto autorizado..." style="width:100%;padding:12px 14px;border:2px solid #cbd5e1;border-radius:8px;font-family:Poppins;font-size:13px;color:#0f172a;outline:none;resize:vertical">${coment.replace(/</g,'&lt;')}</textarea>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
+        ${ov.valor !== undefined ? '<button onclick="_recRemoverOverride(\'' + key + '\',\'elo\')" style="padding:10px 16px;background:transparent;color:#dc2626;border:1px solid #dc2626;border-radius:8px;font-family:Poppins;font-weight:700;font-size:12px;cursor:pointer">🗑️ Remover ajuste</button>' : ''}
+        <button onclick="_recFecharModal()" style="padding:10px 16px;background:transparent;color:#64748b;border:1px solid #cbd5e1;border-radius:8px;font-family:Poppins;font-weight:700;font-size:12px;cursor:pointer">Cancelar</button>
+        <button onclick="_recSalvarOverride('${key}','elo',${valorOrig})" style="padding:10px 20px;background:#4338ca;color:white;border:none;border-radius:8px;font-family:Poppins;font-weight:700;font-size:12px;cursor:pointer">Salvar ajuste</button>
+      </div>
+    `;
+  } else {
+    // Realizado
+    const eloAtual = (MENS[mes] || []).find(x => x[0] === id);
+    const esperado = eloAtual ? eloAtual[2] : 0;
+    // Recebimento original (do Omie)
+    let recebidoOrig = 0;
+    dc.forEach(r => {
+      if (r.tipo !== '1. Contas a Receber') return;
+      if (r.conta !== 'Banco Inter' && r.conta !== 'Itaú Unibanco') return;
+      const cat = String(r.categoria || '');
+      if (!cat.includes('Mensalidades Clientes') && !cat.includes('Inadimplent')) return;
+      if (r.mesPagto !== mes) return;
+      const im = String(r.fornecedor || '').match(/^\s*\((\d+)\)/);
+      if (im && im[1] === id) recebidoOrig += Math.abs(r.valorPago || 0);
+    });
+    const ov = window._recOvReal[key] || {};
+    const valorAtual = ov.valor !== undefined ? ov.valor : recebidoOrig;
+    const statusAtual = ov.status || (recebidoOrig === 0 ? (mes > new Date().toISOString().slice(0,7) ? 'pendente' : 'inadimplente') : (Math.abs(recebidoOrig - esperado) < 0.01 ? 'pago' : 'diferenca'));
+    const coment = ov.comentario || '';
+    
+    document.getElementById('_recModalContent').innerHTML = `
+      <div style="margin-bottom:20px">
+        <div style="font-size:11px;color:#065f46;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Editar Realizado (Fluxo de Caixa)</div>
+        <div style="font-size:20px;font-weight:800;color:#0f172a">(${id}) ${clienteNome}</div>
+        <div style="font-size:13px;color:#64748b;margin-top:4px">${nomeMes} · Esperado Elo: <strong>R$ ${(esperado||0).toLocaleString('pt-BR', {minimumFractionDigits:2})}</strong> · Original Omie: <strong>R$ ${recebidoOrig.toLocaleString('pt-BR', {minimumFractionDigits:2})}</strong></div>
+      </div>
+      <div style="margin-bottom:16px">
+        <label style="display:block;font-size:11px;font-weight:700;color:#334155;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px">Valor recebido (R$)</label>
+        <input id="_recEdVal" type="number" step="0.01" value="${valorAtual}" style="width:100%;padding:12px 14px;border:2px solid #cbd5e1;border-radius:8px;font-family:Poppins;font-size:16px;font-weight:700;color:#0f172a;outline:none" autofocus/>
+      </div>
+      <div style="margin-bottom:16px">
+        <label style="display:block;font-size:11px;font-weight:700;color:#334155;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px">Status</label>
+        <select id="_recEdStatus" style="width:100%;padding:12px 14px;border:2px solid #cbd5e1;border-radius:8px;font-family:Poppins;font-size:13px;font-weight:600;color:#0f172a;outline:none;cursor:pointer">
+          <option value="pago" ${statusAtual==='pago'?'selected':''}>✓ Pago</option>
+          <option value="diferenca" ${statusAtual==='diferenca'?'selected':''}>△ Diferença</option>
+          <option value="inadimplente" ${statusAtual==='inadimplente'?'selected':''}>✗ Inadimplente</option>
+          <option value="pendente" ${statusAtual==='pendente'?'selected':''}>○ Pendente</option>
+          <option value="isento" ${statusAtual==='isento'?'selected':''}>i Isento</option>
+        </select>
+      </div>
+      <div style="margin-bottom:20px">
+        <label style="display:block;font-size:11px;font-weight:700;color:#334155;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px">Comentário / Justificativa</label>
+        <textarea id="_recEdComent" rows="3" placeholder="Ex: Cliente pagou por fora, acordo de parcelamento..." style="width:100%;padding:12px 14px;border:2px solid #cbd5e1;border-radius:8px;font-family:Poppins;font-size:13px;color:#0f172a;outline:none;resize:vertical">${coment.replace(/</g,'&lt;')}</textarea>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
+        ${ov.valor !== undefined ? '<button onclick="_recRemoverOverride(\'' + key + '\',\'realizado\')" style="padding:10px 16px;background:transparent;color:#dc2626;border:1px solid #dc2626;border-radius:8px;font-family:Poppins;font-weight:700;font-size:12px;cursor:pointer">🗑️ Remover ajuste</button>' : ''}
+        <button onclick="_recFecharModal()" style="padding:10px 16px;background:transparent;color:#64748b;border:1px solid #cbd5e1;border-radius:8px;font-family:Poppins;font-weight:700;font-size:12px;cursor:pointer">Cancelar</button>
+        <button onclick="_recSalvarOverride('${key}','realizado',${recebidoOrig})" style="padding:10px 20px;background:#065f46;color:white;border:none;border-radius:8px;font-family:Poppins;font-weight:700;font-size:12px;cursor:pointer">Salvar ajuste</button>
+      </div>
+    `;
+  }
+  
+  document.getElementById('_recModal').style.display = 'flex';
+}
+
+function _recSalvarOverride(key, tipo, valorOrig) {
+  const val = parseFloat(document.getElementById('_recEdVal').value);
+  const coment = document.getElementById('_recEdComent').value.trim();
+  if (isNaN(val)) { alert('Valor inválido.'); return; }
+  
+  const record = {
+    valor: val,
+    valor_original: valorOrig,
+    comentario: coment,
+    updated_at: new Date().toISOString()
+  };
+  
+  if (tipo === 'elo') {
+    window._recOvElo = window._recOvElo || {};
+    window._recOvElo[key] = record;
+    localStorage.setItem('rec_ov_elo_v1', JSON.stringify(window._recOvElo));
+  } else {
+    const status = document.getElementById('_recEdStatus').value;
+    record.status = status;
+    window._recOvReal = window._recOvReal || {};
+    window._recOvReal[key] = record;
+    localStorage.setItem('rec_ov_real_v1', JSON.stringify(window._recOvReal));
+  }
+  
+  _recFecharModal();
+  renderRecebiveis();
+}
+
+function _recRemoverOverride(key, tipo) {
+  if (!confirm('Remover este ajuste manual?')) return;
+  if (tipo === 'elo') {
+    delete window._recOvElo[key];
+    localStorage.setItem('rec_ov_elo_v1', JSON.stringify(window._recOvElo));
+  } else {
+    delete window._recOvReal[key];
+    localStorage.setItem('rec_ov_real_v1', JSON.stringify(window._recOvReal));
+  }
+  _recFecharModal();
+  renderRecebiveis();
+}
+
+function _recFecharModal() {
+  const m = document.getElementById('_recModal');
+  if (m) m.style.display = 'none';
+}
+
+function _recMostrarComentario(id, mes, tipo) {
+  const key = id + '|' + mes;
+  const store = tipo === 'elo' ? window._recOvElo : window._recOvReal;
+  const ov = store && store[key];
+  if (!ov || !ov.comentario) {
+    // Se não tem comentário, abre modo edição
+    _recEditar(id, mes, tipo);
+    return;
+  }
+  const MONTH_NOMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const nm = MONTH_NOMES[parseInt(mes.slice(-2))-1];
+  const dt = new Date(ov.updated_at).toLocaleString('pt-BR');
+  alert(`💬 COMENTÁRIO — ${tipo === 'elo' ? 'Elo' : 'Realizado'}\n\nCliente: (${id})\nMês: ${nm}\nValor ajustado: R$ ${ov.valor.toLocaleString('pt-BR', {minimumFractionDigits:2})}\nValor original: R$ ${(ov.valor_original||0).toLocaleString('pt-BR', {minimumFractionDigits:2})}\nAlterado em: ${dt}\n\nJustificativa:\n${ov.comentario}`);
 }
 
 
