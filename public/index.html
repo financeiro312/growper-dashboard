@@ -733,17 +733,23 @@ body.scalia-mode .company-badge {
     <div class="nav-label">Análise Financeira</div>
     <div class="nav-buttons">
       <button class="nav-btn active" data-section="main"><span class="nav-icon">📊</span><span>Principal</span></button>
-      <button class="nav-btn" data-section="card"><span class="nav-icon">💳</span><span>Cartão de Crédito</span></button>
       <button class="nav-btn" data-section="recebiveis"><span class="nav-icon">💰</span><span>Mensalidades</span></button>
+      <button class="nav-btn" data-section="card"><span class="nav-icon">💳</span><span>Cartão de Crédito</span></button>
       <button class="nav-btn" data-section="kits"><span class="nav-icon">🎁</span><span>Orçamento de Kits</span></button>
-      
-      <button class="nav-btn" data-section="kpis"><span class="nav-icon">📊</span><span>KPI's Financeiro</span></button>
     </div>
   </div>
   <div class="nav-section">
     <div class="nav-label">Departamento Pessoal</div>
     <div class="nav-buttons">
       <button class="nav-btn" data-section="rh"><span class="nav-icon">👥</span><span>RH</span></button>
+      <button class="nav-btn" data-section="estoque"><span class="nav-icon">📦</span><span>Estoque</span></button>
+    </div>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">Estratégico</div>
+    <div class="nav-buttons">
+      <button class="nav-btn" data-section="kpis"><span class="nav-icon">📊</span><span>KPI's Financeiro</span></button>
+      <button class="nav-btn" data-section="ma"><span class="nav-icon">💎</span><span>M&A / Investor Ready</span></button>
     </div>
   </div>
   <div class="nav-section">
@@ -756,24 +762,6 @@ body.scalia-mode .company-badge {
     <div class="nav-label">Contabilidade</div>
     <div class="nav-buttons">
       <button class="nav-btn" data-section="dre"><span class="nav-icon">📋</span><span>DRE</span></button>
-    </div>
-  </div>
-  <div class="nav-section">
-    <div class="nav-label">Financeiro</div>
-    <div class="nav-buttons">
-      <button class="nav-btn" data-section="financeiro"><span class="nav-icon">💼</span><span>Financeiro</span></button>
-    </div>
-  </div>
-  <div class="nav-section">
-    <div class="nav-label">Estratégico</div>
-    <div class="nav-buttons">
-      <button class="nav-btn" data-section="ma"><span class="nav-icon">💎</span><span>M&A / Investor Ready</span></button>
-    </div>
-  </div>
-  <div class="nav-section">
-    <div class="nav-label">Operacional</div>
-    <div class="nav-buttons">
-      <button class="nav-btn" data-section="estoque"><span class="nav-icon">📦</span><span>Estoque</span></button>
     </div>
   </div>
 </div>
@@ -3818,7 +3806,7 @@ function renderKPIs() {
   const _fmtPct = v => (v === null || v === undefined || isNaN(v)) ? '—' : v.toFixed(1) + '%';
   const _esc = s => String(s || '').replace(/[<>&"']/g, ch => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[ch]));
 
-  if (!window._kpiOpen) window._kpiOpen = { visao: true, efic: false, rec: false, bu: false, squads: false, trib: false, saude: false };
+  if (!window._kpiOpen) window._kpiOpen = { visao: true, efic: false, rec: false, bu: false, squads: false, trib: false, ticket: false, margemL: false, mrr: false, saude: false };
   
   // ============ Classificadores ============
   const isMensalidadeCliente = cat => String(cat || '').includes('Mensalidades Clientes');
@@ -4179,6 +4167,128 @@ function renderKPIs() {
     </div>
   `);
   
+  // ============ Ticket Médio (baseado em Mensalidades + Inadimpl + Taxa Impl) ============
+  const _tk_base = {}, _tk_qtd = {}, _tk_medio = {};
+  const _tk_cliMes = {};
+  MONTHS_ALL.forEach(m => { _tk_base[m] = 0; _tk_qtd[m] = 0; _tk_cliMes[m] = new Set(); });
+  data.forEach(r => {
+    if (r.tipo !== '1. Contas a Receber') return;
+    if (r.conta !== 'Banco Inter' && r.conta !== 'Itaú Unibanco') return;
+    const cat = String(r.categoria || '');
+    if (!cat.includes('Mensalidades Clientes') && !cat.includes('Inadimplent') && !cat.includes('Taxa de Implementação') && !cat.includes('Taxa Implementação')) return;
+    const mes = r.mesPagto;
+    if (!MONTHS_ALL.includes(mes)) return;
+    const v = Math.abs(r.valorPago || 0);
+    _tk_base[mes] += v;
+    const cli = String(r.fornecedor || '').trim();
+    if (cli) _tk_cliMes[mes].add(cli);
+  });
+  MONTHS_ALL.forEach(m => _tk_qtd[m] = _tk_cliMes[m].size);
+  MONTHS_ALL.forEach(m => _tk_medio[m] = _tk_qtd[m] > 0 ? _tk_base[m] / _tk_qtd[m] : null);
+  const _tk_totBase = MONTHS_ALL.reduce((s, m) => s + _tk_base[m], 0);
+  const _tk_cliUnicos = new Set();
+  MONTHS_ALL.forEach(m => _tk_cliMes[m].forEach(x => _tk_cliUnicos.add(x)));
+  const _tk_mesesAtivos = MONTHS_ALL.filter(m => _tk_qtd[m] > 0).length;
+  const _tk_qtdMedia = _tk_mesesAtivos > 0 ? MONTHS_ALL.filter(m => _tk_qtd[m] > 0).reduce((s,m)=>s+_tk_qtd[m],0) / _tk_mesesAtivos : 0;
+  const _tk_medioAno = _tk_qtdMedia > 0 ? (_tk_totBase / _tk_mesesAtivos) / _tk_qtdMedia : null;
+  
+  // ============ Margem detalhada (receita - despesa por mês) ============
+  const _mg_rec = {}, _mg_desp = {}, _mg_res = {}, _mg_margem = {};
+  MONTHS_ALL.forEach(m => { _mg_rec[m] = rec.total[m] || 0; _mg_desp[m] = desp.total[m] || 0; _mg_res[m] = _mg_rec[m] - _mg_desp[m]; _mg_margem[m] = _mg_rec[m] > 0 ? (_mg_res[m]/_mg_rec[m])*100 : null; });
+  const _mg_totRec = totRec, _mg_totDesp = totDesp, _mg_totRes = totRec - totDesp;
+  const _mg_totMargem = totMargem;
+  const _mg_sem = _mg_totMargem === null ? 'gray' : (_mg_totMargem >= 15 ? 'green' : (_mg_totMargem >= 5 ? 'yellow' : 'red'));
+  
+  // ============ MRR (só Mensalidades Clientes) ============
+  const _mrr = {};
+  MONTHS_ALL.forEach(m => _mrr[m] = rec.mens[m] || 0);
+  const _mrr_tot = MONTHS_ALL.reduce((s,m) => s + _mrr[m], 0);
+  
+  // ============ Ticket Médio — seção ============
+  html += acc('ticket', '🎫', 'Ticket Médio', 'Receita de mensalidades por cliente',
+    `<span style="font-size:14px;font-weight:800;color:#0f172a">${_tk_medioAno !== null ? _fmtR(_tk_medioAno) : '—'}</span>`);
+  html += accBody('ticket', `
+    <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:14px;margin-bottom:18px">
+      <div style="background:#ecfdf5;border-left:4px solid #10b981;border-radius:10px;padding:16px">
+        <div style="font-size:10.5px;color:#166534;text-transform:uppercase;letter-spacing:0.5px;font-weight:700">Base Total</div>
+        <div style="font-size:20px;font-weight:800;color:#0f172a;margin-top:4px">${_fmtR(_tk_totBase)}</div>
+        <div style="font-size:11px;color:#64748b;margin-top:2px">Mensalidades + Inadimplência + Taxa Impl.</div>
+      </div>
+      <div style="background:#eff6ff;border-left:4px solid #3b82f6;border-radius:10px;padding:16px">
+        <div style="font-size:10.5px;color:#1e40af;text-transform:uppercase;letter-spacing:0.5px;font-weight:700">Clientes Únicos</div>
+        <div style="font-size:20px;font-weight:800;color:#0f172a;margin-top:4px">${_tk_cliUnicos.size}</div>
+        <div style="font-size:11px;color:#64748b;margin-top:2px">No ano</div>
+      </div>
+      <div style="background:#f5f3ff;border-left:4px solid #8b5cf6;border-radius:10px;padding:16px">
+        <div style="font-size:10.5px;color:#5b21b6;text-transform:uppercase;letter-spacing:0.5px;font-weight:700">Ticket Médio</div>
+        <div style="font-size:22px;font-weight:800;color:#0f172a;margin-top:4px">${_tk_medioAno !== null ? _fmtR(_tk_medioAno) : '—'}</div>
+        <div style="font-size:11px;color:#64748b;margin-top:2px">Média mensal</div>
+      </div>
+    </div>
+    <div style="background:white;border:1px solid #e5e7eb;border-radius:10px;padding:16px">
+      <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:12px">Evolução mensal</div>
+      <div style="display:grid;grid-template-columns:200px repeat(12, 1fr);gap:2px;font-size:10px;color:#94a3b8;font-weight:700;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid #e5e7eb">
+        <div></div>
+        ${MONTH_LABELS.map(l => `<div style="text-align:right;padding:0 4px">${l}</div>`).join('')}
+      </div>
+      ${linhaEvoluto('Receita mensalidades', _tk_base, '#166534', _fmtRs)}
+      ${linhaEvoluto('Qtd clientes', _tk_qtd, '#1e40af', v => v || '—')}
+      ${linhaEvoluto('Ticket médio', _tk_medio, '#5b21b6', _fmtRs)}
+    </div>
+  `);
+  
+  // ============ Margem de Lucro — seção ============
+  html += acc('margemL', '📈', 'Margem de Lucro', 'Evolução da rentabilidade operacional',
+    `<span style="padding:5px 10px;background:${semBg[_mg_sem]};color:${semColor[_mg_sem]};border-radius:6px;font-size:12px;font-weight:800">${_fmtPct(_mg_totMargem)}</span>`);
+  html += accBody('margemL', `
+    <div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:14px;margin-bottom:18px">
+      <div style="background:#ecfdf5;border-left:4px solid #10b981;border-radius:10px;padding:16px">
+        <div style="font-size:10.5px;color:#166534;text-transform:uppercase;letter-spacing:0.5px;font-weight:700">Receita</div>
+        <div style="font-size:18px;font-weight:800;color:#0f172a;margin-top:4px">${_fmtR(_mg_totRec)}</div>
+      </div>
+      <div style="background:#fef2f2;border-left:4px solid #ef4444;border-radius:10px;padding:16px">
+        <div style="font-size:10.5px;color:#991b1b;text-transform:uppercase;letter-spacing:0.5px;font-weight:700">Despesas</div>
+        <div style="font-size:18px;font-weight:800;color:#0f172a;margin-top:4px">${_fmtR(_mg_totDesp)}</div>
+      </div>
+      <div style="background:#eff6ff;border-left:4px solid #3b82f6;border-radius:10px;padding:16px">
+        <div style="font-size:10.5px;color:#1e40af;text-transform:uppercase;letter-spacing:0.5px;font-weight:700">Resultado</div>
+        <div style="font-size:18px;font-weight:800;color:${_mg_totRes >= 0 ? '#166534' : '#991b1b'};margin-top:4px">${_fmtR(_mg_totRes)}</div>
+      </div>
+      <div style="background:${semBg[_mg_sem]};border-left:4px solid ${semColor[_mg_sem]};border-radius:10px;padding:16px">
+        <div style="font-size:10.5px;color:${semColor[_mg_sem]};text-transform:uppercase;letter-spacing:0.5px;font-weight:700">Margem</div>
+        <div style="font-size:22px;font-weight:800;color:${semColor[_mg_sem]};margin-top:4px">${_fmtPct(_mg_totMargem)}</div>
+      </div>
+    </div>
+    <div style="background:white;border:1px solid #e5e7eb;border-radius:10px;padding:16px">
+      <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:12px">Evolução mensal</div>
+      <div style="display:grid;grid-template-columns:200px repeat(12, 1fr);gap:2px;font-size:10px;color:#94a3b8;font-weight:700;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid #e5e7eb">
+        <div></div>
+        ${MONTH_LABELS.map(l => `<div style="text-align:right;padding:0 4px">${l}</div>`).join('')}
+      </div>
+      ${linhaEvoluto('Receita', _mg_rec, '#166534', _fmtRs)}
+      ${linhaEvoluto('Despesas', _mg_desp, '#991b1b', _fmtRs)}
+      ${linhaEvoluto('Resultado', _mg_res, '#1e40af', _fmtRs)}
+      ${linhaEvoluto('Margem %', _mg_margem, '#5b21b6', v => v === null ? '—' : v.toFixed(1)+'%')}
+    </div>
+  `);
+  
+  // ============ MRR / ARR — seção ============
+  html += acc('mrr', '🔁', 'MRR / ARR', 'Receita recorrente mensal (mensalidades)',
+    `<span style="font-size:12px;color:#166534;font-weight:800">${_fmtRs(_mrr_tot)}</span>`);
+  html += accBody('mrr', `
+    <div style="background:linear-gradient(135deg,#f0fdf4,white);border:1px solid #bbf7d0;border-radius:10px;padding:14px 18px;margin-bottom:16px;font-size:12px;color:#166534;line-height:1.5">
+      🚧 <strong>Em desenvolvimento:</strong> MRR (Monthly Recurring Revenue) e ARR (Annual Recurring Revenue) são indicadores chave para valuation de SaaS. Nesta versão inicial mostramos a receita de mensalidades mês a mês. Próximas versões terão MRR novo, MRR perdido, Net Revenue Retention e Churn %.
+    </div>
+    <div style="background:white;border:1px solid #e5e7eb;border-radius:10px;padding:16px">
+      <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:12px">Receita recorrente mensal (base)</div>
+      <div style="display:grid;grid-template-columns:200px repeat(12, 1fr);gap:2px;font-size:10px;color:#94a3b8;font-weight:700;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid #e5e7eb">
+        <div></div>
+        ${MONTH_LABELS.map(l => `<div style="text-align:right;padding:0 4px">${l}</div>`).join('')}
+      </div>
+      ${linhaEvoluto('MRR (Mensalidades)', _mrr, '#166534', _fmtRs)}
+    </div>
+  `);
+  
   // ============ 7. SAÚDE FINANCEIRA ============
   const alertas = [];
   if (pctCustoTime !== null && pctCustoTime > 30) alertas.push({ txt: 'Custo do Time acima de 30%', val: _fmtPct(pctCustoTime), cor: 'red' });
@@ -4407,6 +4517,9 @@ style="width:100%;max-width:110px;padding:4px 6px;${bordaNota};border-radius:4px
 
 
 function showSection(section) {
+  // Redirect financeiro → kpis (menu Financeiro foi integrado ao KPIs)
+  if (arguments[0] === 'financeiro') { arguments[0] = 'kpis'; }
+
   // Toggle selYear global: esconder no menu Recebíveis (tem próprio filtro de ano)
   try {
     const selY = document.getElementById('selYear');
@@ -5427,6 +5540,9 @@ function renderCard() {
   const MONTH_NAMES = ['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
   const MONTHS_ALL = ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'];
   const data = (currentView === 'caixa') ? RAW_DATA_CAIXA : RAW_DATA_COMP;
+  
+  // Formato contábil R$ 0.000,00 (usado em toda a tabela)
+  const _fmt = v => 'R$ ' + (Math.abs(v) || 0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
   const rows = data.filter(r => {
     if (r.conta !== 'Cartão 2130') return false;
     if (r.tipo !== '2. Contas a Pagar') return false;
@@ -5520,7 +5636,7 @@ function renderCard() {
       const v = dObj.totMes[m] || 0;
       const nDp = window._getNotaForn ? window._getNotaForn('carddept|'+dept, m) : '';
       const mkDp = nDp ? '<span style="color:#f59e0b;font-size:9px;margin-right:2px">●</span>' : '';
-      html += `<td oncontextmenu="event.preventDefault(); window._abrirNotaForn('carddept|${dept.replace(/'/g,"\\'")}','${m}','R$ '+'${_fmt(v)}'); return false;" title="${nDp ? '📝 ' + nDp.replace(/"/g,'&quot;') : 'Clique direito para nota'}" style="text-align:right;padding:12px 8px;background:#fef2f2;color:#991b1b;font-weight:800;cursor:context-menu" class="value-neg">${mkDp}${v === 0 ? '—' : _fmt(v)}</td>`;
+      html += `<td oncontextmenu="event.preventDefault(); window._abrirNotaForn('carddept|${dept.replace(/'/g,"\\'")}','${m}','${_fmt(v)}'); return false;" title="${nDp ? '📝 ' + nDp.replace(/"/g,'&quot;') : 'Clique direito para nota'}" style="text-align:right;padding:12px 8px;background:#fef2f2;color:#991b1b;font-weight:800;cursor:context-menu" class="value-neg">${mkDp}${v === 0 ? '—' : _fmt(v)}</td>`;
     });
     html += `<td style="text-align:right;padding:12px 12px;background:#fef2f2;color:#991b1b;font-weight:800" class="value-neg">${_fmt(totDept)}</td></tr>`;
     
@@ -5535,7 +5651,7 @@ function renderCard() {
         const v = catObj.totMes[m] || 0;
         const nCc = window._getNotaForn ? window._getNotaForn('cardcat|'+dept+'|'+cat, m) : '';
         const mkCc = nCc ? '<span style="color:#f59e0b;font-size:9px;margin-right:2px">●</span>' : '';
-        html += `<td oncontextmenu="event.preventDefault(); window._abrirNotaForn('cardcat|${dept.replace(/'/g,"\\'")}|${cat.replace(/'/g,"\\'")}','${m}','R$ '+'${_fmt(v)}'); return false;" title="${nCc ? '📝 ' + nCc.replace(/"/g,'&quot;') : 'Clique direito para nota'}" style="text-align:right;padding:8px;font-size:11.5px;cursor:context-menu" class="${v === 0 ? 'value-zero' : 'value-neg'}">${mkCc}${v === 0 ? '—' : _fmt(v)}</td>`;
+        html += `<td oncontextmenu="event.preventDefault(); window._abrirNotaForn('cardcat|${dept.replace(/'/g,"\\'")}|${cat.replace(/'/g,"\\'")}','${m}','${_fmt(v)}'); return false;" title="${nCc ? '📝 ' + nCc.replace(/"/g,'&quot;') : 'Clique direito para nota'}" style="text-align:right;padding:8px;font-size:11.5px;cursor:context-menu" class="${v === 0 ? 'value-zero' : 'value-neg'}">${mkCc}${v === 0 ? '—' : _fmt(v)}</td>`;
       });
       html += `<td style="text-align:right;padding:8px 12px;font-weight:700" class="value-neg">${_fmt(totCat)}</td></tr>`;
       
@@ -5548,7 +5664,7 @@ function renderCard() {
           const v = fObj.totMes[m] || 0;
           const nFc = window._getNotaForn ? window._getNotaForn(forn, m) : '';
           const mkFc = nFc ? '<span style="color:#f59e0b;font-size:9px;margin-right:2px">●</span>' : '';
-          html += `<td oncontextmenu="event.preventDefault(); window._abrirNotaForn('${forn.replace(/'/g,"\\'")}','${m}','R$ '+'${_fmt(v)}'); return false;" title="${nFc ? '📝 ' + nFc.replace(/"/g,'&quot;') : 'Clique direito para nota'}" style="text-align:right;padding:6px;font-size:11px;cursor:context-menu" class="${v === 0 ? 'value-zero' : 'value-neg'}">${mkFc}${v === 0 ? '—' : _fmt(v)}</td>`;
+          html += `<td oncontextmenu="event.preventDefault(); window._abrirNotaForn('${forn.replace(/'/g,"\\'")}','${m}','${_fmt(v)}'); return false;" title="${nFc ? '📝 ' + nFc.replace(/"/g,'&quot;') : 'Clique direito para nota'}" style="text-align:right;padding:6px;font-size:11px;cursor:context-menu" class="${v === 0 ? 'value-zero' : 'value-neg'}">${mkFc}${v === 0 ? '—' : _fmt(v)}</td>`;
         });
         html += `<td style="text-align:right;padding:6px 12px;font-weight:600;font-size:11px" class="value-neg">${_fmt(totF)}</td></tr>`;
       });
@@ -9557,7 +9673,7 @@ if (document.readyState === 'loading') {
       </td>`;
       MONTHS.forEach(m => {
         const v = totRecMes[m] || 0;
-        {const notaRec = window._getNotaForn ? window._getNotaForn('total|receitas_op', m) : ''; const markRec = notaRec ? '<span style="color:#f59e0b;font-size:9px;margin-right:2px">●</span>' : ''; hCells += `<td oncontextmenu="event.preventDefault(); window._abrirNotaForn('total|receitas_op','${m}','R$ '+'${_fmt(v)}'); return false;" title="${notaRec ? '📝 ' + notaRec.replace(/"/g,'&quot;') : 'Clique direito para nota'}" style="text-align:right;padding:12px 8px;background:#f0fdf4;color:#166534;font-weight:800;cursor:context-menu" class="value-pos">${markRec}${v === 0 ? '—' : _fmt(v)}</td>`;}
+        {const notaRec = window._getNotaForn ? window._getNotaForn('total|receitas_op', m) : ''; const markRec = notaRec ? '<span style="color:#f59e0b;font-size:9px;margin-right:2px">●</span>' : ''; hCells += `<td oncontextmenu="event.preventDefault(); window._abrirNotaForn('total|receitas_op','${m}','${_fmt(v)}'); return false;" title="${notaRec ? '📝 ' + notaRec.replace(/"/g,'&quot;') : 'Clique direito para nota'}" style="text-align:right;padding:12px 8px;background:#f0fdf4;color:#166534;font-weight:800;cursor:context-menu" class="value-pos">${markRec}${v === 0 ? '—' : _fmt(v)}</td>`;}
         if (projetadoVisible[m]) {
           // Soma projetados de TODAS categorias de receita
           let pvSoma = 0;
@@ -9599,7 +9715,7 @@ if (document.readyState === 'loading') {
           </td>`;
           MONTHS.forEach(m => {
             const v = sgTotMes[m] || 0;
-            {const notaSg = window._getNotaForn ? window._getNotaForn('sg|'+sgName, m) : ''; const markSg = notaSg ? '<span style="color:#f59e0b;font-size:9px;margin-right:2px">●</span>' : ''; sgCells += `<td oncontextmenu="event.preventDefault(); window._abrirNotaForn('sg|${sgName.replace(/'/g,"\\'")}','${m}','R$ '+'${_fmt(v)}'); return false;" title="${notaSg ? '📝 ' + notaSg.replace(/"/g,'&quot;') : 'Clique direito para nota'}" style="text-align:right;padding:10px 8px;background:#ecfdf5;color:#065f46;font-weight:700;cursor:context-menu" class="value-pos">${markSg}${v === 0 ? '—' : _fmt(v)}</td>`;}
+            {const notaSg = window._getNotaForn ? window._getNotaForn('sg|'+sgName, m) : ''; const markSg = notaSg ? '<span style="color:#f59e0b;font-size:9px;margin-right:2px">●</span>' : ''; sgCells += `<td oncontextmenu="event.preventDefault(); window._abrirNotaForn('sg|${sgName.replace(/'/g,"\\'")}','${m}','${_fmt(v)}'); return false;" title="${notaSg ? '📝 ' + notaSg.replace(/"/g,'&quot;') : 'Clique direito para nota'}" style="text-align:right;padding:10px 8px;background:#ecfdf5;color:#065f46;font-weight:700;cursor:context-menu" class="value-pos">${markSg}${v === 0 ? '—' : _fmt(v)}</td>`;}
             if (projetadoVisible[m]) {
               let pvSoma = 0;
               [...sgMap.keys()].forEach(cat => pvSoma += getProjetado('cat_rec|'+cat, m));
@@ -9638,7 +9754,7 @@ if (document.readyState === 'loading') {
             if (v > 0) {
               const ck = key + '_' + m;
               _drillCache[ck] = { titulo: cat, subtitulo: MONTH_NAMES[parseInt(m.split('-')[1],10)-1], items: g.items.filter(it => it.mes === m) };
-              {const notaCr = window._getNotaForn ? window._getNotaForn('catrec|'+cat, m) : ''; const markCr = notaCr ? '<span style="color:#f59e0b;font-size:9px;margin-right:2px">●</span>' : ''; cells += `<td onclick="_showLancamentos('${ck}')" oncontextmenu="event.preventDefault(); window._abrirNotaForn('catrec|${cat.replace(/'/g,"\\'")}','${m}','R$ '+'${_fmt(v)}'); return false;" title="${notaCr ? '📝 ' + notaCr.replace(/"/g,'&quot;') : 'Clique direito para nota'}" style="text-align:right;padding:8px;cursor:pointer;font-size:11.5px" class="value-pos">${markCr}${_fmt(v)}</td>`;}
+              {const notaCr = window._getNotaForn ? window._getNotaForn('catrec|'+cat, m) : ''; const markCr = notaCr ? '<span style="color:#f59e0b;font-size:9px;margin-right:2px">●</span>' : ''; cells += `<td onclick="_showLancamentos('${ck}')" oncontextmenu="event.preventDefault(); window._abrirNotaForn('catrec|${cat.replace(/'/g,"\\'")}','${m}','${_fmt(v)}'); return false;" title="${notaCr ? '📝 ' + notaCr.replace(/"/g,'&quot;') : 'Clique direito para nota'}" style="text-align:right;padding:8px;cursor:pointer;font-size:11.5px" class="value-pos">${markCr}${_fmt(v)}</td>`;}
             } else {
               cells += `<td style="text-align:right;padding:8px;font-size:11.5px" class="value-zero">—</td>`;
             }
@@ -9709,7 +9825,7 @@ if (document.readyState === 'loading') {
       </td>`;
     MONTHS.forEach(m => {
       const v = (totDespMes[m] || 0) + (_cartaoIncluir ? (totCartaoMes[m] || 0) : 0);
-      {const notaD = window._getNotaForn ? window._getNotaForn('total|despesas_op', m) : ''; const markD = notaD ? '<span style="color:#f59e0b;font-size:9px;margin-right:2px">●</span>' : ''; dhCells += `<td oncontextmenu="event.preventDefault(); window._abrirNotaForn('total|despesas_op','${m}','R$ '+'${_fmt(v)}'); return false;" title="${notaD ? '📝 ' + notaD.replace(/"/g,'&quot;') : 'Clique direito para nota'}" style="text-align:right;padding:12px 8px;background:#fef2f2;color:#991b1b;font-weight:800;cursor:context-menu" class="value-neg">${markD}${v === 0 ? '—' : _fmt(v)}</td>`;}
+      {const notaD = window._getNotaForn ? window._getNotaForn('total|despesas_op', m) : ''; const markD = notaD ? '<span style="color:#f59e0b;font-size:9px;margin-right:2px">●</span>' : ''; dhCells += `<td oncontextmenu="event.preventDefault(); window._abrirNotaForn('total|despesas_op','${m}','${_fmt(v)}'); return false;" title="${notaD ? '📝 ' + notaD.replace(/"/g,'&quot;') : 'Clique direito para nota'}" style="text-align:right;padding:12px 8px;background:#fef2f2;color:#991b1b;font-weight:800;cursor:context-menu" class="value-neg">${markD}${v === 0 ? '—' : _fmt(v)}</td>`;}
       if (projetadoVisible[m]) {
         // Soma projetados de TODAS categorias de despesa em todos os grupos
         let pvSoma = 0;
@@ -9738,7 +9854,7 @@ if (document.readyState === 'loading') {
       </td>`;
       MONTHS.forEach(m => {
         const v = totGrupoMes[grupo][m] || 0;
-        {const notaGrp = window._getNotaForn ? window._getNotaForn('grupo|'+grupo, m) : ''; const markGrp = notaGrp ? '<span style="color:#f59e0b;font-size:9px;margin-right:2px">●</span>' : ''; sgCells += `<td oncontextmenu="event.preventDefault(); window._abrirNotaForn('grupo|${grupo.replace(/'/g,"\\'")}','${m}','R$ '+'${_fmt(v)}'); return false;" title="${notaGrp ? '📝 ' + notaGrp.replace(/"/g,'&quot;') : 'Clique direito para nota'}" style="text-align:right;padding:10px 8px;background:#fef7f7;color:#7f1d1d;font-weight:700;cursor:context-menu" class="value-neg">${markGrp}${v === 0 ? '—' : _fmt(v)}</td>`;}
+        {const notaGrp = window._getNotaForn ? window._getNotaForn('grupo|'+grupo, m) : ''; const markGrp = notaGrp ? '<span style="color:#f59e0b;font-size:9px;margin-right:2px">●</span>' : ''; sgCells += `<td oncontextmenu="event.preventDefault(); window._abrirNotaForn('grupo|${grupo.replace(/'/g,"\\'")}','${m}','${_fmt(v)}'); return false;" title="${notaGrp ? '📝 ' + notaGrp.replace(/"/g,'&quot;') : 'Clique direito para nota'}" style="text-align:right;padding:10px 8px;background:#fef7f7;color:#7f1d1d;font-weight:700;cursor:context-menu" class="value-neg">${markGrp}${v === 0 ? '—' : _fmt(v)}</td>`;}
         if (projetadoVisible[m]) {
           let pvSoma = 0;
           const catsGrp = despesasPorGrupo.get(grupo);
@@ -9781,7 +9897,7 @@ if (document.readyState === 'loading') {
               _drillCache[ck] = { titulo: cat, subtitulo: MONTH_NAMES[parseInt(m.split('-')[1],10)-1] + ' • ' + grupo, items: g.items.filter(it => it.mes === m) };
               const notaCat = window._getNotaForn ? window._getNotaForn('cat|'+cat, m) : '';
               const markCat = notaCat ? '<span style="color:#f59e0b;font-size:9px;margin-right:2px" title="' + notaCat.replace(/"/g,'&quot;').slice(0,120) + '">●</span>' : '';
-              cells += `<td onclick="_showLancamentos('${ck}')" oncontextmenu="event.preventDefault(); window._abrirNotaForn('cat|${cat.replace(/'/g,"\\'")}','${m}','R$ '+'${_fmt(v)}'); return false;" style="text-align:right;padding:8px;cursor:pointer;font-size:11.5px" class="value-neg" title="Clique direito para nota">${markCat}${_fmt(v)}</td>`;
+              cells += `<td onclick="_showLancamentos('${ck}')" oncontextmenu="event.preventDefault(); window._abrirNotaForn('cat|${cat.replace(/'/g,"\\'")}','${m}','${_fmt(v)}'); return false;" style="text-align:right;padding:8px;cursor:pointer;font-size:11.5px" class="value-neg" title="Clique direito para nota">${markCat}${_fmt(v)}</td>`;
             } else {
               cells += `<td style="text-align:right;padding:8px;font-size:11.5px" class="value-zero">—</td>`;
             }
@@ -9815,7 +9931,7 @@ if (document.readyState === 'loading') {
                   _drillCache[fck] = { titulo: fName, subtitulo: MONTH_NAMES[parseInt(m.split('-')[1],10)-1] + ' • ' + cat, items: fG.items.filter(it => it.mes === m) };
                   const nota = window._getNotaForn ? window._getNotaForn(fName, m) : '';
                   const notaMark = nota ? '<span style="color:#f59e0b;font-size:9px;margin-right:2px" title="' + nota.replace(/"/g,'&quot;').slice(0,120) + '">●</span>' : '';
-                  fCells += `<td onclick="_showLancamentos('${fck}')" oncontextmenu="event.preventDefault(); window._abrirNotaForn('${fName.replace(/'/g,"\\'")}','${m}','R$ '+'${_fmt(v)}'); return false;" style="text-align:right;padding:6px;cursor:pointer;font-size:11px" class="value-neg" title="Clique direito para nota">${notaMark}${_fmt(v)}</td>`;
+                  fCells += `<td onclick="_showLancamentos('${fck}')" oncontextmenu="event.preventDefault(); window._abrirNotaForn('${fName.replace(/'/g,"\\'")}','${m}','${_fmt(v)}'); return false;" style="text-align:right;padding:6px;cursor:pointer;font-size:11px" class="value-neg" title="Clique direito para nota">${notaMark}${_fmt(v)}</td>`;
                 } else {
                   fCells += `<td style="text-align:right;padding:6px;font-size:11px" class="value-zero">—</td>`;
                 }
