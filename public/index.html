@@ -4337,7 +4337,11 @@ function renderRH() {
       const v = _getRHValor(p, m);
       const nota = window._getNotaForn ? window._getNotaForn(p, m) : '';
       const bordaNota = nota ? 'border:2px solid #f59e0b;background:#fffef0' : 'border:1px solid #d1d5db;background:white';
-      html += `<td style="padding:4px 6px" oncontextmenu="event.preventDefault(); window._abrirNotaForn('${p.replace(/'/g, "\\'")}','${m}','R$ '+(this.querySelector('input').value||'0')); return false;" title="${nota ? 'Nota: ' + nota.replace(/"/g,'&quot;').slice(0,120) : 'Clique direito para nota'}"><input type="number" step="0.01" value="${v || ''}" onchange="_setRHValor('${p.replace(/'/g, "\\'")}','${m}',parseFloat(this.value)||0); renderRH();" placeholder="—" style="width:100%;max-width:100px;padding:4px 6px;${bordaNota};border-radius:4px;font-family:Poppins;font-size:11.5px;text-align:right;outline:none;box-sizing:border-box"/></td>`;
+      html += `<td style="padding:4px 6px" oncontextmenu="event.preventDefault(); window._abrirNotaForn('${p.replace(/'/g, "\\'")}','${m}','R$ '+(this.querySelector('input').value||'0')); return false;" title="${nota ? 'Nota: ' + nota.replace(/"/g,'&quot;').slice(0,120) : 'Clique direito para nota'}"><input type="text" value="${v ? 'R$ ' + v.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}) : ''}" 
+onfocus="this.value = this.value.replace(/[^0-9,.-]/g, '').replace(/\./g, '').replace(',', '.')" 
+onblur="const n = parseFloat(this.value.replace(/[^0-9.,-]/g, '').replace(/\./g, '').replace(',', '.')) || 0; _setRHValor('${p.replace(/'/g, "\\'")}','${m}', n); this.value = n > 0 ? 'R$ ' + n.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}) : ''; renderRH();" 
+placeholder="—" 
+style="width:100%;max-width:110px;padding:4px 6px;${bordaNota};border-radius:4px;font-family:Poppins;font-size:11.5px;text-align:right;outline:none;box-sizing:border-box"/></td>`;
     });
     if (showAll) {
       html += `<td style="text-align:right;padding:8px 12px;font-weight:700;background:#f3f4f6;font-size:12px">${totAno === 0 ? '—' : 'R$ ' + _fmtLocal(totAno)}</td>`;
