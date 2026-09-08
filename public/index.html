@@ -5996,29 +5996,16 @@ function renderRecebiveis() {
   const container = document.getElementById('recebiveisContent');
   if (!container) return;
   
-  const clientesElo = window.CLIENTES_ELO || [];
+  const MENS = window.MENSALIDADES_ELO || {};
   const dataCaixa = (typeof RAW_DATA_CAIXA !== 'undefined' ? RAW_DATA_CAIXA : []) || [];
   
   const _fmtR = v => (v === null || v === undefined || isNaN(v) || v === 0) ? '—' : 'R$ ' + Math.abs(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
   const _fmtRs = v => (v === null || v === undefined || isNaN(v)) ? '—' : 'R$ ' + Math.abs(v).toLocaleString('pt-BR', {minimumFractionDigits:0, maximumFractionDigits:0});
   const _esc = s => String(s || '').replace(/[<>&"']/g, ch => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[ch]));
   
-  const FAIXAS = {
-    1500: 'Basic',
-    2000: 'Starter',
-    3000: 'Plus',
-    4500: 'Premium',
-    5500: 'Master',
-    6500: 'Business'
-  };
-  const CORES_FAIXAS = {
-    Basic: '#94a3b8', Starter: '#3b82f6', Plus: '#10b981',
-    Premium: '#f59e0b', Master: '#8b5cf6', Business: '#ec4899'
-  };
-  
   // Estado
   if (!window._recAno) window._recAno = '2026';
-  if (!window._recMesFiltro) window._recMesFiltro = 'todos'; // 'todos' ou '2026-XX'
+  if (!window._recMesFiltro) window._recMesFiltro = 'todos';
   if (!window._recBusca) window._recBusca = '';
   if (!window._recExpandidos) window._recExpandidos = new Set(); // meses expandidos
   
@@ -6027,25 +6014,43 @@ function renderRecebiveis() {
   const MONTH_NOMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
   const MONTHS = MONTH_LABELS.map((_, i) => ANO + '-' + String(i+1).padStart(2,'0'));
   
-  // Mês atual (para inadimplente vs pendente)
+  // Mês atual
   const hoje = new Date();
   const mesAtual = hoje.toISOString().slice(0, 7);
+  const anoAtual = String(hoje.getFullYear());
   
-  // Anos disponíveis: extrair de RAW_DATA_CAIXA + garantir ano atual
+  // Anos disponíveis: MENSALIDADES_ELO + RAW_DATA_CAIXA + ano atual
   const anosSet = new Set();
-  dataCaixa.forEach(r => {
-    if (r.mesPagto) anosSet.add(r.mesPagto.slice(0,4));
-  });
-  anosSet.add(String(hoje.getFullYear()));
-  anosSet.add('2026');
+  Object.keys(MENS).forEach(k => anosSet.add(k.slice(0,4)));
+  dataCaixa.forEach(r => { if (r.mesPagto) anosSet.add(r.mesPagto.slice(0,4)); });
+  anosSet.add(anoAtual);
   const anosDisponiveis = Array.from(anosSet).sort();
   
-  // Meses que vamos exibir (filtro de mês)
+  // Meses exibidos
   const mesesExibidos = window._recMesFiltro === 'todos' ? MONTHS : [window._recMesFiltro];
   
-  // === Construir mapa de recebimentos por cliente ID / mês ===
-  // Chave: mensalidadesPorId[idCliente][mes] = { valor, conciliado }
-  const mensalidadesPorId = {};
+  // === Mapa de mensalidade Elo por cliente/mês: mensa[mes][id] = { nome, mensa } ===
+  const mensaPorMes = {};
+  MONTHS.forEach(m => {
+    mensaPorMes[m] = {};
+    const lista = MENS[m] || [];
+    lista.forEach(([id, nome, mensa]) => {
+      mensaPorMes[m][id] = { nome, mensa };
+    });
+  });
+  
+  // === União de todos os clientes (id -> nome mais recente) ===
+  const clientesGlobais = {}; // id -> nome
+  MONTHS.forEach(m => {
+    const lista = MENS[m] || [];
+    lista.forEach(([id, nome, _]) => {
+      clientesGlobais[id] = nome; // nome do mês mais recente sobrescreve
+    });
+  });
+  
+  // === Mapa de recebimentos (fluxo de caixa) por cliente/mês ===
+  // recebPorId[id][mes] = { valor, conciliado }
+  const recebPorId = {};
   dataCaixa.forEach(r => {
     if (r.tipo !== '1. Contas a Receber') return;
     if (r.conta !== 'Banco Inter' && r.conta !== 'Itaú Unibanco') return;
@@ -6053,78 +6058,99 @@ function renderRecebiveis() {
     if (!cat.includes('Mensalidades Clientes') && !cat.includes('Inadimplent')) return;
     const mes = r.mesPagto;
     if (!MONTHS.includes(mes)) return;
-    // Extrair ID do fornecedor "(23) Nome" ou "(1) Avanti"
     const fornStr = String(r.fornecedor || '');
     const idMatch = fornStr.match(/^\s*\((\d+)\)/);
     if (!idMatch) return;
     const id = idMatch[1];
-    if (!mensalidadesPorId[id]) mensalidadesPorId[id] = {};
-    if (!mensalidadesPorId[id][mes]) mensalidadesPorId[id][mes] = { valor: 0, conciliado: true };
-    mensalidadesPorId[id][mes].valor += Math.abs(r.valorPago || 0);
-    // Se algum não conciliado, marca como não conciliado
+    if (!recebPorId[id]) recebPorId[id] = {};
+    if (!recebPorId[id][mes]) recebPorId[id][mes] = { valor: 0, conciliado: true };
+    recebPorId[id][mes].valor += Math.abs(r.valorPago || 0);
     if (r.conciliado === false || r.conciliado === 'Não' || r.conciliado === 'N') {
-      mensalidadesPorId[id][mes].conciliado = false;
+      recebPorId[id][mes].conciliado = false;
     }
   });
   
-  // === Calcular status por cliente/mês ===
-  // Status: 'pago' | 'diferenca' | 'inadimplente' | 'pendente'
-  function statusMes(idCliente, mes, mensalidadeEsperada) {
-    const rec = mensalidadesPorId[idCliente] && mensalidadesPorId[idCliente][mes];
+  // === Status por cliente/mês ===
+  // Retorna: { status, recebido, esperado }
+  function statusMes(id, mes) {
+    const esperada = mensaPorMes[mes][id] ? mensaPorMes[mes][id].mensa : null;
+    const rec = recebPorId[id] && recebPorId[id][mes];
     const mesFuturo = mes > mesAtual;
     
-    if (!rec) {
-      return mesFuturo ? { status: 'pendente', valor: 0 } : { status: 'inadimplente', valor: 0 };
+    if (esperada === null || esperada === undefined) {
+      // Cliente não estava na régua do Elo neste mês
+      if (rec && rec.valor > 0) return { status: 'diferenca', recebido: rec.valor, esperado: 0 };
+      return { status: 'sem_regua', recebido: 0, esperado: 0 };
     }
     
-    const diff = Math.abs(rec.valor - mensalidadeEsperada);
+    if (esperada === 0) {
+      // Isento
+      return { status: 'isento', recebido: rec ? rec.valor : 0, esperado: 0 };
+    }
+    
+    if (!rec || rec.valor === 0) {
+      return mesFuturo 
+        ? { status: 'pendente', recebido: 0, esperado: esperada }
+        : { status: 'inadimplente', recebido: 0, esperado: esperada };
+    }
+    
+    const diff = Math.abs(rec.valor - esperada);
     if (diff < 0.01) {
-      return { status: 'pago', valor: rec.valor };
+      return { status: 'pago', recebido: rec.valor, esperado: esperada };
     } else {
-      return { status: 'diferenca', valor: rec.valor, esperado: mensalidadeEsperada };
+      return { status: 'diferenca', recebido: rec.valor, esperado: esperada };
     }
   }
   
   const STATUS_INFO = {
-    pago: { cor: '#10b981', bg: '#d1fae5', icon: '✓', label: 'Pago' },
-    diferenca: { cor: '#f59e0b', bg: '#fef3c7', icon: '△', label: 'Diferença' },
+    pago:         { cor: '#10b981', bg: '#d1fae5', icon: '✓', label: 'Pago' },
+    diferenca:    { cor: '#f59e0b', bg: '#fef3c7', icon: '△', label: 'Diferença' },
     inadimplente: { cor: '#ef4444', bg: '#fee2e2', icon: '✗', label: 'Inadimplente' },
-    pendente: { cor: '#94a3b8', bg: '#f1f5f9', icon: '○', label: 'Pendente' }
+    pendente:     { cor: '#94a3b8', bg: '#f1f5f9', icon: '○', label: 'Pendente' },
+    isento:       { cor: '#6366f1', bg: '#e0e7ff', icon: 'i', label: 'Isento' },
+    sem_regua:    { cor: '#cbd5e1', bg: '#f8fafc', icon: '–', label: 'Sem régua' }
   };
   
-  // === Filtrar lista ===
+  // === Lista filtrada ===
   const busca = window._recBusca.toLowerCase().trim();
-  let listaFiltrada = clientesElo.filter(([id, nome, m]) => {
-    if (busca && !nome.toLowerCase().includes(busca) && !id.includes(busca)) return false;
-    return true;
-  });
-  listaFiltrada.sort((a, b) => b[2] - a[2] || a[1].localeCompare(b[1]));
-  
-  // Totais gerais
-  const totalMensalidadeMes = clientesElo.reduce((s, c) => s + c[2], 0);
-  const totalClientes = clientesElo.length;
-  
-  // === Totais por mês (só do filtro) ===
-  const totaisRecebidos = {}; // mes -> valor recebido total
-  const totaisEsperados = {}; // mes -> valor esperado total
-  const contadores = {};      // mes -> {pago, diferenca, inadimplente, pendente}
-  mesesExibidos.forEach(mes => {
-    totaisRecebidos[mes] = 0;
-    totaisEsperados[mes] = 0;
-    contadores[mes] = { pago: 0, diferenca: 0, inadimplente: 0, pendente: 0 };
-    clientesElo.forEach(([id, nome, mensa]) => {
-      totaisEsperados[mes] += mensa;
-      const s = statusMes(id, mes, mensa);
-      totaisRecebidos[mes] += s.valor;
-      contadores[mes][s.status]++;
+  let listaFiltrada = Object.entries(clientesGlobais)
+    .map(([id, nome]) => [id, nome])
+    .filter(([id, nome]) => {
+      if (busca && !nome.toLowerCase().includes(busca) && !id.includes(busca)) return false;
+      return true;
     });
+  
+  // Ordenar: por total anual (soma das mensalidades de todos os meses) DESC, depois por nome
+  listaFiltrada.sort(([idA, nomeA], [idB, nomeB]) => {
+    const totA = MONTHS.reduce((s,m) => s + (mensaPorMes[m][idA] ? mensaPorMes[m][idA].mensa : 0), 0);
+    const totB = MONTHS.reduce((s,m) => s + (mensaPorMes[m][idB] ? mensaPorMes[m][idB].mensa : 0), 0);
+    return totB - totA || nomeA.localeCompare(nomeB);
   });
   
-  const totalRecebidoGeral = Object.values(totaisRecebidos).reduce((s,v) => s+v, 0);
-  const totalEsperadoGeral = Object.values(totaisEsperados).reduce((s,v) => s+v, 0);
+  // === Totais gerais ===
+  let totalEsperadoAno = 0, totalRecebidoAno = 0;
+  const contadoresPorMes = {};
+  const totaisMes = {};
+  mesesExibidos.forEach(mes => {
+    totaisMes[mes] = { esperado: 0, recebido: 0 };
+    contadoresPorMes[mes] = { pago: 0, diferenca: 0, inadimplente: 0, pendente: 0, isento: 0 };
+    Object.keys(clientesGlobais).forEach(id => {
+      const s = statusMes(id, mes);
+      totaisMes[mes].esperado += s.esperado;
+      totaisMes[mes].recebido += s.recebido;
+      if (contadoresPorMes[mes][s.status] !== undefined) contadoresPorMes[mes][s.status]++;
+    });
+    totalEsperadoAno += totaisMes[mes].esperado;
+    totalRecebidoAno += totaisMes[mes].recebido;
+  });
   
-  // === HEADER + FILTROS + KPIs ===
-  let html = `<div style="padding:28px 24px;max-width:1800px;margin:0 auto;background:#f5f5f7;min-height:100vh">
+  // Clientes ativos (setembro por padrão, ou mês filtrado)
+  const mesRefKpi = window._recMesFiltro === 'todos' ? mesAtual : window._recMesFiltro;
+  const clientesAtivos = (MENS[mesRefKpi] || []).length;
+  const mrrRef = (MENS[mesRefKpi] || []).reduce((s, c) => s + c[2], 0);
+  
+  // === HTML ===
+  let html = `<div style="padding:28px 24px;max-width:1900px;margin:0 auto;background:#f5f5f7;min-height:100vh">
     
     <!-- HERO -->
     <div style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#064e3b 100%);border-radius:20px;padding:32px 36px;margin-bottom:20px;color:white;position:relative;overflow:hidden">
@@ -6134,17 +6160,15 @@ function renderRecebiveis() {
           <div>
             <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:2px;font-weight:700;margin-bottom:8px">💰 Recebíveis · Mensalidades</div>
             <h1 style="margin:0;font-size:28px;font-weight:800;letter-spacing:-1px;line-height:1.1">Fechamento por Cliente</h1>
-            <p style="margin:8px 0 0;color:#cbd5e1;font-size:13px">Mensalidade Elo × Realizado no fluxo de caixa (${ANO})</p>
+            <p style="margin:8px 0 0;color:#cbd5e1;font-size:13px">Mensalidade Elo (variável mês a mês) × Realizado no fluxo de caixa · ${ANO}</p>
           </div>
           <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-            <!-- Filtro ANO -->
             <div style="display:flex;gap:6px;align-items:center">
               <span style="font-size:10.5px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:700">Ano</span>
-              <select onchange="window._recAno=this.value; renderRecebiveis()" style="background:rgba(255,255,255,0.1);color:white;border:1px solid rgba(255,255,255,0.2);padding:8px 12px;border-radius:8px;font-family:Poppins;font-weight:700;font-size:13px;cursor:pointer">
+              <select onchange="window._recAno=this.value; window._recExpandidos=new Set(); renderRecebiveis()" style="background:rgba(255,255,255,0.1);color:white;border:1px solid rgba(255,255,255,0.2);padding:8px 12px;border-radius:8px;font-family:Poppins;font-weight:700;font-size:13px;cursor:pointer">
                 ${anosDisponiveis.map(a => `<option value="${a}" ${a===ANO?'selected':''} style="background:#0f172a">${a}</option>`).join('')}
               </select>
             </div>
-            <!-- Filtro MÊS -->
             <div style="display:flex;gap:6px;align-items:center">
               <span style="font-size:10.5px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:700">Mês</span>
               <select onchange="window._recMesFiltro=this.value; renderRecebiveis()" style="background:rgba(255,255,255,0.1);color:white;border:1px solid rgba(255,255,255,0.2);padding:8px 12px;border-radius:8px;font-family:Poppins;font-weight:700;font-size:13px;cursor:pointer">
@@ -6152,41 +6176,41 @@ function renderRecebiveis() {
                 ${MONTHS.map((m, i) => `<option value="${m}" ${window._recMesFiltro===m?'selected':''} style="background:#0f172a">${MONTH_NOMES[i]}</option>`).join('')}
               </select>
             </div>
-            <button onclick="alert('Para atualizar, peça no Claude: \'Atualize a base de recebíveis do Elo\'')" style="background:rgba(255,255,255,0.1);color:white;border:1px solid rgba(255,255,255,0.2);padding:8px 14px;border-radius:8px;font-family:Poppins;font-weight:600;font-size:12px;cursor:pointer">🔄 Sync Elo</button>
+            <button onclick="alert('Para atualizar, peça no Claude: \'Atualize as mensalidades do Elo\'')" style="background:rgba(255,255,255,0.1);color:white;border:1px solid rgba(255,255,255,0.2);padding:8px 14px;border-radius:8px;font-family:Poppins;font-weight:600;font-size:12px;cursor:pointer">🔄 Sync Elo</button>
           </div>
         </div>
         
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px;padding-top:20px;border-top:1px solid rgba(255,255,255,0.1)">
           <div>
-            <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">MRR (Elo)</div>
-            <div style="font-size:22px;font-weight:800;color:#10b981;letter-spacing:-0.5px">${_fmtRs(totalMensalidadeMes)}</div>
-            <div style="font-size:10px;color:#94a3b8;margin-top:2px">mensalidade mensal</div>
+            <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">MRR (${MONTH_NOMES[parseInt(mesRefKpi.slice(-2))-1]||'—'})</div>
+            <div style="font-size:22px;font-weight:800;color:#10b981;letter-spacing:-0.5px">${_fmtRs(mrrRef)}</div>
+            <div style="font-size:10px;color:#94a3b8;margin-top:2px">mensalidade do mês</div>
           </div>
           <div>
-            <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">Clientes Ativos</div>
-            <div style="font-size:22px;font-weight:800;color:#f8fafc">${totalClientes}</div>
-            <div style="font-size:10px;color:#94a3b8;margin-top:2px">base recorrente</div>
+            <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">Clientes na régua</div>
+            <div style="font-size:22px;font-weight:800;color:#f8fafc">${clientesAtivos}</div>
+            <div style="font-size:10px;color:#94a3b8;margin-top:2px">no mês de referência</div>
           </div>
           <div>
-            <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">Recebido ${window._recMesFiltro==='todos'?ANO:MONTH_NOMES[parseInt(window._recMesFiltro.slice(-2))-1]}</div>
-            <div style="font-size:22px;font-weight:800;color:#10b981">${_fmtRs(totalRecebidoGeral)}</div>
-            <div style="font-size:10px;color:#94a3b8;margin-top:2px">no fluxo de caixa</div>
+            <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">Recebido no período</div>
+            <div style="font-size:22px;font-weight:800;color:#10b981">${_fmtRs(totalRecebidoAno)}</div>
+            <div style="font-size:10px;color:#94a3b8;margin-top:2px">fluxo de caixa</div>
           </div>
           <div>
-            <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">A Receber (Esperado)</div>
-            <div style="font-size:22px;font-weight:800;color:#f8fafc">${_fmtRs(totalEsperadoGeral)}</div>
-            <div style="font-size:10px;color:#94a3b8;margin-top:2px">se todos pagarem</div>
+            <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">Esperado no período</div>
+            <div style="font-size:22px;font-weight:800;color:#f8fafc">${_fmtRs(totalEsperadoAno)}</div>
+            <div style="font-size:10px;color:#94a3b8;margin-top:2px">soma das mensalidades</div>
           </div>
           <div>
             <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">Cobertura</div>
-            <div style="font-size:22px;font-weight:800;color:${totalRecebidoGeral/totalEsperadoGeral >= 0.9 ? '#10b981' : totalRecebidoGeral/totalEsperadoGeral >= 0.7 ? '#f59e0b' : '#ef4444'}">${totalEsperadoGeral>0 ? ((totalRecebidoGeral/totalEsperadoGeral)*100).toFixed(1) + '%' : '—'}</div>
+            <div style="font-size:22px;font-weight:800;color:${totalRecebidoAno/totalEsperadoAno >= 0.9 ? '#10b981' : totalRecebidoAno/totalEsperadoAno >= 0.7 ? '#f59e0b' : '#ef4444'}">${totalEsperadoAno>0 ? ((totalRecebidoAno/totalEsperadoAno)*100).toFixed(1) + '%' : '—'}</div>
             <div style="font-size:10px;color:#94a3b8;margin-top:2px">recebido / esperado</div>
           </div>
         </div>
       </div>
     </div>
     
-    <!-- Busca -->
+    <!-- Busca + info -->
     <div style="background:white;border-radius:12px;padding:14px 18px;margin-bottom:16px;border:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
       <div>
         <span style="font-size:13px;font-weight:800;color:#0f172a">${listaFiltrada.length} clientes</span>
@@ -6195,11 +6219,11 @@ function renderRecebiveis() {
       <input type="text" id="_recBuscaInput" placeholder="🔍 Buscar por nome ou ID..." value="${_esc(window._recBusca)}" oninput="window._recBusca=this.value; renderRecebiveis(); const el=document.getElementById('_recBuscaInput'); if(el){el.focus(); el.setSelectionRange(el.value.length,el.value.length)}" style="padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;font-family:Poppins;font-size:12px;width:260px;outline:none"/>
     </div>
     
-    <!-- LEGENDA STATUS -->
-    <div style="background:white;border-radius:12px;padding:12px 18px;margin-bottom:12px;border:1px solid #e2e8f0;display:flex;gap:24px;flex-wrap:wrap;align-items:center;font-size:11.5px">
-      <span style="color:#64748b;font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:0.5px">Status:</span>
-      ${Object.entries(STATUS_INFO).map(([k, info]) => `<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:20px;height:20px;background:${info.bg};color:${info.cor};border-radius:5px;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:11px">${info.icon}</span><span style="color:#334155;font-weight:600">${info.label}</span></span>`).join('')}
-      <span style="color:#94a3b8;font-size:10.5px;margin-left:auto">💡 clique na setinha ▸ de cada mês para expandir</span>
+    <!-- LEGENDA -->
+    <div style="background:white;border-radius:12px;padding:12px 18px;margin-bottom:12px;border:1px solid #e2e8f0;display:flex;gap:20px;flex-wrap:wrap;align-items:center;font-size:11.5px">
+      <span style="color:#64748b;font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:0.5px">Status realizado:</span>
+      ${Object.entries(STATUS_INFO).filter(([k]) => !['sem_regua'].includes(k)).map(([k, info]) => `<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:20px;height:20px;background:${info.bg};color:${info.cor};border-radius:5px;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:11px">${info.icon}</span><span style="color:#334155;font-weight:600">${info.label}</span></span>`).join('')}
+      <span style="color:#94a3b8;font-size:10.5px;margin-left:auto">💡 clique na setinha ▸ do mês para abrir a coluna "Realizado"</span>
     </div>
   `;
   
@@ -6209,59 +6233,87 @@ function renderRecebiveis() {
       <table style="width:100%;border-collapse:collapse;font-size:11.5px">
         <thead>
           <tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0">
-            <th style="padding:12px 14px;text-align:left;font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;position:sticky;left:0;background:#f8fafc;z-index:2;min-width:200px">Cliente</th>
-            <th style="padding:12px 10px;text-align:right;font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;background:#eff6ff;min-width:100px">Mensalidade</th>`;
+            <th style="padding:12px 14px;text-align:left;font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;position:sticky;left:0;background:#f8fafc;z-index:2;min-width:240px">Cliente</th>`;
   
-  // Colunas de meses (com expansão)
-  mesesExibidos.forEach((mes, i) => {
+  // Colunas de meses (cada mês pode expandir para 2 sub-colunas)
+  mesesExibidos.forEach((mes) => {
     const mesLbl = MONTH_LABELS[parseInt(mes.slice(-2)) - 1];
     const expandido = window._recExpandidos.has(mes);
-    html += `<th onclick="if(window._recExpandidos.has('${mes}'))window._recExpandidos.delete('${mes}'); else window._recExpandidos.add('${mes}'); renderRecebiveis()" style="padding:12px 8px;text-align:center;font-size:10px;color:#0f172a;text-transform:uppercase;letter-spacing:0.5px;font-weight:800;cursor:pointer;user-select:none;background:${expandido?'#e0e7ff':'#f8fafc'};border-left:1px solid #e2e8f0;min-width:${expandido?'160px':'80px'}"><span style="font-size:10px;color:#64748b">${expandido?'▾':'▸'}</span> ${mesLbl}</th>`;
+    const temDados = (MENS[mes] || []).length > 0;
+    
+    if (expandido) {
+      // Duas sub-colunas: Elo | Realizado
+      html += `<th colspan="2" onclick="if(window._recExpandidos.has('${mes}'))window._recExpandidos.delete('${mes}'); else window._recExpandidos.add('${mes}'); renderRecebiveis()" style="padding:10px 8px;text-align:center;font-size:11px;color:#0f172a;text-transform:uppercase;letter-spacing:0.5px;font-weight:800;cursor:pointer;user-select:none;background:#e0e7ff;border-left:2px solid #6366f1"><span style="font-size:10px;color:#64748b">▾</span> ${mesLbl}</th>`;
+    } else {
+      html += `<th onclick="if(window._recExpandidos.has('${mes}'))window._recExpandidos.delete('${mes}'); else window._recExpandidos.add('${mes}'); renderRecebiveis()" style="padding:10px 8px;text-align:center;font-size:11px;color:${temDados?'#0f172a':'#cbd5e1'};text-transform:uppercase;letter-spacing:0.5px;font-weight:800;cursor:pointer;user-select:none;background:#f8fafc;border-left:1px solid #e2e8f0;min-width:100px"><span style="font-size:10px;color:#64748b">▸</span> ${mesLbl}</th>`;
+    }
   });
+  html += `</tr>`;
   
-  html += `</tr></thead><tbody>`;
+  // Sub-header quando expandido (Elo / Realizado)
+  const temExpansao = mesesExibidos.some(m => window._recExpandidos.has(m));
+  if (temExpansao) {
+    html += `<tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0">
+      <th style="padding:6px 14px;position:sticky;left:0;background:#f8fafc;z-index:2"></th>`;
+    mesesExibidos.forEach(mes => {
+      if (window._recExpandidos.has(mes)) {
+        html += `<th style="padding:6px 8px;text-align:center;font-size:9.5px;color:#4338ca;font-weight:700;background:#eef2ff;border-left:2px solid #6366f1">Elo</th>`;
+        html += `<th style="padding:6px 8px;text-align:center;font-size:9.5px;color:#065f46;font-weight:700;background:#ecfdf5">Realizado</th>`;
+      } else {
+        html += `<th style="padding:6px 8px;border-left:1px solid #e2e8f0;background:#f8fafc"></th>`;
+      }
+    });
+    html += `</tr>`;
+  }
+  
+  html += `</thead><tbody>`;
   
   // === Linhas de clientes ===
   if (listaFiltrada.length === 0) {
-    html += `<tr><td colspan="${2 + mesesExibidos.length}" style="padding:40px;text-align:center;color:#94a3b8">Nenhum cliente encontrado</td></tr>`;
+    const totalCols = mesesExibidos.reduce((s, m) => s + (window._recExpandidos.has(m) ? 2 : 1), 1);
+    html += `<tr><td colspan="${totalCols}" style="padding:40px;text-align:center;color:#94a3b8">Nenhum cliente encontrado</td></tr>`;
   } else {
-    listaFiltrada.forEach(([id, nome, mensa]) => {
+    listaFiltrada.forEach(([id, nome]) => {
       const nomeOmie = '(' + id + ') ' + nome;
-      const faixa = FAIXAS[mensa] || '—';
-      const corFaixa = CORES_FAIXAS[faixa] || '#94a3b8';
       
       html += `<tr style="border-bottom:1px solid #f1f5f9">
         <td style="padding:8px 14px;color:#0f172a;font-weight:600;text-align:left;position:sticky;left:0;background:white;z-index:1;border-right:1px solid #f1f5f9">
-          <div style="display:flex;align-items:center;gap:8px">
-            <span style="width:3px;height:20px;background:${corFaixa};border-radius:2px"></span>
-            <span>${_esc(nomeOmie)}</span>
-          </div>
-          <div style="font-size:9.5px;color:${corFaixa};font-weight:700;margin-left:11px;text-transform:uppercase;letter-spacing:0.3px">${faixa}</div>
-        </td>
-        <td style="padding:8px 10px;text-align:right;font-weight:800;color:#166534;background:#f0fdf4;border-right:1px solid #e2e8f0">${_fmtR(mensa)}</td>`;
+          ${_esc(nomeOmie)}
+        </td>`;
       
-      // Colunas de meses
       mesesExibidos.forEach(mes => {
         const expandido = window._recExpandidos.has(mes);
-        const s = statusMes(id, mes, mensa);
+        const s = statusMes(id, mes);
         const info = STATUS_INFO[s.status];
+        const naRegua = mensaPorMes[mes][id] !== undefined;
+        const mensaEsperada = naRegua ? mensaPorMes[mes][id].mensa : null;
         
-        if (expandido) {
-          // Modo expandido: mostra realizado + status
-          html += `<td style="padding:6px 8px;text-align:center;background:${info.bg}22;border-left:1px solid #e2e8f0">
-            <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
-              <span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:${info.bg};color:${info.cor};border-radius:5px;font-size:10px;font-weight:800">
-                ${info.icon} ${info.label}
-              </span>
-              <span style="font-size:11px;font-weight:700;color:${s.status==='pago'?'#166534':s.status==='diferenca'?'#92400e':s.status==='inadimplente'?'#991b1b':'#64748b'}">${s.valor > 0 ? _fmtR(s.valor) : '—'}</span>
-              ${s.status==='diferenca' ? `<span style="font-size:9px;color:#92400e">Δ ${_fmtR(Math.abs(s.valor - mensa))}</span>` : ''}
-            </div>
-          </td>`;
+        // Coluna Elo (sempre)
+        if (mensaEsperada === null) {
+          html += `<td style="padding:8px;text-align:right;color:#cbd5e1;background:#fafafa;border-left:${expandido?'2px solid #6366f1':'1px solid #e2e8f0'};font-size:11px">—</td>`;
+        } else if (mensaEsperada === 0) {
+          html += `<td style="padding:8px;text-align:right;color:#6366f1;background:#eef2ff;border-left:${expandido?'2px solid #6366f1':'1px solid #e2e8f0'};font-size:10.5px;font-weight:700" title="Isento">isento</td>`;
         } else {
-          // Modo compacto: só o ícone
-          html += `<td style="padding:8px;text-align:center;background:${info.bg}44;border-left:1px solid #e2e8f0" title="${info.label}${s.valor > 0 ? ' · ' + _fmtR(s.valor) : ''}">
-            <span style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;background:${info.bg};color:${info.cor};border-radius:6px;font-weight:800;font-size:12px">${info.icon}</span>
-          </td>`;
+          html += `<td style="padding:8px;text-align:right;color:#334155;background:#fafafa;border-left:${expandido?'2px solid #6366f1':'1px solid #e2e8f0'};font-weight:600">${_fmtR(mensaEsperada)}</td>`;
+        }
+        
+        // Coluna Realizado (só quando expandido)
+        if (expandido) {
+          if (s.status === 'sem_regua') {
+            html += `<td style="padding:8px;text-align:center;background:#fafafa;color:#cbd5e1">—</td>`;
+          } else {
+            const bgTd = info.bg + '55';
+            const diff = s.recebido - s.esperado;
+            html += `<td style="padding:6px 8px;text-align:right;background:${bgTd}">
+              <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+                <span style="display:inline-flex;align-items:center;gap:4px;padding:2px 7px;background:${info.bg};color:${info.cor};border-radius:5px;font-size:9.5px;font-weight:800;line-height:1">
+                  ${info.icon} ${info.label}
+                </span>
+                <span style="font-size:11.5px;font-weight:800;color:${s.status==='pago'?'#166534':s.status==='diferenca'?'#92400e':s.status==='inadimplente'?'#991b1b':s.status==='isento'?'#4338ca':'#64748b'}">${_fmtR(s.recebido)}</span>
+                ${s.status==='diferenca' && s.esperado > 0 ? `<span style="font-size:9px;color:${diff<0?'#991b1b':'#166534'};font-weight:700">Δ ${diff>0?'+':''}${_fmtR(diff)}</span>` : ''}
+              </div>
+            </td>`;
+          }
         }
       });
       
@@ -6269,30 +6321,27 @@ function renderRecebiveis() {
     });
   }
   
-  // === Rodapé: totais por mês ===
+  // === Rodapé: totais ===
   html += `<tfoot>
     <tr style="background:#f0fdf4;border-top:2px solid #10b981">
-      <td style="padding:12px 14px;font-weight:800;color:#166534;text-align:left;position:sticky;left:0;background:#f0fdf4;border-right:1px solid #d1fae5">TOTAL (${listaFiltrada.length})</td>
-      <td style="padding:12px 10px;text-align:right;font-weight:800;color:#166534;background:#d1fae5">${_fmtR(listaFiltrada.reduce((s,c) => s + c[2], 0))}</td>`;
+      <td style="padding:12px 14px;font-weight:800;color:#166534;text-align:left;position:sticky;left:0;background:#f0fdf4;border-right:1px solid #d1fae5">TOTAL (${listaFiltrada.length})</td>`;
   
   mesesExibidos.forEach(mes => {
     const expandido = window._recExpandidos.has(mes);
-    const rec = totaisRecebidos[mes] || 0;
-    const esp = totaisEsperados[mes] || 0;
-    const cnt = contadores[mes];
+    const t = totaisMes[mes];
+    const cnt = contadoresPorMes[mes];
+    
+    // Coluna Elo do rodapé
+    html += `<td style="padding:8px;text-align:right;background:#f0fdf4;color:#166534;font-weight:800;border-left:${expandido?'2px solid #6366f1':'1px solid #d1fae5'};font-size:11px">${_fmtRs(t.esperado)}</td>`;
     
     if (expandido) {
-      html += `<td style="padding:8px;text-align:center;background:#dcfce7;border-left:1px solid #d1fae5">
-        <div style="font-size:11px;font-weight:800;color:#166534">${_fmtR(rec)}</div>
+      html += `<td style="padding:8px;text-align:right;background:#dcfce7">
+        <div style="font-size:11px;font-weight:800;color:#166534">${_fmtRs(t.recebido)}</div>
         <div style="font-size:9px;color:#64748b;margin-top:2px">
           <span style="color:#10b981">${cnt.pago}✓</span>
           <span style="color:#f59e0b;margin-left:4px">${cnt.diferenca}△</span>
           <span style="color:#ef4444;margin-left:4px">${cnt.inadimplente}✗</span>
         </div>
-      </td>`;
-    } else {
-      html += `<td style="padding:8px;text-align:center;background:#dcfce7;border-left:1px solid #d1fae5">
-        <div style="font-size:11px;font-weight:800;color:#166534">${_fmtRs(rec)}</div>
       </td>`;
     }
   });
@@ -6300,12 +6349,13 @@ function renderRecebiveis() {
   html += `</tr></tfoot></table></div></div>
     
     <div style="margin-top:14px;padding:12px 16px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;font-size:11.5px;color:#1e40af;line-height:1.6">
-      💡 <strong>Lógica de status</strong> (fluxo de caixa): 
-      <strong style="color:#166534">🟢 Pago</strong> = valor recebido igual à mensalidade Elo · 
-      <strong style="color:#92400e">🟡 Diferença</strong> = valor recebido diferente do esperado · 
-      <strong style="color:#991b1b">🔴 Inadimplente</strong> = sem recebimento no mês (passado) · 
-      <strong style="color:#64748b">⚪ Pendente</strong> = mês futuro. 
-      Match por ID do cliente no formato Omie <code>(ID)</code>.
+      💡 <strong>Como funciona</strong>: cada coluna de mês mostra a <strong>mensalidade do Elo</strong> daquele mês (que varia conforme o investimento do cliente na semana). 
+      Clique na <strong>setinha ▸</strong> do mês para abrir uma coluna "Realizado" com o valor efetivamente recebido no fluxo de caixa. 
+      <strong style="color:#166534">🟢 Pago</strong>: valor bate · 
+      <strong style="color:#92400e">🟡 Diferença</strong>: valor difere (mostra Δ) · 
+      <strong style="color:#991b1b">🔴 Inadimplente</strong>: sem recebimento · 
+      <strong style="color:#64748b">⚪ Pendente</strong>: mês futuro · 
+      <strong style="color:#4338ca">🔵 Isento</strong>: mensalidade zerada no Elo.
     </div>
   </div>`;
   
@@ -10094,6 +10144,8 @@ setTimeout(() => { if (typeof _atualizarLabelConta === 'function') _atualizarLab
 })();
 </script>
 
-<script>window.CLIENTES_ELO = [["23","Inter",5500],["25","Central",5500],["59","Premium",4500],["49","Apollo",4500],["60","Vince",4500],["35","N1",3000],["105","Aprove",3000],["102","Max Vision",3000],["7","Simplifica",3000],["116","Votre",3000],["185","Seven",3000],["97","Unific",3000],["221","Matrix",3000],["22","Eros",3000],["34","Dakal",3000],["20","Peres",3000],["85","Metta",3000],["104","Global-Soluções",3000],["150","Agilli",3000],["6","Nexus",2000],["107","3M",2000],["2","Hedge",2000],["15","Rooster",2000],["1","Avanti",2000],["123","Argos",2000],["134","Allure",2000],["48","Dr Lion",2000],["11","Rox",2000],["79","Really",2000],["5","Fast",2000],["19","Aps",2000],["135","Taurus",2000],["30","Odhara",2000],["136","Triumphus",2000],["13","Jardini",2000],["3","Fly Mediações",2000],["33","Absoluta",2000],["77","Hit",2000],["47","Falcon",2000],["53","Horus",2000],["8","Idealy",2000],["78","Martan",2000],["92","Reduzy",2000],["73","Nomade",2000],["196","Valon",2000],["200","Seven Assessoria",2000],["52","LR",2000],["84","Calefe",2000],["113","Lume",2000],["62","Acolitar",2000],["215","Artemis",2000],["89","Stage",2000],["14","GVA Intermediações",2000],["9","Get",2000],["16","Global",2000],["58","Equilibra",2000],["82","Visional",2000],["212","Sathor",2000],["130","Valen",2000],["18","Revision",2000],["50","SW",2000],["100","Rocket",2000],["155","Apex",2000],["55","Domus",2000],["226","TH",2000],["106","Facto",2000],["26","Century",2000],["51","T2",2000],["27","Royal",2000],["98","Fortune",2000],["170","Hocket Assessoria",2000],["114","Ability",2000],["36","Lion",2000],["132","Monteiro",2000],["88","Atlas",2000],["121","Torres",2000],["142","Vittra",2000],["17","Hunting",2000],["109","Dillan",2000],["208","Novacredit",2000],["91","Golder",2000],["29","Platino",2000],["57","Otto",2000],["69","Dallas",2000],["163","Novare",2000],["181","Vória",2000],["129","Revalor",2000],["217","Billions",2000],["227","SJ Negociações",2000],["54","Hawk",2000],["37","Rs Quality",2000],["21","Lotus",2000],["80","Kronos",2000],["157","Soft",2000],["66","Eleven",2000],["161","Axis",2000],["140","Soares",2000],["171","ACT",2000],["32","Laportec",2000],["211","ACR",2000],["220","Alimac",2000],["159","RL Intermediações",1500],["10","Senza",1500],["119","Themis",1500],["12","Alfa",1500],["173","Valore",1500],["219","Hive",1500],["213","Juros Zeros",1500],["201","Vision",1500],["223","7D",1500],["93","Tiger",1500],["44","Kennom",1500],["86","Planum",1500],["214","Recovery",1500],["216","Essencial",1500],["139","Galatha",1500],["101","Poup",1500],["115","Walltrix",1500],["154","Finexa",1500],["194","Ratecred",1500],["74","Inova AVF",1500],["180","Revisa Pro",1500],["76","Inova Serviços",1500],["38","Andrade",1500],["193","RDS",1500],["224","Ápice",1500],["153","Emet Assessoria",1500],["158","Alpha Equilibrio",1500],["188","Guardiã",1500],["43","HR",1500],["225","Avora",1500],["183","Imperiali",1500],["125","GRS",1500],["192","IZ Intermediações",1500],["87","Revox",1500],["174","Promiss",1500],["228","Zyron",1500],["149","ReNova",1500],["111","Refine",1500],["222","Alphex",1500],["169","Revisa Forte",1500],["122","Conect",1500],["146","Fox Negociações",1500],["167","Souza Mundial",1500],["172","Veritas",1500],["127","Lex Prime",1500],["210","Granprime",1500],["45","Atitude",1500],["67","Ativa",1500],["148","Henq Assessoria",1500],["138","Ross",1500],["197","RevisaCred",1500],["145","Prime Intermediações",1500],["229","Martins",1500],["131","Fox",1500],["209","Kapel",1500],["165","Azul Revisional",1500]];</script>
+<script>window.MENSALIDADES_ELO = {"2026-01": [], "2026-02": [], "2026-03": [], "2026-04": [], "2026-05": [["49", "Apollo", 4500], ["25", "Central", 4500], ["59", "Premium", 4500], ["60", "Vince", 4500], ["7", "Simplifica", 3000], ["104", "Global-Soluções", 3000], ["105", "Aprove", 3000], ["85", "Metta", 3000], ["23", "Inter", 3000], ["14", "GVA Intermediações", 3000], ["102", "Max Vision", 3000], ["20", "Peres", 3000], ["35", "N1", 3000], ["48", "Dr Lion", 3000], ["97", "Unific", 3000], ["6", "Nexus", 2000], ["116", "Votre", 2000], ["15", "Rooster", 2000], ["82", "Visional", 2000], ["22", "Eros", 2000], ["34", "Dakal", 2000], ["2", "Hedge", 2000], ["13", "Jardini", 2000], ["8", "Idealy", 2000], ["77", "Hit", 2000], ["107", "3M", 2000], ["11", "Rox", 2000], ["51", "T2", 2000], ["150", "Agilli", 2000], ["21", "Lotus", 2000], ["5", "Fast", 2000], ["89", "Stage", 2000], ["9", "Get", 2000], ["53", "Horus", 2000], ["16", "Global", 2000], ["30", "Odhara", 2000], ["1", "Avanti", 2000], ["123", "Argos", 2000], ["136", "Triumphus", 2000], ["19", "Aps", 2000], ["106", "Facto", 2000], ["109", "Dillan", 2000], ["91", "Golder", 2000], ["36", "Lion", 2000], ["24", "Help", 2000], ["185", "Seven", 2000], ["168", "Alphacorp", 2000], ["44", "Kennom", 2000], ["52", "LR", 2000], ["73", "Nomade", 2000], ["92", "Reduzy", 2000], ["130", "Valen", 2000], ["55", "Domus", 2000], ["78", "Martan", 2000], ["26", "Century", 2000], ["50", "SW", 2000], ["3", "Fly Mediações", 2000], ["62", "Acolitar", 2000], ["17", "Hunting", 2000], ["10", "Senza", 2000], ["100", "Rocket", 2000], ["32", "Laportec", 2000], ["47", "Falcon", 2000], ["54", "Hawk", 2000], ["65", "Zenith", 2000], ["79", "Really", 2000], ["98", "Fortune", 2000], ["87", "Revox", 2000], ["67", "Ativa", 2000], ["4", "Hugs", 2000], ["45", "Atitude", 2000], ["40", "KM", 2000], ["146", "Fox Negociações", 2000], ["159", "RL Intermediações", 2000], ["33", "Absoluta", 2000], ["58", "Equilibra", 2000], ["153", "Emet Assessoria", 2000], ["140", "Soares", 2000], ["122", "Conect", 2000], ["165", "Azul Revisional", 2000], ["57", "Otto", 2000], ["84", "Calefe", 2000], ["121", "Torres", 1500], ["142", "Vittra", 1500], ["37", "Rs Quality", 1500], ["113", "Lume", 1500], ["181", "Vória", 1500], ["127", "Lex Prime", 1500], ["188", "Guardiã", 1500], ["170", "Hocket Assessoria", 1500], ["38", "Andrade", 1500], ["41", "Eagle", 1500], ["134", "Allure", 1500], ["74", "Inova AVF", 1500], ["80", "Kronos", 1500], ["149", "ReNova", 1500], ["163", "Novare", 1500], ["66", "Eleven", 1500], ["43", "HR", 1500], ["29", "Platino", 1500], ["157", "Soft", 1500], ["12", "Alfa", 1500], ["161", "Axis", 1500], ["145", "Prime Intermediações", 1500], ["180", "Revisa Pro", 1500], ["156", "B&S", 1500], ["129", "Revalor", 1500], ["171", "ACT", 1500], ["177", "Fenômeno", 1500], ["88", "Atlas", 1500], ["70", "Timer", 1500], ["103", "Lumina", 1500], ["125", "GRS", 1500], ["135", "Taurus", 1500], ["139", "Galatha", 1500], ["155", "Apex", 1500], ["167", "Souza Mundial", 1500], ["27", "Royal", 1500], ["93", "Tiger", 1500], ["119", "Themis", 1500], ["137", "Alpha", 1500], ["164", "Superbus", 1500], ["187", "Elev Soluções", 1500], ["69", "Dallas", 1500], ["86", "Planum", 1500], ["147", "Althera", 1500], ["174", "Promiss", 1500], ["189", "Alpha Serviços", 1500], ["148", "Henq Assessoria", 1500], ["101", "Poup", 1500], ["131", "Fox", 1500], ["138", "Ross", 1500], ["158", "Alpha Equilibrio", 1500], ["162", "Próspera", 1500], ["172", "Veritas", 1500], ["154", "Finexa", 1500], ["183", "Imperiali", 1500], ["169", "Revisa Forte", 1500], ["173", "Valore", 1500], ["178", "Vigon", 1500], ["186", "Felipe Vieira Soluções", 1500], ["111", "Refine", 1500], ["110", "Souza", 1500], ["115", "Walltrix", 1500], ["190", "HF Consultoria", 1500], ["96", "Renascer", 1500]], "2026-06": [["25", "Central", 6500], ["60", "Vince", 6500], ["49", "Apollo", 6500], ["59", "Premium", 6500], ["7", "Simplifica", 5500], ["23", "Inter", 5500], ["105", "Aprove", 5500], ["35", "N1", 5500], ["34", "Dakal", 4500], ["104", "Global-Soluções", 4500], ["20", "Peres", 4500], ["114", "Ability", 4500], ["102", "Max Vision", 4500], ["85", "Metta", 4500], ["48", "Dr Lion", 4500], ["116", "Votre", 4500], ["82", "Visional", 4500], ["97", "Unific", 4500], ["77", "Hit", 3000], ["14", "GVA Intermediações", 3000], ["15", "Rooster", 3000], ["22", "Eros", 3000], ["107", "3M", 3000], ["3", "Fly Mediações", 3000], ["6", "Nexus", 3000], ["11", "Rox", 3000], ["13", "Jardini", 3000], ["51", "T2", 3000], ["16", "Global", 3000], ["123", "Argos", 3000], ["5", "Fast", 3000], ["8", "Idealy", 3000], ["19", "Aps", 3000], ["1", "Avanti", 3000], ["21", "Lotus", 3000], ["2", "Hedge", 3000], ["150", "Agilli", 3000], ["9", "Get", 3000], ["30", "Odhara", 3000], ["53", "Horus", 3000], ["89", "Stage", 3000], ["106", "Facto", 3000], ["136", "Triumphus", 3000], ["24", "Help", 3000], ["109", "Dillan", 3000], ["91", "Golder", 3000], ["79", "Really", 3000], ["27", "Royal", 3000], ["84", "Calefe", 3000], ["185", "Seven", 3000], ["130", "Valen", 2000], ["36", "Lion", 2000], ["113", "Lume", 2000], ["41", "Eagle", 2000], ["52", "LR", 2000], ["55", "Domus", 2000], ["47", "Falcon", 2000], ["58", "Equilibra", 2000], ["92", "Reduzy", 2000], ["134", "Allure", 2000], ["100", "Rocket", 2000], ["50", "SW", 2000], ["10", "Senza", 2000], ["62", "Acolitar", 2000], ["44", "Kennom", 2000], ["33", "Absoluta", 2000], ["73", "Nomade", 2000], ["26", "Century", 2000], ["32", "Laportec", 2000], ["98", "Fortune", 2000], ["181", "Vória", 2000], ["57", "Otto", 2000], ["87", "Revox", 2000], ["146", "Fox Negociações", 2000], ["17", "Hunting", 2000], ["78", "Martan", 2000], ["142", "Vittra", 2000], ["4", "Hugs", 2000], ["159", "RL Intermediações", 2000], ["196", "Valon", 2000], ["67", "Ativa", 2000], ["170", "Hocket Assessoria", 2000], ["45", "Atitude", 2000], ["121", "Torres", 2000], ["192", "IZ Intermediações", 2000], ["149", "ReNova", 2000], ["38", "Andrade", 2000], ["161", "Axis", 2000], ["194", "Ratecred", 2000], ["88", "Atlas", 2000], ["135", "Taurus", 2000], ["180", "Revisa Pro", 2000], ["65", "Zenith", 2000], ["40", "KM", 2000], ["127", "Lex Prime", 2000], ["37", "Rs Quality", 2000], ["165", "Azul Revisional", 2000], ["163", "Novare", 2000], ["171", "ACT", 2000], ["66", "Eleven", 2000], ["93", "Tiger", 2000], ["12", "Alfa", 2000], ["157", "Soft", 2000], ["188", "Guardiã", 2000], ["129", "Revalor", 2000], ["184", "Una", 2000], ["122", "Conect", 2000], ["74", "Inova AVF", 2000], ["76", "Inova Serviços", 2000], ["54", "Hawk", 2000], ["140", "Soares", 2000], ["119", "Themis", 2000], ["153", "Emet Assessoria", 2000], ["80", "Kronos", 2000], ["145", "Prime Intermediações", 2000], ["29", "Platino", 2000], ["199", "Evolluti", 2000], ["139", "Galatha", 2000], ["189", "Alpha Serviços", 2000], ["101", "Poup", 2000], ["86", "Planum", 2000], ["156", "B&S", 2000], ["125", "GRS", 2000], ["155", "Apex", 2000], ["158", "Alpha Equilibrio", 2000], ["174", "Promiss", 2000], ["138", "Ross", 1500], ["200", "Seven Assessoria", 1500], ["43", "HR", 1500], ["198", "Click", 1500], ["193", "RDS", 1500], ["115", "Walltrix", 1500], ["148", "Henq Assessoria", 1500], ["137", "Alpha", 1500], ["131", "Fox", 1500], ["187", "Elev Soluções", 1500], ["169", "Revisa Forte", 1500], ["172", "Veritas", 1500], ["18", "Revision", 1500], ["201", "Vision", 1500], ["132", "Monteiro", 1500], ["183", "Imperiali", 1500], ["195", "RC Gold", 1500], ["70", "Timer", 1500], ["141", "BRP", 1500], ["154", "Finexa", 1500], ["69", "Dallas", 1500], ["168", "Alphacorp", 1500], ["167", "Souza Mundial", 1500], ["173", "Valore", 1500], ["72", "Retrix", 1500], ["133", "IBR", 1500], ["164", "Superbus", 1500], ["111", "Refine", 1500], ["206", "RevisaCred Soluções", 1500], ["197", "RevisaCred", 1500], ["103", "Lumina", 1500], ["190", "HF Consultoria", 1500], ["203", "NF Soluções", 1500], ["208", "Novacredit", 1500], ["178", "Vigon", 1500], ["179", "PRA", 1500], ["96", "Renascer", 1500], ["209", "Kapel", 1500], ["207", "Luris", 1500], ["186", "Felipe Vieira Soluções", 1500], ["205", "Atos", 1500]], "2026-07": [["105", "Aprove", 6500], ["85", "Metta", 6500], ["35", "N1", 6500], ["20", "Peres", 5500], ["185", "Seven", 5500], ["102", "Max Vision", 5500], ["48", "Dr Lion", 5500], ["116", "Votre", 5500], ["25", "Central", 4500], ["59", "Premium", 4500], ["60", "Vince", 4500], ["7", "Simplifica", 4500], ["97", "Unific", 4500], ["22", "Eros", 4500], ["107", "3M", 4500], ["6", "Nexus", 4500], ["34", "Dakal", 4500], ["123", "Argos", 4500], ["11", "Rox", 4500], ["15", "Rooster", 4500], ["13", "Jardini", 4500], ["82", "Visional", 4500], ["51", "T2", 4500], ["14", "GVA Intermediações", 4500], ["49", "Apollo", 4000], ["1", "Avanti", 3000], ["2", "Hedge", 3000], ["3", "Fly Mediações", 3000], ["8", "Idealy", 3000], ["150", "Agilli", 3000], ["77", "Hit", 3000], ["30", "Odhara", 3000], ["136", "Triumphus", 3000], ["53", "Horus", 3000], ["89", "Stage", 3000], ["134", "Allure", 3000], ["21", "Lotus", 3000], ["16", "Global", 3000], ["113", "Lume", 3000], ["47", "Falcon", 3000], ["52", "LR", 3000], ["181", "Vória", 3000], ["78", "Martan", 3000], ["109", "Dillan", 3000], ["192", "IZ Intermediações", 3000], ["9", "Get", 3000], ["62", "Acolitar", 3000], ["58", "Equilibra", 3000], ["79", "Really", 3000], ["55", "Domus", 3000], ["106", "Facto", 3000], ["92", "Reduzy", 3000], ["5", "Fast", 3000], ["135", "Taurus", 3000], ["91", "Golder", 3000], ["36", "Lion", 3000], ["170", "Hocket Assessoria", 3000], ["50", "SW", 3000], ["196", "Valon", 3000], ["27", "Royal", 3000], ["146", "Fox Negociações", 3000], ["100", "Rocket", 3000], ["26", "Century", 3000], ["10", "Senza", 3000], ["33", "Absoluta", 3000], ["98", "Fortune", 3000], ["73", "Nomade", 3000], ["130", "Valen", 3000], ["44", "Kennom", 3000], ["17", "Hunting", 3000], ["142", "Vittra", 3000], ["84", "Calefe", 2000], ["19", "Aps", 2000], ["57", "Otto", 2000], ["32", "Laportec", 2000], ["88", "Atlas", 2000], ["149", "ReNova", 2000], ["114", "Ability", 2000], ["213", "Juros Zeros", 2000], ["199", "Evolluti", 2000], ["121", "Torres", 2000], ["159", "RL Intermediações", 2000], ["129", "Revalor", 2000], ["171", "ACT", 2000], ["87", "Revox", 2000], ["193", "RDS", 2000], ["180", "Revisa Pro", 2000], ["4", "Hugs", 2000], ["80", "Kronos", 2000], ["163", "Novare", 2000], ["12", "Alfa", 2000], ["66", "Eleven", 2000], ["37", "Rs Quality", 2000], ["201", "Vision", 2000], ["74", "Inova AVF", 2000], ["38", "Andrade", 2000], ["157", "Soft", 2000], ["161", "Axis", 2000], ["125", "GRS", 2000], ["194", "Ratecred", 2000], ["86", "Planum", 2000], ["184", "Una", 2000], ["140", "Soares", 2000], ["93", "Tiger", 2000], ["127", "Lex Prime", 2000], ["29", "Platino", 2000], ["215", "Artemis", 2000], ["101", "Poup", 2000], ["212", "Sathor", 2000], ["174", "Promiss", 2000], ["211", "ACR", 2000], ["115", "Walltrix", 2000], ["54", "Hawk", 2000], ["122", "Conect", 2000], ["155", "Apex", 2000], ["158", "Alpha Equilibrio", 2000], ["188", "Guardiã", 2000], ["68", "Ultra", 2000], ["139", "Galatha", 2000], ["119", "Themis", 2000], ["210", "Granprime", 2000], ["145", "Prime Intermediações", 2000], ["131", "Fox", 2000], ["169", "Revisa Forte", 2000], ["200", "Seven Assessoria", 2000], ["217", "Billions", 2000], ["40", "KM", 2000], ["148", "Henq Assessoria", 2000], ["154", "Finexa", 2000], ["172", "Veritas", 2000], ["69", "Dallas", 2000], ["156", "B&S", 2000], ["214", "Recovery", 2000], ["23", "Inter", 1500], ["76", "Inova Serviços", 1500], ["153", "Emet Assessoria", 1500], ["165", "Azul Revisional", 1500], ["167", "Souza Mundial", 1500], ["183", "Imperiali", 1500], ["43", "HR", 1500], ["173", "Valore", 1500], ["208", "Novacredit", 1500], ["209", "Kapel", 1500], ["197", "RevisaCred", 1500], ["138", "Ross", 1500], ["111", "Refine", 1500], ["187", "Elev Soluções", 1500], ["18", "Revision", 1500], ["45", "Atitude", 1500], ["141", "BRP", 1500], ["207", "Luris", 1500], ["178", "Vigon", 1500], ["65", "Zenith", 1500], ["67", "Ativa", 1500], ["133", "IBR", 1500], ["96", "Renascer", 1500], ["216", "Essencial", 1500], ["70", "Timer", 1500], ["104", "Global-Soluções", 1500], ["132", "Monteiro", 0], ["137", "Alpha", 0], ["72", "Retrix", 0], ["218", "Campi", 0], ["110", "Souza", 0], ["179", "PRA", 0], ["189", "Alpha Serviços", 0]], "2026-08": [["85", "Metta", 6500], ["105", "Aprove", 6500], ["23", "Inter", 5500], ["35", "N1", 5500], ["20", "Peres", 5500], ["25", "Central", 4500], ["59", "Premium", 4500], ["60", "Vince", 4500], ["7", "Simplifica", 4500], ["185", "Seven", 4500], ["97", "Unific", 4500], ["102", "Max Vision", 4500], ["116", "Votre", 4500], ["22", "Eros", 4500], ["48", "Dr Lion", 4500], ["49", "Apollo", 4000], ["107", "3M", 3000], ["34", "Dakal", 3000], ["6", "Nexus", 3000], ["1", "Avanti", 3000], ["2", "Hedge", 3000], ["123", "Argos", 3000], ["8", "Idealy", 3000], ["11", "Rox", 3000], ["30", "Odhara", 3000], ["150", "Agilli", 3000], ["19", "Aps", 3000], ["15", "Rooster", 3000], ["181", "Vória", 3000], ["13", "Jardini", 3000], ["136", "Triumphus", 3000], ["53", "Horus", 3000], ["3", "Fly Mediações", 3000], ["77", "Hit", 3000], ["196", "Valon", 3000], ["16", "Global", 3000], ["62", "Acolitar", 3000], ["134", "Allure", 3000], ["82", "Visional", 3000], ["89", "Stage", 3000], ["79", "Really", 3000], ["92", "Reduzy", 3000], ["27", "Royal", 3000], ["52", "LR", 3000], ["78", "Martan", 3000], ["192", "IZ Intermediações", 3000], ["109", "Dillan", 3000], ["213", "Juros Zeros", 3000], ["215", "Artemis", 3000], ["114", "Ability", 3000], ["5", "Fast", 3000], ["135", "Taurus", 3000], ["113", "Lume", 3000], ["55", "Domus", 3000], ["14", "GVA Intermediações", 3000], ["9", "Get", 3000], ["130", "Valen", 3000], ["21", "Lotus", 3000], ["51", "T2", 3000], ["73", "Nomade", 3000], ["58", "Equilibra", 3000], ["100", "Rocket", 3000], ["33", "Absoluta", 3000], ["104", "Global-Soluções", 2000], ["47", "Falcon", 2000], ["212", "Sathor", 2000], ["98", "Fortune", 2000], ["36", "Lion", 2000], ["170", "Hocket Assessoria", 2000], ["200", "Seven Assessoria", 2000], ["26", "Century", 2000], ["129", "Revalor", 2000], ["91", "Golder", 2000], ["106", "Facto", 2000], ["17", "Hunting", 2000], ["140", "Soares", 2000], ["217", "Billions", 2000], ["121", "Torres", 2000], ["50", "SW", 2000], ["57", "Otto", 2000], ["155", "Apex", 2000], ["29", "Platino", 2000], ["142", "Vittra", 2000], ["157", "Soft", 2000], ["10", "Senza", 2000], ["159", "RL Intermediações", 2000], ["84", "Calefe", 2000], ["80", "Kronos", 2000], ["194", "Ratecred", 2000], ["208", "Novacredit", 2000], ["171", "ACT", 2000], ["44", "Kennom", 2000], ["66", "Eleven", 2000], ["37", "Rs Quality", 2000], ["163", "Novare", 2000], ["211", "ACR", 2000], ["54", "Hawk", 2000], ["146", "Fox Negociações", 2000], ["93", "Tiger", 2000], ["180", "Revisa Pro", 2000], ["149", "ReNova", 2000], ["12", "Alfa", 2000], ["184", "Una", 2000], ["201", "Vision", 2000], ["193", "RDS", 2000], ["87", "Revox", 2000], ["88", "Atlas", 2000], ["86", "Planum", 2000], ["38", "Andrade", 2000], ["199", "Evolluti", 2000], ["161", "Axis", 2000], ["18", "Revision", 2000], ["74", "Inova AVF", 2000], ["119", "Themis", 2000], ["101", "Poup", 2000], ["125", "GRS", 2000], ["115", "Walltrix", 2000], ["32", "Laportec", 2000], ["139", "Galatha", 2000], ["174", "Promiss", 2000], ["220", "Alimac", 2000], ["158", "Alpha Equilibrio", 2000], ["122", "Conect", 2000], ["69", "Dallas", 2000], ["214", "Recovery", 2000], ["188", "Guardiã", 2000], ["43", "HR", 2000], ["153", "Emet Assessoria", 2000], ["127", "Lex Prime", 1500], ["154", "Finexa", 1500], ["172", "Veritas", 1500], ["169", "Revisa Forte", 1500], ["167", "Souza Mundial", 1500], ["165", "Azul Revisional", 1500], ["72", "Retrix", 1500], ["183", "Imperiali", 1500], ["131", "Fox", 1500], ["173", "Valore", 1500], ["111", "Refine", 1500], ["216", "Essencial", 1500], ["45", "Atitude", 1500], ["219", "Hive", 1500], ["148", "Henq Assessoria", 1500], ["76", "Inova Serviços", 1500], ["67", "Ativa", 1500], ["222", "Alphex", 1500], ["210", "Granprime", 1500], ["145", "Prime Intermediações", 1500], ["138", "Ross", 1500], ["223", "7D", 1500], ["209", "Kapel", 1500], ["179", "PRA", 1500], ["132", "Monteiro", 0], ["189", "Alpha Serviços", 0], ["197", "RevisaCred", 0], ["4", "Hugs", 0]], "2026-09": [["23", "Inter", 5500], ["25", "Central", 5500], ["59", "Premium", 4500], ["49", "Apollo", 4500], ["60", "Vince", 4500], ["35", "N1", 3000], ["105", "Aprove", 3000], ["102", "Max Vision", 3000], ["7", "Simplifica", 3000], ["116", "Votre", 3000], ["185", "Seven", 3000], ["97", "Unific", 3000], ["221", "Matrix", 3000], ["22", "Eros", 3000], ["34", "Dakal", 3000], ["20", "Peres", 3000], ["85", "Metta", 3000], ["104", "Global-Soluções", 3000], ["150", "Agilli", 3000], ["6", "Nexus", 2000], ["107", "3M", 2000], ["2", "Hedge", 2000], ["15", "Rooster", 2000], ["1", "Avanti", 2000], ["123", "Argos", 2000], ["134", "Allure", 2000], ["48", "Dr Lion", 2000], ["11", "Rox", 2000], ["79", "Really", 2000], ["5", "Fast", 2000], ["19", "Aps", 2000], ["135", "Taurus", 2000], ["30", "Odhara", 2000], ["136", "Triumphus", 2000], ["13", "Jardini", 2000], ["3", "Fly Mediações", 2000], ["33", "Absoluta", 2000], ["77", "Hit", 2000], ["47", "Falcon", 2000], ["53", "Horus", 2000], ["8", "Idealy", 2000], ["78", "Martan", 2000], ["92", "Reduzy", 2000], ["73", "Nomade", 2000], ["196", "Valon", 2000], ["200", "Seven Assessoria", 2000], ["52", "LR", 2000], ["84", "Calefe", 2000], ["113", "Lume", 2000], ["62", "Acolitar", 2000], ["215", "Artemis", 2000], ["89", "Stage", 2000], ["14", "GVA Intermediações", 2000], ["9", "Get", 2000], ["16", "Global", 2000], ["58", "Equilibra", 2000], ["82", "Visional", 2000], ["212", "Sathor", 2000], ["130", "Valen", 2000], ["18", "Revision", 2000], ["50", "SW", 2000], ["100", "Rocket", 2000], ["155", "Apex", 2000], ["55", "Domus", 2000], ["226", "TH", 2000], ["106", "Facto", 2000], ["26", "Century", 2000], ["51", "T2", 2000], ["27", "Royal", 2000], ["98", "Fortune", 2000], ["170", "Hocket Assessoria", 2000], ["114", "Ability", 2000], ["36", "Lion", 2000], ["132", "Monteiro", 2000], ["88", "Atlas", 2000], ["121", "Torres", 2000], ["142", "Vittra", 2000], ["17", "Hunting", 2000], ["109", "Dillan", 2000], ["208", "Novacredit", 2000], ["91", "Golder", 2000], ["29", "Platino", 2000], ["57", "Otto", 2000], ["69", "Dallas", 2000], ["163", "Novare", 2000], ["181", "Vória", 2000], ["129", "Revalor", 2000], ["217", "Billions", 2000], ["227", "SJ Negociações", 2000], ["54", "Hawk", 2000], ["37", "Rs Quality", 2000], ["21", "Lotus", 2000], ["80", "Kronos", 2000], ["157", "Soft", 2000], ["66", "Eleven", 2000], ["161", "Axis", 2000], ["140", "Soares", 2000], ["171", "ACT", 2000], ["32", "Laportec", 2000], ["211", "ACR", 2000], ["220", "Alimac", 2000], ["159", "RL Intermediações", 1500], ["10", "Senza", 1500], ["119", "Themis", 1500], ["12", "Alfa", 1500], ["173", "Valore", 1500], ["219", "Hive", 1500], ["213", "Juros Zeros", 1500], ["201", "Vision", 1500], ["223", "7D", 1500], ["93", "Tiger", 1500], ["44", "Kennom", 1500], ["86", "Planum", 1500], ["214", "Recovery", 1500], ["216", "Essencial", 1500], ["139", "Galatha", 1500], ["101", "Poup", 1500], ["115", "Walltrix", 1500], ["154", "Finexa", 1500], ["194", "Ratecred", 1500], ["74", "Inova AVF", 1500], ["180", "Revisa Pro", 1500], ["76", "Inova Serviços", 1500], ["38", "Andrade", 1500], ["193", "RDS", 1500], ["224", "Ápice", 1500], ["153", "Emet Assessoria", 1500], ["158", "Alpha Equilibrio", 1500], ["188", "Guardiã", 1500], ["43", "HR", 1500], ["225", "Avora", 1500], ["183", "Imperiali", 1500], ["125", "GRS", 1500], ["192", "IZ Intermediações", 1500], ["87", "Revox", 1500], ["174", "Promiss", 1500], ["228", "Zyron", 1500], ["149", "ReNova", 1500], ["111", "Refine", 1500], ["222", "Alphex", 1500], ["169", "Revisa Forte", 1500], ["122", "Conect", 1500], ["146", "Fox Negociações", 1500], ["167", "Souza Mundial", 1500], ["172", "Veritas", 1500], ["127", "Lex Prime", 1500], ["210", "Granprime", 1500], ["45", "Atitude", 1500], ["67", "Ativa", 1500], ["148", "Henq Assessoria", 1500], ["138", "Ross", 1500], ["197", "RevisaCred", 1500], ["145", "Prime Intermediações", 1500], ["229", "Martins", 1500], ["131", "Fox", 1500], ["209", "Kapel", 1500], ["165", "Azul Revisional", 1500]]};
+// Compat: mês corrente para telas legadas
+window.CLIENTES_ELO = window.MENSALIDADES_ELO["2026-09"] || [];</script>
 </body>
 </html>
