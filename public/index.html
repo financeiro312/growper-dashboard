@@ -807,7 +807,7 @@ body.scalia-mode .company-badge {
           </button>
           <div id="excelDropdown" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:white;border:1px solid #d1d5db;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.12);z-index:100;min-width:230px;overflow:hidden"></div>
         </div>
-        <input type="file" id="inputImportProj" accept=".xlsx,.xls" style="display:none" onchange="window._importarProjetado(event)"/>
+        <input type="file" id="inputImportProj" accept=".xlsx,.xls" style="display:none" onchange="importProjetado(event)"/>
         <!-- Sub-abas de recebíveis agora ficam dentro da seção -->
       </div>
     </div>
@@ -2679,6 +2679,140 @@ function renderEstoque() {
     XLSX.writeFile(wb, 'estoque_camisetas_' + _hoje() + '.xlsx');
   };
   
+  window._estBaixarModelo = function() {
+    if (typeof XLSX === 'undefined') { alert('Biblioteca não carregou.'); return; }
+    const wb = XLSX.utils.book_new();
+    // Aba Compras
+    const rowsC = [
+      ['Data','Fornecedor','Tamanho','Qtd','Preço Unit','Total','Nota Fiscal','Obs'],
+      ['2026-01-15','Fornecedor Exemplo','M',50,25,1250,'NF12345','Compra inicial'],
+    ];
+    const wsC = XLSX.utils.aoa_to_sheet(rowsC);
+    wsC['!cols'] = [{wch:12},{wch:25},{wch:10},{wch:8},{wch:12},{wch:12},{wch:15},{wch:25}];
+    XLSX.utils.book_append_sheet(wb, wsC, 'Compras');
+    // Aba Entregas
+    const rowsE = [
+      ['Data','Colaborador','Qtd','Tamanho','Cor','Obs'],
+      ['2026-01-20','João Prestador',1,'M','Preta','Camiseta entregue'],
+    ];
+    const wsE = XLSX.utils.aoa_to_sheet(rowsE);
+    wsE['!cols'] = [{wch:12},{wch:25},{wch:8},{wch:10},{wch:12},{wch:25}];
+    XLSX.utils.book_append_sheet(wb, wsE, 'Entregas');
+    // Instruções
+    const inst = [
+      ['INSTRUÇÕES DE PREENCHIMENTO — ESTOQUE'],[''],
+      ['ABA "Compras" — cada linha é uma compra de camisetas'],
+      ['  Data: formato AAAA-MM-DD (ex: 2026-01-15)'],
+      ['  Fornecedor: nome do fornecedor'],
+      ['  Tamanho: PP, P, M, G, GG, XG (ou customizado)'],
+      ['  Qtd: quantidade de camisetas compradas'],
+      ['  Preço Unit: valor de uma camiseta em R$'],
+      ['  Total: valor total da compra (opcional — se vazio, será calculado)'],
+      ['  Nota Fiscal: número da NF (opcional)'],
+      ['  Obs: observações (opcional)'],
+      [''],
+      ['ABA "Entregas" — cada linha é uma entrega para um colaborador'],
+      ['  Data: formato AAAA-MM-DD'],
+      ['  Colaborador: nome do prestador que recebeu'],
+      ['  Qtd: quantidade entregue'],
+      ['  Tamanho: PP, P, M, G, GG, XG'],
+      ['  Cor: cor da camiseta'],
+      ['  Obs: observações (opcional)'],
+      [''],
+      ['⚠️ IMPORTANTE:'],
+      ['- Ao importar, os dados atuais serão SUBSTITUÍDOS pelos dados do Excel'],
+      ['- Remova a linha de exemplo antes de importar'],
+      ['- Mantenha a linha de cabeçalho (linha 1)'],
+    ];
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(inst), 'Instruções');
+    XLSX.writeFile(wb, 'modelo_estoque_camisetas.xlsx');
+  };
+  
+  window._estImportar = function(evt) {
+    if (typeof XLSX === 'undefined') { alert('Biblioteca não carregou.'); return; }
+    const file = evt.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const wb = XLSX.read(data, {type: 'array'});
+        const est = _getEst();
+        
+        // Ler aba Compras
+        const wsC = wb.Sheets['Compras'];
+        const novoCompras = [];
+        if (wsC) {
+          const rowsC = XLSX.utils.sheet_to_json(wsC, {header:1, defval:''});
+          for (let i = 1; i < rowsC.length; i++) {
+            const r = rowsC[i];
+            if (!r || !r[0]) continue;
+            const data = String(r[0] || '').trim();
+            const fornecedor = String(r[1] || '').trim();
+            const tamanho = String(r[2] || 'M').trim();
+            const qtd = parseFloat(r[3]) || 0;
+            const precoUnit = parseFloat(r[4]) || 0;
+            let total = parseFloat(r[5]) || 0;
+            if (total === 0 && qtd > 0 && precoUnit > 0) total = qtd * precoUnit;
+            const nf = String(r[6] || '').trim();
+            const obs = String(r[7] || '').trim();
+            if (data && qtd > 0) {
+              novoCompras.push({
+                id: 'c_' + Date.now() + '_' + i,
+                data, fornecedor, tamanho, qtd, precoUnit, total, nf, obs
+              });
+            }
+          }
+        }
+        
+        // Ler aba Entregas
+        const wsE = wb.Sheets['Entregas'];
+        const novoEntregas = [];
+        if (wsE) {
+          const rowsE = XLSX.utils.sheet_to_json(wsE, {header:1, defval:''});
+          for (let i = 1; i < rowsE.length; i++) {
+            const r = rowsE[i];
+            if (!r || !r[0]) continue;
+            const data = String(r[0] || '').trim();
+            const colaborador = String(r[1] || '').trim();
+            const qtd = parseFloat(r[2]) || 0;
+            const tamanho = String(r[3] || 'M').trim();
+            const cor = String(r[4] || '').trim();
+            const obs = String(r[5] || '').trim();
+            if (data && colaborador && qtd > 0) {
+              novoEntregas.push({
+                id: 'e_' + Date.now() + '_' + i,
+                data, colaborador, qtd, tamanho, cor, obs
+              });
+            }
+          }
+        }
+        
+        if (novoCompras.length === 0 && novoEntregas.length === 0) {
+          alert('Nenhum dado válido encontrado no arquivo.\n\nVerifique se a planilha tem as abas "Compras" e/ou "Entregas" com as colunas corretas.');
+          evt.target.value = '';
+          return;
+        }
+        
+        if (!confirm(`Importar ${novoCompras.length} compra(s) e ${novoEntregas.length} entrega(s)?\n\nOs dados atuais serão SUBSTITUÍDOS.`)) {
+          evt.target.value = '';
+          return;
+        }
+        
+        est.compras = novoCompras;
+        est.entregas = novoEntregas;
+        _setEst(est);
+        alert(`✓ ${novoCompras.length} compras e ${novoEntregas.length} entregas importadas!`);
+        renderEstoque();
+      } catch(err) {
+        alert('Erro ao ler planilha: ' + err.message);
+        console.error(err);
+      }
+      evt.target.value = '';
+    };
+    reader.readAsArrayBuffer(file);
+  };
+  
   const aba = window._estAbaAtiva;
   
   // ============ HTML ============
@@ -2694,7 +2828,15 @@ function renderEstoque() {
             <h1 style="margin:0;font-size:32px;font-weight:800;letter-spacing:-1px;line-height:1.1">Camisetas do Time</h1>
             <p style="margin:8px 0 0;color:#cbd5e1;font-size:13px">Controle de entradas, saídas e balanço financeiro</p>
           </div>
-          <button onclick="window._estExportar()" style="background:rgba(255,255,255,0.1);color:white;border:1px solid rgba(255,255,255,0.2);padding:10px 18px;border-radius:8px;font-family:Poppins;font-weight:600;font-size:12.5px;cursor:pointer;backdrop-filter:blur(10px)">📊 Exportar Excel</button>
+          <div style="position:relative;display:inline-block">
+            <button onclick="const m=document.getElementById('_estExcelMenu'); m.style.display=m.style.display==='block'?'none':'block'" style="background:rgba(255,255,255,0.1);color:white;border:1px solid rgba(255,255,255,0.2);padding:10px 18px;border-radius:8px;font-family:Poppins;font-weight:600;font-size:12.5px;cursor:pointer;backdrop-filter:blur(10px);display:inline-flex;align-items:center;gap:6px">📊 Excel <span style="font-size:10px">▾</span></button>
+            <div id="_estExcelMenu" style="display:none;position:absolute;top:calc(100% + 6px);right:0;background:white;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.15);padding:6px;z-index:100;min-width:240px">
+              <button onclick="window._estBaixarModelo();document.getElementById('_estExcelMenu').style.display='none'" style="width:100%;text-align:left;padding:9px 12px;background:transparent;border:none;border-radius:6px;font-family:Poppins;font-size:12.5px;color:#334155;cursor:pointer;display:flex;align-items:center;gap:8px" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">📄 Baixar modelo (vazio)</button>
+              <label style="width:100%;padding:9px 12px;background:transparent;border-radius:6px;font-family:Poppins;font-size:12.5px;color:#334155;cursor:pointer;display:flex;align-items:center;gap:8px" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">📤 Importar Excel<input type="file" accept=".xlsx,.xls" onchange="window._estImportar(event);document.getElementById('_estExcelMenu').style.display='none'" style="display:none"/></label>
+              <div style="height:1px;background:#f1f5f9;margin:4px 0"></div>
+              <button onclick="window._estExportar();document.getElementById('_estExcelMenu').style.display='none'" style="width:100%;text-align:left;padding:9px 12px;background:transparent;border:none;border-radius:6px;font-family:Poppins;font-size:12.5px;color:#334155;cursor:pointer;display:flex;align-items:center;gap:8px" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">💾 Exportar dados atuais</button>
+            </div>
+          </div>
         </div>
         
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:20px;margin-top:32px;padding-top:24px;border-top:1px solid rgba(255,255,255,0.1)">
@@ -4404,6 +4546,57 @@ function _rhAtualizaTotais(prestador, mes) {
   } catch(e) { console.warn('_rhAtualizaTotais:', e.message); }
 }
 
+function _rhAttachListeners() {
+  document.querySelectorAll('input.rh-input').forEach(inp => {
+    // Evitar duplo attach
+    if (inp.dataset.attached === '1') return;
+    inp.dataset.attached = '1';
+    
+    inp.addEventListener('focus', function() {
+      const val = this.value || '';
+      // Se tem "R$ 3.500,00", transformar para "3500.00" pra facilitar edição
+      const cleaned = val.replace(/[^0-9,.-]/g, '').replace(/\./g, '').replace(',', '.');
+      this.value = cleaned;
+      this.select();
+    });
+    
+    inp.addEventListener('blur', function() {
+      const prestador = this.dataset.prestador;
+      const mes = this.dataset.mes;
+      const raw = this.value || '';
+      // Parsear o valor digitado
+      const cleaned = raw.replace(/[^0-9.,-]/g, '').replace(/\./g, '').replace(',', '.');
+      const n = parseFloat(cleaned);
+      const valor = (isNaN(n) || n <= 0) ? 0 : n;
+      
+      // Salvar
+      _setRHValor(prestador, mes, valor);
+      
+      // Reformatar visualmente
+      if (valor > 0) {
+        this.value = 'R$ ' + valor.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+      } else {
+        this.value = '';
+      }
+      
+      // Atualizar totais
+      if (typeof _rhAtualizaTotais === 'function') {
+        _rhAtualizaTotais(prestador, mes);
+      }
+    });
+    
+    // Botão direito → abrir nota
+    inp.parentElement.addEventListener('contextmenu', function(e) {
+      e.preventDefault();
+      const prestador = inp.dataset.prestador;
+      const mes = inp.dataset.mes;
+      if (typeof window._abrirNotaForn === 'function') {
+        window._abrirNotaForn(prestador, mes, 'R$ ' + (inp.value || '0'));
+      }
+    });
+  });
+}
+
 function renderRH() {
   const container = document.getElementById('rhContent');
   if (!container) return;
@@ -4479,11 +4672,7 @@ function renderRH() {
       const v = _getRHValor(p, m);
       const nota = window._getNotaForn ? window._getNotaForn(p, m) : '';
       const bordaNota = nota ? 'border:2px solid #f59e0b;background:#fffef0' : 'border:1px solid #d1d5db;background:white';
-      html += `<td style="padding:4px 6px" data-mes="${m}" oncontextmenu="event.preventDefault(); window._abrirNotaForn('${p.replace(/'/g, "\\'")}','${m}','R$ '+(this.querySelector('input').value||'0')); return false;" title="${nota ? 'Nota: ' + nota.replace(/"/g,'&quot;').slice(0,120) : 'Clique direito para nota'}"><input type="text" value="${v ? 'R$ ' + v.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}) : ''}" 
-onfocus="this.value = this.value.replace(/[^0-9,.-]/g, '').replace(/\./g, '').replace(',', '.'); this.select();" 
-onblur="const n = parseFloat(this.value.replace(/[^0-9.,-]/g, '').replace(/\./g, '').replace(',', '.')) || 0; _setRHValor('${p.replace(/'/g, "\\'")}','${m}', n); this.value = n > 0 ? 'R$ ' + n.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}) : ''; if(typeof _rhAtualizaTotais==='function') _rhAtualizaTotais('${p.replace(/'/g, "\\'")}','${m}');" 
-placeholder="—" 
-style="width:100%;max-width:110px;padding:4px 6px;${bordaNota};border-radius:4px;font-family:Poppins;font-size:11.5px;text-align:right;outline:none;box-sizing:border-box"/></td>`;
+      html += `<td style="padding:4px 6px" data-mes="${m}"><input type="text" class="rh-input" data-prestador="${p.replace(/"/g, '&quot;')}" data-mes="${m}" value="${v ? 'R$ ' + v.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}) : ''}" placeholder="—" title="${nota ? 'Nota: ' + nota.replace(/"/g,'&quot;').slice(0,120) : 'Clique direito para nota'}" style="width:100%;max-width:110px;padding:4px 6px;${bordaNota};border-radius:4px;font-family:Poppins;font-size:11.5px;text-align:right;outline:none;box-sizing:border-box"/></td>`;
     });
     if (showAll) {
       html += `<td data-total-ano="${p.replace(/"/g, '&quot;')}" style="text-align:right;padding:8px 12px;font-weight:700;background:#f3f4f6;font-size:12px">${totAno === 0 ? '—' : 'R$ ' + _fmtLocal(totAno)}</td>`;
@@ -4545,6 +4734,7 @@ style="width:100%;max-width:110px;padding:4px 6px;${bordaNota};border-radius:4px
   
   html += `</tbody></table></div></div>`;
   container.innerHTML = html;
+  _rhAttachListeners();
 }
 
 
@@ -4814,7 +5004,7 @@ window._popularExcelDropdown = function() {
   const item = (text, action) => `<div onclick="${action}; document.getElementById('excelDropdown').style.display='none'" style="padding:12px 16px;cursor:pointer;font-size:12.5px;color:#0f172a;border-bottom:1px solid #f1f5f9" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">${text}</div>`;
   if (section === 'main') {
     opts += item('📊 Exportar dashboard', 'exportarMenuPrincipal()');
-    opts += item('📥 Baixar modelo (projetado)', 'window._downloadModeloProjetado()');
+    opts += item('📥 Baixar modelo (projetado)', 'downloadTemplateProjetado()');
     opts += item('📤 Importar projetado', "document.getElementById('inputImportProj').click()");
   } else if (section === 'rh') {
     opts += item('📊 Exportar Folha', 'window._exportarRH()');
