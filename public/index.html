@@ -2728,6 +2728,107 @@ function renderEstoque() {
     XLSX.writeFile(wb, 'modelo_estoque_camisetas.xlsx');
   };
   
+  window._estEntregasBaixarModelo = function() {
+    if (typeof XLSX === 'undefined') { alert('Biblioteca não carregou.'); return; }
+    const wb = XLSX.utils.book_new();
+    const rows = [
+      ['Data','Colaborador','Qtd','Tamanho','Cor','Obs'],
+      ['2026-09-15','João Prestador',1,'M','Preta','Exemplo — apague esta linha'],
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{wch:14},{wch:28},{wch:8},{wch:10},{wch:12},{wch:28}];
+    XLSX.utils.book_append_sheet(wb, ws, 'Entregas');
+    
+    const inst = [
+      ['MODELO DE ENTREGAS (SAÍDAS PARA O TIME)'],[''],
+      ['Cada linha é uma entrega de camiseta para um colaborador.'],
+      [''],
+      ['COLUNAS:'],
+      ['  Data: formato AAAA-MM-DD (ex: 2026-09-15)'],
+      ['  Colaborador: nome do prestador que recebeu'],
+      ['  Qtd: quantidade entregue (número)'],
+      ['  Tamanho: PP, P, M, G, GG, XG'],
+      ['  Cor: cor da camiseta (opcional)'],
+      ['  Obs: observações (opcional)'],
+      [''],
+      ['⚠️ IMPORTANTE:'],
+      ['- Ao importar, as entregas atuais serão SUBSTITUÍDAS'],
+      ['- Remova a linha de exemplo antes de importar'],
+      ['- Mantenha a linha de cabeçalho'],
+    ];
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(inst), 'Instruções');
+    XLSX.writeFile(wb, 'modelo_entregas_camisetas.xlsx');
+  };
+  
+  window._estEntregasExportar = function() {
+    if (typeof XLSX === 'undefined') { alert('Biblioteca não carregou.'); return; }
+    const est = _getEst();
+    const rows = [['Data','Colaborador','Qtd','Tamanho','Cor','Obs']];
+    (est.entregas || []).forEach(e => rows.push([e.data || '', e.colaborador || '', e.qtd || 0, e.tamanho || '', e.cor || '', e.obs || '']));
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{wch:14},{wch:28},{wch:8},{wch:10},{wch:12},{wch:28}];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Entregas');
+    XLSX.writeFile(wb, 'entregas_camisetas_' + _hoje() + '.xlsx');
+  };
+  
+  window._estEntregasImportar = function(evt) {
+    if (typeof XLSX === 'undefined') { alert('Biblioteca não carregou.'); return; }
+    const file = evt.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const wb = XLSX.read(data, {type: 'array'});
+        const sheetName = wb.SheetNames.find(n => n === 'Entregas') || wb.SheetNames[0];
+        const ws = wb.Sheets[sheetName];
+        if (!ws) { alert('Planilha não tem aba "Entregas".'); return; }
+        const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+        
+        const novoEntregas = [];
+        for (let i = 1; i < rows.length; i++) {
+          const r = rows[i];
+          if (!r || !r[0]) continue;
+          const data = String(r[0] || '').trim();
+          const colaborador = String(r[1] || '').trim();
+          const qtd = parseFloat(r[2]) || 0;
+          const tamanho = String(r[3] || 'M').trim();
+          const cor = String(r[4] || '').trim();
+          const obs = String(r[5] || '').trim();
+          if (data && colaborador && qtd > 0) {
+            novoEntregas.push({
+              id: Date.now() + i,
+              data, colaborador, qtd, tamanho, cor, obs
+            });
+          }
+        }
+        
+        if (novoEntregas.length === 0) {
+          alert('Nenhuma entrega válida encontrada.\n\nVerifique se a planilha tem colunas Data, Colaborador, Qtd, Tamanho preenchidas.');
+          evt.target.value = '';
+          return;
+        }
+        
+        if (!confirm(`Importar ${novoEntregas.length} entrega(s)?\n\nAs entregas atuais serão SUBSTITUÍDAS.`)) {
+          evt.target.value = '';
+          return;
+        }
+        
+        const est = _getEst();
+        est.entregas = novoEntregas;
+        _setEst(est);
+        alert(`✓ ${novoEntregas.length} entregas importadas!`);
+        renderEstoque();
+      } catch(err) {
+        alert('Erro ao ler planilha: ' + err.message);
+        console.error(err);
+      }
+      evt.target.value = '';
+    };
+    reader.readAsArrayBuffer(file);
+  };
+  
   window._estImportar = function(evt) {
     if (typeof XLSX === 'undefined') { alert('Biblioteca não carregou.'); return; }
     const file = evt.target.files[0];
@@ -3111,7 +3212,18 @@ function renderEstoque() {
           <div style="font-size:16px;font-weight:800;color:#0f172a">📤 Entregas (Saídas para o Time)</div>
           <div style="font-size:12px;color:#64748b;margin-top:3px">${est.entregas.length} entregas · Total: ${totalEntregue} un · ${colabAtendidos.size} colaboradores</div>
         </div>
-        <button onclick="window._estAddEntrega()" style="background:#0f172a;color:white;border:none;padding:11px 18px;border-radius:8px;font-family:Poppins;font-weight:700;font-size:12.5px;cursor:pointer">+ Nova Entrega</button>
+        <div style="display:flex;gap:8px;align-items:center">
+          <div style="position:relative;display:inline-block">
+            <button onclick="const m=document.getElementById('_estEntregasExcelMenu'); m.style.display=m.style.display==='block'?'none':'block'" style="background:#065f46;color:white;border:none;padding:11px 16px;border-radius:8px;font-family:Poppins;font-weight:700;font-size:12.5px;cursor:pointer;display:inline-flex;align-items:center;gap:6px">📊 Excel <span style="font-size:10px">▾</span></button>
+            <div id="_estEntregasExcelMenu" style="display:none;position:absolute;top:calc(100% + 6px);right:0;background:white;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.15);padding:6px;z-index:100;min-width:250px">
+              <button onclick="window._estEntregasBaixarModelo();document.getElementById('_estEntregasExcelMenu').style.display='none'" style="width:100%;text-align:left;padding:9px 12px;background:transparent;border:none;border-radius:6px;font-family:Poppins;font-size:12.5px;color:#334155;cursor:pointer;display:flex;align-items:center;gap:8px" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">📄 Baixar modelo (vazio)</button>
+              <label style="width:100%;padding:9px 12px;background:transparent;border-radius:6px;font-family:Poppins;font-size:12.5px;color:#334155;cursor:pointer;display:flex;align-items:center;gap:8px" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">📤 Importar entregas<input type="file" accept=".xlsx,.xls" onchange="window._estEntregasImportar(event);document.getElementById('_estEntregasExcelMenu').style.display='none'" style="display:none"/></label>
+              <div style="height:1px;background:#f1f5f9;margin:4px 0"></div>
+              <button onclick="window._estEntregasExportar();document.getElementById('_estEntregasExcelMenu').style.display='none'" style="width:100%;text-align:left;padding:9px 12px;background:transparent;border:none;border-radius:6px;font-family:Poppins;font-size:12.5px;color:#334155;cursor:pointer;display:flex;align-items:center;gap:8px" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">💾 Exportar entregas atuais</button>
+            </div>
+          </div>
+          <button onclick="window._estAddEntrega()" style="background:#0f172a;color:white;border:none;padding:11px 18px;border-radius:8px;font-family:Poppins;font-weight:700;font-size:12.5px;cursor:pointer">+ Nova Entrega</button>
+        </div>
       </div>
       
       ${est.entregas.length === 0 ? 
@@ -3143,7 +3255,7 @@ function renderEstoque() {
                 </td>
                 <td style="padding:8px 10px"><input type="text" value="${_esc(e.cor)}" placeholder="—" onchange="window._estUpdEntrega(${e.id},'cor',this.value)" style="width:100px;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-family:Poppins;font-size:11.5px"/></td>
                 <td style="padding:8px 10px"><input type="text" value="${_esc(e.obs)}" placeholder="—" onchange="window._estUpdEntrega(${e.id},'obs',this.value)" style="width:200px;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-family:Poppins;font-size:11.5px"/></td>
-                <td style="padding:8px 10px"><button onclick="window._estRmEntrega(${e.id})" style="background:#fee2e2;color:#991b1b;border:none;padding:6px 10px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700">✕</button></td>
+                <td style="padding:8px 10px"><button onclick="window._estRmEntrega(${e.id})" title="Excluir entrega" style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;padding:7px 11px;border-radius:6px;font-size:14px;cursor:pointer;font-weight:700;line-height:1" onmouseover="this.style.background='#fecaca';this.style.color='#7f1d1d'" onmouseout="this.style.background='#fee2e2';this.style.color='#991b1b'">🗑️</button></td>
               </tr>
             `).join('')}
             <tr style="background:#eff6ff;border-top:2px solid #3b82f6">
@@ -9723,6 +9835,47 @@ if (document.readyState === 'loading') {
     if (g) return g;
     return _GRUPO_AJUSTE_SAIDA;
   }
+  
+  // ============================================================================
+  // Reclassificação de CATEGORIA (não só grupo) por fornecedor
+  // Usado para casos onde a categoria genérica no Omie deve virar categoria específica
+  // NUNCA altera o VALOR, só a linha visual onde aparece
+  // ============================================================================
+  function _reclassificarCategoria(catLimpa, fornecedor) {
+    const f = String(fornecedor || '').toUpperCase();
+    
+    // Granville / Kaue Kendy / Fogarolli / Borealis: 
+    // no Omie eles ainda podem estar como "Prestadores de Serviços - Pontual" 
+    // mas a classificação real é "Advogados" — reclassificar
+    if (catLimpa === 'Prestadores de Serviços - Pontual') {
+      if (f.includes('GRANVILLE') 
+          || f.includes('KAUE KENDY') 
+          || f.includes('FOGAROLLI')
+          || f.includes('BOREALIS')) {
+        return 'Advogados';
+      }
+    }
+    
+    // Distribuição genérica → identificar sócio por fornecedor
+    if (catLimpa === 'Distribuição de Lucros / Dividendos') {
+      // Priorizar match mais específico primeiro
+      if (f.includes('DANIEL PEREIRA') || f.includes('PEREIRA')) {
+        return 'Distribuição de Lucros / Dividendos Daniel Pereira';
+      }
+      if (f.includes('DANIEL GUIMARÃES') || f.includes('DANIEL GUIMARAES') || f.includes('GUIMARÃES') || f.includes('GUIMARAES')) {
+        return 'Distribuição de Lucros / Dividendos Daniel Guimarães';
+      }
+      if (f.includes('JOÃO BRITO') || f.includes('JOAO BRITO') || f.includes('BRITO') || f.includes('JOÃO') || f.includes('JOAO')) {
+        return 'Distribuição de Lucros / Dividendos João Brito';
+      }
+      // Se só tem "DANIEL" ambíguo, logar no console
+      if (f.includes('DANIEL')) {
+        console.warn('[_reclassificarCategoria] Distribuição com Daniel ambíguo:', fornecedor);
+      }
+    }
+    
+    return catLimpa;
+  }
 
   // =====================================================================================
   // renderMain com estrutura gerencial hierárquica
@@ -9878,7 +10031,9 @@ if (document.readyState === 'loading') {
       if (_isPagar(r.tipo)) {
         _diag.despesa++;
         const grpMap = despesasPorGrupo.get(grupo) || despesasPorGrupo.get(_GRUPO_OUTRAS);
-        _addItem(grpMap, catLimpa, mes, val, r);
+        // Reclassificar categoria (Granville → Advogados, Distribuição → sócio específico)
+        const catFinal = _reclassificarCategoria(catLimpa, r.fornecedor);
+        _addItem(grpMap, catFinal, mes, val, r);
         totDespMes[mes] += val;
         if (totGrupoMes[grupo]) totGrupoMes[grupo][mes] = (totGrupoMes[grupo][mes] || 0) + val;
         else totGrupoMes[_GRUPO_OUTRAS][mes] = (totGrupoMes[_GRUPO_OUTRAS][mes] || 0) + val;
