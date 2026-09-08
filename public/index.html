@@ -6089,37 +6089,102 @@ function exportProjetado() {
 }
 
 function downloadTemplateProjetado() {
-  // Mesma estrutura do export, mas com valores em branco
-  const labels = getGroupLabels();
+  // Modelo por CATEGORIA (compatível com renderMain novo)
+  // Chaves: cat_rec|CATEGORIA (receitas), cat_desp|GRUPO|CATEGORIA (despesas)
   const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
   
-  const rows = [['Grupo', ...monthNames, 'Total']];
-  Object.entries(labels).forEach(([keyId, label]) => {
-    const row = [label, ...Array(12).fill(''), ''];
-    rows.push(row);
+  // Estrutura fixa baseada no _CLASSIFICACAO do renderMain novo
+  const CATEGORIAS_RECEITA = [
+    'Receita de Prestação de Serviços (Mensalidades Clientes)',
+    'Receita de Prestação de Serviços (Taxa de Implementação)',
+    'Receita de Prestação de Serviços (Mensalidade Inadimplentes)',
+    'Receita de Projetos e Consultorias',
+    'Receita de Vendas Tik Tok',
+    'Bonificações de Plataformas',
+    'Estratégia direto na conta',
+    'Estratégia recrutamento',
+  ];
+  const CATEGORIAS_DESPESA = [
+    // [Grupo, Categoria]
+    ['OPERAÇÃO', 'Remuneração Operacional PJ'],
+    ['FORNECEDORES', 'Influenciadores / Talentos'],
+    ['FORNECEDORES', 'Editores de Vídeo'],
+    ['FORNECEDORES', 'Aluguel de Equipamentos Operacionais'],
+    ['FORNECEDORES', 'Aluguel'],
+    ['FORNECEDORES', 'Honorários Contábeis'],
+    ['FORNECEDORES', 'Serviços Administrativos'],
+    ['FORNECEDORES', 'Advogados'],
+    ['FORNECEDORES', 'Treinamentos e Capacitação'],
+    ['FORNECEDORES', 'Software e Sistemas'],
+    ['FORNECEDORES', 'Softwares Operacionais'],
+    ['FORNECEDORES', 'Material de Escritório'],
+    ['FORNECEDORES', 'Estrutura e Equipamentos'],
+    ['FORNECEDORES', 'Compra de Equipamentos'],
+    ['VARIÁVEIS', 'Prestadores de Serviços - Pontual'],
+    ['VARIÁVEIS', 'Serviços de Terceiros'],
+    ['VARIÁVEIS', 'Telefone'],
+    ['VARIÁVEIS', 'Despesas Eventuais'],
+    ['VARIÁVEIS', 'Bônus e Premiações'],
+    ['VARIÁVEIS', 'Eventos e Networking'],
+    ['VARIÁVEIS', 'Incentivos e Bônus Prestadores'],
+    ['VARIÁVEIS', 'Voucher Aniversário / Datas Comemorativas'],
+    ['VARIÁVEIS', 'Brindes Internos (Equipe)'],
+    ['VARIÁVEIS', 'Marketing e Divulgação'],
+    ['VARIÁVEIS', 'Premiação e Incentivos para Clientes'],
+    ['VARIÁVEIS', 'Brindes para Clientes'],
+    ['INVESTIMENTOS', 'Créditos Meta'],
+    ['INVESTIMENTOS', 'Gasto com Tráfego Pago Clientes'],
+    ['INVESTIMENTOS', 'Créditos TikTok'],
+    ['EMPRÉSTIMOS', 'Devolução de Empréstimo Bancário'],
+    ['IMPOSTOS', 'Simples Nacional'],
+    ['IMPOSTOS', 'INSS'],
+    ['IMPOSTOS', 'IRPJ'],
+    ['IMPOSTOS', 'Taxas Municipais'],
+    ['DISTRIBUIÇÃO DOS SÓCIOS', 'Distribuição de Lucros / Dividendos João Brito'],
+    ['DISTRIBUIÇÃO DOS SÓCIOS', 'Distribuição de Lucros / Dividendos Daniel Pereira'],
+    ['DISTRIBUIÇÃO DOS SÓCIOS', 'Distribuição de Lucros / Dividendos Daniel Guimarães'],
+  ];
+  
+  const rows = [['Tipo', 'Grupo', 'Categoria', ...monthNames, 'Total']];
+  
+  // Linhas de RECEITA
+  CATEGORIAS_RECEITA.forEach(cat => {
+    rows.push(['RECEITA', 'RECEITAS', cat, ...Array(12).fill(''), '']);
+  });
+  
+  // Linhas de DESPESA (com Grupo)
+  CATEGORIAS_DESPESA.forEach(([grp, cat]) => {
+    rows.push(['DESPESA', grp, cat, ...Array(12).fill(''), '']);
   });
   
   const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols'] = [{wch: 55}, ...Array(12).fill({wch: 14}), {wch: 15}];
+  ws['!cols'] = [{wch:10}, {wch:22}, {wch:50}, ...Array(12).fill({wch: 12}), {wch: 14}];
   
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Projetado');
   
-  // Aba de instruções
   const inst = [
-    ['MODELO PARA PREENCHER VALORES PROJETADOS'],
-    [],
-    ['1. Preencha apenas os valores nas colunas de Janeiro a Dezembro'],
-    ['2. Use valores numéricos positivos (tanto receitas quanto despesas)'],
-    ['3. Deixe a célula em branco ou com 0 se não houver projeção'],
-    ['4. NÃO altere os nomes dos grupos na coluna "Grupo"'],
-    ['5. NÃO altere os cabeçalhos (linha 1)'],
-    [],
-    ['Após preencher, salve e use o botão "📥 Importar" no dashboard.']
+    ['MODELO PARA PREENCHER VALORES PROJETADOS — POR CATEGORIA'],[''],
+    ['CADA LINHA representa uma CATEGORIA específica. Preencha o valor MENSAL projetado para cada categoria.'],
+    [''],
+    ['COLUNAS:'],
+    ['  Tipo: RECEITA ou DESPESA (não altere)'],
+    ['  Grupo: agrupamento gerencial (não altere) — ex: FORNECEDORES, VARIÁVEIS, INVESTIMENTOS'],
+    ['  Categoria: nome da categoria (não altere) — ex: Editores de Vídeo, Aluguel, Simples Nacional'],
+    ['  Janeiro...Dezembro: preencha o valor projetado em R$ (só números, ex: 15000)'],
+    [''],
+    ['EXEMPLOS:'],
+    ['  Se você projeta gastar R$ 5.000/mês com "Editores de Vídeo": preencha 5000 em cada mês'],
+    ['  Se são valores diferentes: 5000 em Jan, 6000 em Fev, 6500 em Mar, etc.'],
+    [''],
+    ['⚠️ IMPORTANTE:'],
+    ['- Não altere as colunas Tipo, Grupo e Categoria'],
+    ['- Deixe em branco os meses sem projeção (ou coloque 0)'],
+    ['- Ao importar, os valores existentes serão SUBSTITUÍDOS'],
+    [''],
+    ['Após preencher, salve e clique em "📤 Importar projetado (Excel)".'],
   ];
-  const wsInst = XLSX.utils.aoa_to_sheet(inst);
-  wsInst['!cols'] = [{wch: 70}];
-  XLSX.utils.book_append_sheet(wb, wsInst, 'Instruções');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(inst), 'Instruções');
   
   XLSX.writeFile(wb, 'modelo_projetado.xlsx');
 }
@@ -6133,57 +6198,75 @@ function importProjetado(e) {
       const data = new Uint8Array(ev.target.result);
       const wb = XLSX.read(data, {type: 'array'});
       
-      // Pega a primeira aba (ou a aba "Projetado")
-      let sheetName = wb.SheetNames.find(n => n === 'Projetado') || wb.SheetNames[0];
+      const sheetName = wb.SheetNames.find(n => n === 'Projetado') || wb.SheetNames[0];
       const ws = wb.Sheets[sheetName];
       const rows = XLSX.utils.sheet_to_json(ws, {header: 1, defval: ''});
       
       if (rows.length < 2) { alert('❌ Planilha vazia ou inválida'); return; }
       
-      // Header esperado: Grupo, Jan, Fev, ..., Dez, Total
-      const header = rows[0];
-      if (!header[0] || !header[0].toString().toLowerCase().includes('grupo')) {
-        alert('❌ Formato inválido. A primeira coluna deve ser "Grupo".\n\nUse o botão "📋 Modelo" para baixar a estrutura correta.');
+      // NOVO formato: Tipo | Grupo | Categoria | Jan...Dez | Total
+      const header = rows[0].map(h => String(h || '').toLowerCase().trim());
+      const idxTipo = header.findIndex(h => h.includes('tipo'));
+      const idxGrupo = header.findIndex(h => h.includes('grupo'));
+      const idxCat = header.findIndex(h => h.includes('categoria') || h.includes('descrição'));
+      
+      if (idxTipo < 0 || idxGrupo < 0 || idxCat < 0) {
+        alert('❌ Formato inválido. A planilha deve ter as colunas: Tipo, Grupo, Categoria, Janeiro-Dezembro.\n\nBaixe o modelo novo antes de importar.');
         return;
       }
       
-      const labelToKey = getLabelToKey();
+      // Colunas de meses começam depois de Categoria
+      const idxJan = idxCat + 1;
+      
       const newProj = {};
       let count = 0;
-      let notFound = [];
       
       for (let i = 1; i < rows.length; i++) {
         const row = rows[i];
-        const label = row[0] ? row[0].toString().trim() : '';
-        if (!label) continue;
+        const tipo = String(row[idxTipo] || '').trim().toUpperCase();
+        const grupo = String(row[idxGrupo] || '').trim().toUpperCase();
+        const cat = String(row[idxCat] || '').trim();
+        if (!cat) continue;
         
-        const keyId = labelToKey[label];
-        if (!keyId) {
-          notFound.push(label);
+        // Determinar CHAVE de acordo com renderMain novo
+        let keyBase;
+        if (tipo === 'RECEITA') {
+          keyBase = 'cat_rec|' + cat;
+        } else if (tipo === 'DESPESA') {
+          keyBase = 'cat_desp|' + grupo + '|' + cat;
+        } else {
           continue;
         }
         
-        // Colunas 1-12 = janeiro a dezembro
-        MONTHS.forEach((mes, idx) => {
-          const val = parseFloat(row[idx + 1]);
+        for (let j = 0; j < 12; j++) {
+          const raw = row[idxJan + j];
+          const val = parseFloat(String(raw).replace(',','.'));
           if (!isNaN(val) && val !== 0) {
-            newProj[keyId + '|' + mes] = val;
+            const mes = MONTHS[j];
+            newProj[keyBase + '|' + mes] = val;
             count++;
           }
-        });
+        }
       }
       
-      let msg = `Importar ${count} valores projetados? Isso vai SUBSTITUIR os dados atuais.`;
-      if (notFound.length > 0) {
-        msg += '\n\n⚠️ ' + notFound.length + ' grupo(s) não reconhecido(s):\n' + notFound.slice(0,5).join('\n');
-        if (notFound.length > 5) msg += '\n... e mais ' + (notFound.length - 5);
+      if (count === 0) {
+        alert('Nenhum valor válido encontrado na planilha.\n\nVerifique se preencheu as colunas de meses (Janeiro a Dezembro).');
+        return;
       }
+      
+      const msg = `Importar ${count} valores projetados? Isso vai SUBSTITUIR os dados atuais.`;
       
       if (confirm(msg)) {
         projetadoData = newProj;
         saveProjetado();
-        renderMain();
-        alert('✅ ' + count + ' valores importados!');
+        // Ativar visualização em todos meses com valor
+        MONTHS.forEach(m => {
+          const temValor = Object.keys(newProj).some(k => k.endsWith('|' + m));
+          if (temValor) projetadoVisible[m] = true;
+        });
+        if (typeof window.renderMain === 'function') window.renderMain();
+        else renderMain();
+        alert('✅ ' + count + ' valores importados e visíveis nas colunas amarelas do menu principal!');
       }
     } catch(err) { 
       alert('❌ Erro ao ler planilha: ' + err.message); 
