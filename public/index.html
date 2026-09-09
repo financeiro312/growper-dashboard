@@ -507,230 +507,140 @@ table td:first-child { white-space: normal; }
 }
 
 
-/* ============ HUB MENU ============ */
+/* ============ PAINEL DE CATEGORIA (novo design profissional) ============ */
+#hubSection {
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  min-height: 100vh;
+}
+#hubContent {
+  padding: 40px 32px !important;
+  max-width: 1200px !important;
+  margin: 0 auto !important;
+}
 #hubContent .hub-header {
   margin-bottom: 32px;
-  text-align: center;
+  padding-bottom: 24px;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
 }
 #hubContent .hub-title {
-  font-size: 30px;
+  font-size: 26px;
   font-weight: 800;
   color: #0f172a;
-  letter-spacing: -0.8px;
-  margin-bottom: 8px;
+  letter-spacing: -0.7px;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+#hubContent .hub-title-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  background: var(--hub-accent-bg, #eff6ff);
+  color: var(--hub-accent, #2563eb);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
 }
 #hubContent .hub-subtitle {
-  font-size: 14px;
+  font-size: 13.5px;
   color: #64748b;
   font-weight: 500;
+  padding-left: 52px;
 }
-#hubContent .hub-breadcrumb {
-  font-size: 12.5px;
-  color: #64748b;
-  margin-bottom: 20px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-#hubContent .hub-breadcrumb .bc-link {
-  cursor: pointer;
-  color: #2563eb;
-  font-weight: 600;
-}
-#hubContent .hub-breadcrumb .bc-link:hover {
-  text-decoration: underline;
-}
+
 #hubContent .hub-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+  gap: 16px;
 }
+
+/* CARD PROFISSIONAL: ícone pequeno à esquerda, nome + descrição ao lado */
 #hubContent .hub-card {
   background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 16px;
-  padding: 32px 24px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px 22px;
   cursor: pointer;
-  transition: all 0.25s ease;
+  transition: all 0.2s ease;
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: 12px;
-  min-height: 200px;
+  align-items: flex-start;
+  gap: 16px;
+  text-align: left;
+  min-height: unset;
   position: relative;
   overflow: hidden;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 #hubContent .hub-card::before {
   content: '';
   position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 4px;
-  background: var(--hub-accent, #3b82f6);
-  transform: translateY(-4px);
-  transition: transform 0.25s ease;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--hub-accent, #2563eb);
+  opacity: 0;
+  transition: opacity 0.2s ease;
 }
 #hubContent .hub-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 20px 40px rgba(0,0,0,0.08);
-  border-color: var(--hub-accent, #3b82f6);
+  border-color: var(--hub-accent, #2563eb);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  transform: translateY(-2px);
+  background: linear-gradient(180deg, white 0%, var(--hub-accent-bg, #f8fafc) 100%);
 }
 #hubContent .hub-card:hover::before {
-  transform: translateY(0);
+  opacity: 1;
 }
 #hubContent .hub-card .hc-icon {
-  font-size: 44px;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  background: var(--hub-accent-bg, #eff6ff);
+  color: var(--hub-accent, #2563eb);
+  transition: all 0.2s ease;
   line-height: 1;
-  margin-bottom: 6px;
+  margin: 0;
+}
+#hubContent .hub-card:hover .hc-icon {
+  background: var(--hub-accent, #2563eb);
+  color: white;
+  transform: scale(1.05);
+}
+#hubContent .hub-card .hc-body {
+  flex: 1;
+  min-width: 0;
 }
 #hubContent .hub-card .hc-name {
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 700;
   color: #0f172a;
-  letter-spacing: -0.3px;
+  letter-spacing: -0.2px;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+#hubContent .hub-card .hc-arrow {
+  color: #94a3b8;
+  font-size: 15px;
+  font-weight: 400;
+  transition: all 0.2s ease;
+}
+#hubContent .hub-card:hover .hc-arrow {
+  color: var(--hub-accent, #2563eb);
+  transform: translateX(3px);
 }
 #hubContent .hub-card .hc-desc {
   font-size: 12px;
   color: #64748b;
-  font-weight: 500;
+  font-weight: 400;
   line-height: 1.5;
-}
-#hubContent .hub-card .hc-count {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  background: #f1f5f9;
-  color: #475569;
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 700;
-}
-#hubContent .hub-back-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  background: white;
-  border: 1px solid #e5e7eb;
-  color: #64748b;
-  border-radius: 8px;
-  cursor: pointer;
-  font-family: Poppins;
-  font-size: 12.5px;
-  font-weight: 600;
-  margin-bottom: 20px;
-}
-#hubContent .hub-back-btn:hover {
-  background: #f8fafc;
-  border-color: #cbd5e1;
-}
-
-
-/* ============ SIDEBAR CATEGORIAS EXPANSÍVEIS ============ */
-.nav-cat-section {
-  margin-bottom: 4px;
-}
-.nav-cat-btn {
-  width: 100%;
-  padding: 12px 14px;
-  background: transparent;
-  border: none;
-  color: #cbd5e1;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-family: Poppins;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.2px;
-  border-radius: 8px;
-  transition: all 0.15s ease;
-  text-align: left;
-}
-.nav-cat-btn:hover {
-  background: rgba(255,255,255,0.05);
-  color: white;
-}
-.nav-cat-btn .nav-cat-icon {
-  font-size: 16px;
-  line-height: 1;
-  flex-shrink: 0;
-}
-.nav-cat-btn .nav-cat-label {
-  flex: 1;
-}
-.nav-cat-btn .nav-cat-arrow {
-  font-size: 10px;
-  color: #94a3b8;
-  transition: transform 0.2s ease;
-  flex-shrink: 0;
-}
-.nav-cat-section.nav-cat-open > .nav-cat-btn {
-  color: white;
-  background: rgba(37, 99, 235, 0.15);
-}
-.nav-cat-section.nav-cat-open > .nav-cat-btn .nav-cat-arrow {
-  transform: rotate(90deg);
-  color: #60a5fa;
-}
-.nav-cat-menu {
-  max-height: 0;
-  overflow: hidden;
-  transition: max-height 0.25s ease;
-  padding-left: 8px;
-  margin-top: 0;
-}
-.nav-cat-section.nav-cat-open > .nav-cat-menu {
-  max-height: 500px;
-  margin-top: 4px;
-  margin-bottom: 8px;
-}
-
-
-/* ============ SIDEBAR: 5 BOTÕES SIMPLES DE CATEGORIA ============ */
-.sidebar-cats {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 8px 12px;
-}
-.sidebar-cat-btn {
-  width: 100%;
-  padding: 14px 16px;
-  background: transparent;
-  border: 1px solid transparent;
-  color: #cbd5e1;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-family: Poppins;
-  font-size: 13.5px;
-  font-weight: 600;
-  letter-spacing: 0.2px;
-  border-radius: 10px;
-  transition: all 0.15s ease;
-  text-align: left;
-}
-.sidebar-cat-btn:hover {
-  background: rgba(255,255,255,0.06);
-  color: white;
-  border-color: rgba(255,255,255,0.08);
-}
-.sidebar-cat-btn.active {
-  background: linear-gradient(135deg, rgba(37, 99, 235, 0.25), rgba(59, 130, 246, 0.15));
-  color: white;
-  border-color: rgba(59, 130, 246, 0.3);
-}
-.sidebar-cat-btn .scb-icon {
-  font-size: 18px;
-  line-height: 1;
-  flex-shrink: 0;
-}
-.sidebar-cat-btn .scb-label {
-  flex: 1;
 }
 
 /* Botão Home no header */
@@ -975,41 +885,25 @@ body.scalia-mode .company-badge {
 <!-- ============== TELA SCALIA EM CONSTRUÇÃO ============== -->
 
 <div class="sidebar">
-  <div class="logo-section"><div class="logo-dot"></div><div class="logo-text">Growper</div></div>
-  <div class="sidebar-cats">
-    <button class="sidebar-cat-btn" data-cat="financeiro" onclick="showCategory('financeiro')">
-      <span class="scb-icon">💼</span>
-      <span class="scb-label">Financeiro</span>
-    </button>
-    <button class="sidebar-cat-btn" data-cat="dp" onclick="showCategory('dp')">
-      <span class="scb-icon">👥</span>
-      <span class="scb-label">Departamento Pessoal</span>
-    </button>
-    <button class="sidebar-cat-btn" data-cat="estrategico" onclick="showCategory('estrategico')">
-      <span class="scb-icon">🎯</span>
-      <span class="scb-label">Estratégico</span>
-    </button>
-    <button class="sidebar-cat-btn" data-cat="notif" onclick="showCategory('notif')">
-      <span class="scb-icon">🔔</span>
-      <span class="scb-label">Notificações</span>
-    </button>
-    <button class="sidebar-cat-btn" data-cat="contab" onclick="showCategory('contab')">
-      <span class="scb-icon">📋</span>
-      <span class="scb-label">Contabilidade</span>
-    </button>
-  </div>
-  <!-- Nav-btns escondidos: existem só para compatibilidade com código antigo -->
-  <div style="display:none">
-    <button class="nav-btn" data-section="main"></button>
-    <button class="nav-btn" data-section="recebiveis"></button>
-    <button class="nav-btn" data-section="card"></button>
-    <button class="nav-btn" data-section="kits"></button>
-    <button class="nav-btn" data-section="rh"></button>
-    <button class="nav-btn" data-section="estoque"></button>
-    <button class="nav-btn" data-section="kpis"></button>
-    <button class="nav-btn" data-section="ma"></button>
-    <button class="nav-btn" data-section="notif"></button>
-    <button class="nav-btn" data-section="dre"></button>
+  <div class="logo-section"><div class="logo-dot"></div><div class="logo-text">Financeiro</div></div>
+  <div class="nav-section">
+    <div class="nav-buttons">
+      <button class="nav-btn nav-cat-simple" onclick="showCategoryPage('financeiro')" data-cat="financeiro">
+        <span class="nav-icon">💼</span><span>Financeiro</span>
+      </button>
+      <button class="nav-btn nav-cat-simple" onclick="showCategoryPage('dp')" data-cat="dp">
+        <span class="nav-icon">👥</span><span>Departamento Pessoal</span>
+      </button>
+      <button class="nav-btn nav-cat-simple" onclick="showCategoryPage('estrategico')" data-cat="estrategico">
+        <span class="nav-icon">🎯</span><span>Estratégico</span>
+      </button>
+      <button class="nav-btn nav-cat-simple" onclick="showCategoryPage('notif')" data-cat="notif">
+        <span class="nav-icon">🔔</span><span>Notificações</span>
+      </button>
+      <button class="nav-btn nav-cat-simple" onclick="showCategoryPage('contab')" data-cat="contab">
+        <span class="nav-icon">📋</span><span>Contabilidade</span>
+      </button>
+    </div>
   </div>
 </div>
 <div class="main-content">
@@ -5399,17 +5293,28 @@ function renderHub() {
   const category = HUB_CATEGORIAS.find(c => c.id === catId);
   if (!category) return;
   
+  // Fundo tenue da cor da categoria (10% opacidade)
+  const catBg = category.color + '15'; // hex + alpha
+  
   let html = '';
   html += `<div class="hub-header">
-    <div class="hub-title" style="color:${category.color}">${category.icon} ${category.name}</div>
+    <div class="hub-title">
+      <span class="hub-title-icon" style="--hub-accent:${category.color};--hub-accent-bg:${catBg}">${category.icon}</span>
+      <span>${category.name}</span>
+    </div>
     <div class="hub-subtitle">${category.desc}</div>
   </div>`;
   html += '<div class="hub-grid">';
   category.menus.forEach(m => {
-    html += `<div class="hub-card" style="--hub-accent:${category.color}" onclick="showSection('${m.section}')">
+    html += `<div class="hub-card" style="--hub-accent:${category.color};--hub-accent-bg:${catBg}" onclick="showSection('${m.section}')">
       <div class="hc-icon">${m.icon}</div>
-      <div class="hc-name">${m.name}</div>
-      <div class="hc-desc">${m.desc}</div>
+      <div class="hc-body">
+        <div class="hc-name">
+          <span>${m.name}</span>
+          <span class="hc-arrow">→</span>
+        </div>
+        <div class="hc-desc">${m.desc}</div>
+      </div>
     </div>`;
   });
   html += '</div>';
@@ -5428,15 +5333,15 @@ function showCategory(catId) {
   showSection('hub');
 }
 
-// ============ Sidebar: categorias expansíveis ============
-function toggleNavCat(catId) {
-  const el = document.querySelector('.nav-cat-section[data-cat="' + catId + '"]');
-  if (!el) return;
-  const isOpen = el.classList.contains('nav-cat-open');
-  // Fechar todas
-  document.querySelectorAll('.nav-cat-section').forEach(s => s.classList.remove('nav-cat-open'));
-  // Alternar a clicada
-  if (!isOpen) el.classList.add('nav-cat-open');
+// ============ Sidebar: navegação por categoria ============
+// Abre a página de uma categoria (mostra os menus dela como cards grandes)
+function showCategoryPage(catId) {
+  window._hubCategory = catId;
+  showSection('hub');
+  // Destacar o botão da categoria na sidebar
+  document.querySelectorAll('.nav-cat-simple').forEach(btn => btn.classList.remove('active'));
+  const btn = document.querySelector('.nav-cat-simple[data-cat="' + catId + '"]');
+  if (btn) btn.classList.add('active');
 }
 
 // Descobrir qual categoria contém uma section específica
@@ -5448,17 +5353,22 @@ const _SECTION_TO_CAT = {
   dre: 'contab',
 };
 
-function _openCatOfSection(section) {
+// Destacar o botão da categoria ativa na sidebar
+function _highlightCatButton(section) {
   const catId = _SECTION_TO_CAT[section];
-  if (!catId) return;
-  document.querySelectorAll('.nav-cat-section').forEach(s => s.classList.remove('nav-cat-open'));
-  const el = document.querySelector('.nav-cat-section[data-cat="' + catId + '"]');
-  if (el) el.classList.add('nav-cat-open');
+  document.querySelectorAll('.nav-cat-simple').forEach(btn => btn.classList.remove('active'));
+  if (catId) {
+    const btn = document.querySelector('.nav-cat-simple[data-cat="' + catId + '"]');
+    if (btn) btn.classList.add('active');
+  }
 }
 
 function showSection(section) {
   // Redirect financeiro → kpis (menu Financeiro foi integrado ao KPIs)
   if (arguments[0] === 'financeiro') { arguments[0] = 'kpis'; }
+  
+  // Manter categoria pai destacada na sidebar
+  try { _highlightCatButton(section); } catch(e) {}
   
   // Marcar botão da sidebar da categoria correta
   try {
@@ -9145,7 +9055,7 @@ function selectCompany(companyId) {
     // Restaurar sidebar Growper completa
     scaliaSidebarToggle(false);
     // Abrir categoria Financeiro por padrão (mostra os cards dos menus)
-    showCategory('financeiro');
+    showCategoryPage('financeiro');
   } else if (companyId === 'scalia') {
     document.body.classList.add('scalia-mode');
     document.getElementById('companyName').textContent = 'Scalia Performance';
