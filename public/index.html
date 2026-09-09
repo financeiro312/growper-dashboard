@@ -506,6 +506,146 @@ table td:first-child { white-space: normal; }
   color: #64748b;
 }
 
+
+/* ============ HUB MENU ============ */
+#hubContent .hub-header {
+  margin-bottom: 32px;
+  text-align: center;
+}
+#hubContent .hub-title {
+  font-size: 30px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.8px;
+  margin-bottom: 8px;
+}
+#hubContent .hub-subtitle {
+  font-size: 14px;
+  color: #64748b;
+  font-weight: 500;
+}
+#hubContent .hub-breadcrumb {
+  font-size: 12.5px;
+  color: #64748b;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+#hubContent .hub-breadcrumb .bc-link {
+  cursor: pointer;
+  color: #2563eb;
+  font-weight: 600;
+}
+#hubContent .hub-breadcrumb .bc-link:hover {
+  text-decoration: underline;
+}
+#hubContent .hub-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+}
+#hubContent .hub-card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 32px 24px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+  min-height: 200px;
+  position: relative;
+  overflow: hidden;
+}
+#hubContent .hub-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 4px;
+  background: var(--hub-accent, #3b82f6);
+  transform: translateY(-4px);
+  transition: transform 0.25s ease;
+}
+#hubContent .hub-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.08);
+  border-color: var(--hub-accent, #3b82f6);
+}
+#hubContent .hub-card:hover::before {
+  transform: translateY(0);
+}
+#hubContent .hub-card .hc-icon {
+  font-size: 44px;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+#hubContent .hub-card .hc-name {
+  font-size: 17px;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.3px;
+}
+#hubContent .hub-card .hc-desc {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
+  line-height: 1.5;
+}
+#hubContent .hub-card .hc-count {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: #f1f5f9;
+  color: #475569;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+#hubContent .hub-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  color: #64748b;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: Poppins;
+  font-size: 12.5px;
+  font-weight: 600;
+  margin-bottom: 20px;
+}
+#hubContent .hub-back-btn:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+/* Botão Home no header */
+.home-btn {
+  padding: 8px 14px;
+  background: linear-gradient(135deg, #1e40af, #2563eb);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-family: Poppins;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 8px;
+}
+.home-btn:hover {
+  filter: brightness(1.1);
+}
+
 /* === BADGE EMPRESA NO HEADER === */
 .company-badge {
   display: inline-flex;
@@ -769,7 +909,7 @@ body.scalia-mode .company-badge {
 <div class="main-content">
   <div class="header">
     <div class="header-content">
-      <div class="header-title" id="headerTitle"><span class="company-badge" id="companyBadge" onclick="backToSelector()" title="Clique para trocar de empresa"><span class="cb-icon">📊</span><span id="companyName">Growper Digital</span></span><span id="sectionTitle">Dashboard Principal</span></div>
+      <div class="header-title" id="headerTitle"><span class="company-badge" id="companyBadge" onclick="backToSelector()" title="Clique para trocar de empresa"><span class="cb-icon">📊</span><span id="companyName">Growper Digital</span></span><button class="home-btn" onclick="showSection('hub')" title="Voltar ao painel de controle">🏠 Início</button><span id="sectionTitle">Dashboard Principal</span></div>
       <div class="header-controls">
 
 <select id="selYear" onchange="if(typeof _onYearChange==='function')_onYearChange(this.value)"><option value="2026">2026</option><option value="2025">2025</option></select>
@@ -813,7 +953,8 @@ body.scalia-mode .company-badge {
     </div>
   </div>
   <div class="main">
-    <div id="mainSection"><div class="table-container"><table id="mainTable"><thead id="tableHead"></thead><tbody id="tableBody"></tbody></table></div><div id="summaryContainer" class="summary-container"></div></div>
+    <div id="hubSection" class="hidden"><div id="hubContent" style="padding:40px 32px;max-width:1400px;margin:0 auto"></div></div>
+<div id="mainSection"><div class="table-container"><table id="mainTable"><thead id="tableHead"></thead><tbody id="tableBody"></tbody></table></div><div id="summaryContainer" class="summary-container"></div></div>
     <div id="areaSection" class="hidden">
   <div style="display:flex;gap:8px;margin-bottom:24px;border-bottom:1px solid var(--border)">
     <button class="area-tab-btn active" data-areatab="mensal" style="padding:10px 18px;border:none;background:transparent;color:var(--primary);font-family:Poppins;font-size:13px;font-weight:600;cursor:pointer;border-bottom:2px solid var(--primary)">📅 Mensal</button>
@@ -5107,9 +5248,133 @@ function renderRH() {
 }
 
 
+
+// ============ HUB MENU — Painel de Controle ============
+window._hubCategory = null; // null = home, 'financeiro'|'dp'|'estrategico'|'contab'|'notif' = subcategoria
+
+const HUB_CATEGORIAS = [
+  { id: 'financeiro', icon: '💼', name: 'Financeiro', desc: 'Fluxo de caixa, mensalidades, cartão e orçamentos', color: '#10b981',
+    menus: [
+      { section: 'main', icon: '📊', name: 'Principal', desc: 'Dashboard consolidado com receitas, despesas e saldo' },
+      { section: 'recebiveis', icon: '💰', name: 'Mensalidades', desc: 'Fechamento por cliente e status de pagamento' },
+      { section: 'card', icon: '💳', name: 'Cartão de Crédito', desc: 'Fatura Inter e conciliação para OMIE' },
+      { section: 'kits', icon: '🎁', name: 'Orçamento de Kits', desc: 'Simulação de kits e materiais' },
+    ]
+  },
+  { id: 'dp', icon: '👥', name: 'Departamento Pessoal', desc: 'RH, folha e estoque de camisetas', color: '#8b5cf6',
+    menus: [
+      { section: 'rh', icon: '👥', name: 'RH', desc: 'Folha de prestadores, custo mensal por área' },
+      { section: 'estoque', icon: '📦', name: 'Estoque', desc: 'Compras e entregas de camisetas do time' },
+    ]
+  },
+  { id: 'estrategico', icon: '🎯', name: 'Estratégico', desc: 'KPIs, análises gerenciais e valuation', color: '#3b82f6',
+    menus: [
+      { section: 'kpis', icon: '📊', name: "KPI's Financeiro", desc: '8 indicadores gerenciais com gráficos e drill-down' },
+      { section: 'ma', icon: '💎', name: 'M&A / Investor Ready', desc: 'Valuation e prontidão para investidores' },
+    ]
+  },
+  { id: 'contab', icon: '📋', name: 'Contabilidade', desc: 'DRE e demonstrações contábeis', color: '#f59e0b',
+    menus: [
+      { section: 'dre', icon: '📋', name: 'DRE', desc: 'Demonstração de resultado do exercício' },
+    ]
+  },
+  { id: 'notif', icon: '🔔', name: 'Notificações', desc: 'Cobranças, avisos e alertas do sistema', color: '#ef4444',
+    menus: [
+      { section: 'notif', icon: '🔔', name: 'Notificações', desc: 'Central de notificações e cobranças de clientes' },
+    ]
+  },
+];
+
+function renderHub() {
+  const container = document.getElementById('hubContent');
+  if (!container) return;
+  
+  const cat = window._hubCategory;
+  let html = '';
+  
+  if (cat === null) {
+    // HOME: mostrar todas as categorias
+    html += `<div class="hub-header">
+      <div class="hub-title">Painel de Controle</div>
+      <div class="hub-subtitle">Selecione uma área para acessar seus menus</div>
+    </div>`;
+    html += '<div class="hub-grid">';
+    HUB_CATEGORIAS.forEach(c => {
+      html += `<div class="hub-card" style="--hub-accent:${c.color}" onclick="window._hubCategory='${c.id}'; renderHub()">
+        <div class="hc-count">${c.menus.length} menu${c.menus.length > 1 ? 's' : ''}</div>
+        <div class="hc-icon">${c.icon}</div>
+        <div class="hc-name">${c.name}</div>
+        <div class="hc-desc">${c.desc}</div>
+      </div>`;
+    });
+    html += '</div>';
+  } else {
+    // SUBCATEGORIA: mostrar menus da categoria
+    const category = HUB_CATEGORIAS.find(c => c.id === cat);
+    if (!category) {
+      window._hubCategory = null;
+      renderHub();
+      return;
+    }
+    html += `<button class="hub-back-btn" onclick="window._hubCategory=null; renderHub()">← Voltar ao painel</button>`;
+    html += `<div class="hub-breadcrumb">
+      <span class="bc-link" onclick="window._hubCategory=null; renderHub()">Painel</span>
+      <span>›</span>
+      <span>${category.name}</span>
+    </div>`;
+    html += `<div class="hub-header">
+      <div class="hub-title">${category.icon} ${category.name}</div>
+      <div class="hub-subtitle">${category.desc}</div>
+    </div>`;
+    html += '<div class="hub-grid">';
+    category.menus.forEach(m => {
+      html += `<div class="hub-card" style="--hub-accent:${category.color}" onclick="showSection('${m.section}')">
+        <div class="hc-icon">${m.icon}</div>
+        <div class="hc-name">${m.name}</div>
+        <div class="hc-desc">${m.desc}</div>
+      </div>`;
+    });
+    html += '</div>';
+  }
+  
+  container.innerHTML = html;
+}
+
 function showSection(section) {
   // Redirect financeiro → kpis (menu Financeiro foi integrado ao KPIs)
   if (arguments[0] === 'financeiro') { arguments[0] = 'kpis'; }
+  
+  // HUB: painel de controle central
+  if (section === 'hub') {
+    document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+    ['hubSection','mainSection','areaSection','cardSection','recebiveisSection','kpisSection','rhSection','notifSection','financeiroSection','maSection','estoqueSection','dreSection','pjsSection','margemSection','ticketSection','scaliaMainSection2','scaliaCardSection2','scaliaKitsSection2'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.add('hidden');
+    });
+    const hs = document.getElementById('hubSection');
+    if (hs) hs.classList.remove('hidden');
+    currentSection = 'hub';
+    document.getElementById('sectionTitle').textContent = 'Painel de Controle';
+    // Esconder filtros que não fazem sentido no hub
+    try {
+      const viewBtns = document.getElementById('viewButtons');
+      const selContaWrap = document.getElementById('selContaWrap');
+      const selConciliado = document.getElementById('selConciliado');
+      const selYear = document.getElementById('selYear');
+      if (viewBtns) viewBtns.classList.add('hidden');
+      if (selContaWrap) selContaWrap.style.display = 'none';
+      if (selConciliado) selConciliado.style.display = 'none';
+      if (selYear) selYear.style.display = 'none';
+    } catch(e) {}
+    renderHub();
+    return;
+  }
+  
+  // Restaurar selYear ao sair do hub
+  try {
+    const selY = document.getElementById('selYear');
+    if (selY && section !== 'recebiveis') selY.style.display = '';
+  } catch(e) {}
 
   // Toggle selYear global: esconder no menu Recebíveis (tem próprio filtro de ano)
   try {
@@ -5135,17 +5400,19 @@ function showSection(section) {
   if (btn) btn.classList.add('active');
   
   // Esconder TODAS as seções (Growper + Scalia)
-  ['mainSection','areaSection','cardSection','recebiveisSection','kpisSection','rhSection','notifSection','financeiroSection','maSection','estoqueSection','dreSection','pjsSection','margemSection','ticketSection','scaliaMainSection2','scaliaCardSection2','scaliaKitsSection2'].forEach(id => {
+  ['hubSection','mainSection','areaSection','cardSection','recebiveisSection','kpisSection','rhSection','notifSection','financeiroSection','maSection','estoqueSection','dreSection','pjsSection','margemSection','ticketSection','scaliaMainSection2','scaliaCardSection2','scaliaKitsSection2'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add('hidden');
   });
 
   currentSection = section;
   const titles = {
+    hub: 'Painel de Controle',
     main: 'Dashboard Principal', area: 'Análise por Área',
     card: 'Cartão de Crédito', recebiveis: 'Mensalidades', kpis: "KPI's Financeiros",
     dre: 'DRE - Demonstração de Resultado', pjs: 'Análise de PJs',
-    margem: 'Margem de Lucro', ticket: 'Ticket Médio',
+    margem: 'Margem de Lucro', ticket: 'Ticket Médio', rh: 'RH — Departamento Pessoal', estoque: 'Estoque',
+    notif: 'Notificações', ma: 'M&A / Investor Ready',
     scaliaMain: 'Dashboard Principal', scaliaCard: 'Cartão de Crédito', scaliaKits: 'Orçamento de Kits', kits: 'Orçamento de Kits'
   };
   document.getElementById('sectionTitle').textContent = titles[section] || 'Dashboard Principal';
@@ -6321,6 +6588,7 @@ function toggleExpand(key) {
   else expandedRows.add(key);
   // Re-renderizar a tela atual (currentSection vem do menu lateral)
   const renderers = { 
+    hub: typeof renderHub === 'function' ? renderHub : null,
     main: typeof renderMain === 'function' ? renderMain : null,
     area: typeof renderArea === 'function' ? renderArea : null,
     card: typeof renderCard === 'function' ? renderCard : null,
@@ -8640,7 +8908,8 @@ document.addEventListener('keydown', (e) => {
 
 // Marcar células como selecionáveis após cada renderização
 const _origRender = {
-  main: typeof renderMain === 'function' ? renderMain : null,
+  hub: typeof renderHub === 'function' ? renderHub : null,
+    main: typeof renderMain === 'function' ? renderMain : null,
   area: typeof renderArea === 'function' ? renderArea : null,
   card: typeof renderCard === 'function' ? renderCard : null,
   dre: typeof renderDRE === 'function' ? renderDRE : null,
@@ -8748,8 +9017,9 @@ function selectCompany(companyId) {
     document.getElementById('companyName').textContent = 'Growper Digital';
     // Restaurar sidebar Growper completa
     scaliaSidebarToggle(false);
-    // Mostrar seção Principal Growper
-    showSection('main');
+    // Mostrar HUB (Painel de Controle) como página inicial
+    window._hubCategory = null;
+    showSection('hub');
   } else if (companyId === 'scalia') {
     document.body.classList.add('scalia-mode');
     document.getElementById('companyName').textContent = 'Scalia Performance';
