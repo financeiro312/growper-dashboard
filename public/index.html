@@ -5346,7 +5346,7 @@ const HUB_CATEGORIAS = [
       { section: 'main', icon: '📊', name: 'Principal', desc: 'Dashboard consolidado com receitas, despesas e saldo' },
       { section: 'recebiveis', icon: '💰', name: 'Mensalidades', desc: 'Fechamento por cliente e status de pagamento' },
       { section: 'card', icon: '💳', name: 'Cartão de Crédito', desc: 'Fatura Inter e conciliação para OMIE' },
-      { section: 'kits', icon: '🎁', name: 'Orçamento de Kits', desc: 'Simulação de kits e materiais' },
+      
     ]
   },
   { id: 'dp', icon: '👥', name: 'Departamento Pessoal', desc: 'RH, folha e estoque de camisetas', color: '#8b5cf6',
@@ -5451,11 +5451,22 @@ function showCategory(catId) {
 
 // ============ Sidebar: navegação por categoria ============
 // Abre a página de uma categoria (mostra os menus dela como cards grandes)
+function _getOrCreateHubOverlay() {
+  let ov = document.getElementById('hubOverlay');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'hubOverlay';
+    document.body.appendChild(ov);
+    console.log('[hub] overlay criado no body');
+  }
+  return ov;
+}
+
 function showCategoryPage(catId) {
   console.log('[showCategoryPage] Abrindo categoria:', catId);
   window._hubCategory = catId;
   
-  // Destacar botão da sidebar
+  // Destacar botão sidebar
   try {
     document.querySelectorAll('.nav-cat-simple').forEach(btn => btn.classList.remove('active'));
     const btn = document.querySelector('.nav-cat-simple[data-cat="' + catId + '"]');
@@ -5463,23 +5474,31 @@ function showCategoryPage(catId) {
   } catch(e) {}
   
   const category = HUB_CATEGORIAS.find(c => c.id === catId);
-  if (!category) { console.error('[showCategoryPage] categoria não achada:', catId); return; }
+  if (!category) { console.error('[showCategoryPage] cat não achada:', catId); return; }
   
   const color = category.color;
+  const ov = _getOrCreateHubOverlay();
   
-  // Remover overlay antigo se existir
-  const oldOverlay = document.getElementById('hubOverlay');
-  if (oldOverlay) oldOverlay.remove();
-  
-  // Criar overlay fullscreen ACIMA de tudo (z-index 999)
-  const overlay = document.createElement('div');
-  overlay.id = 'hubOverlay';
-  overlay.style.cssText = 'position:fixed !important;top:0 !important;left:210px !important;right:0 !important;bottom:0 !important;background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#0f172a 100%) !important;z-index:999 !important;overflow-y:auto !important;font-family:Poppins,sans-serif !important';
-  
-  // Adaptar para mobile (sidebar menor)
-  if (window.innerWidth <= 768) {
-    overlay.style.left = '60px !important';
-  }
+  // FORÇAR estilos toda vez com setAttribute style completo
+  const sidebarWidth = window.innerWidth <= 768 ? '60px' : '210px';
+  ov.setAttribute('style', 
+    'position:fixed !important;' +
+    'top:0 !important;' +
+    'left:' + sidebarWidth + ' !important;' +
+    'right:0 !important;' +
+    'bottom:0 !important;' +
+    'width:auto !important;' +
+    'height:auto !important;' +
+    'background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#0f172a 100%) !important;' +
+    'z-index:999999 !important;' +
+    'overflow-y:auto !important;' +
+    'overflow-x:hidden !important;' +
+    'font-family:Poppins,sans-serif !important;' +
+    'display:block !important;' +
+    'visibility:visible !important;' +
+    'opacity:1 !important;' +
+    'pointer-events:auto !important'
+  );
   
   let html = '<div style="padding:48px 40px;max-width:1280px;margin:0 auto;color:#f8fafc">';
   
@@ -5507,19 +5526,19 @@ function showCategoryPage(catId) {
     html += '<div style="font-size:12.5px;color:#94a3b8;line-height:1.55">' + m.desc + '</div>';
     html += '</div></div>';
   });
-  html += '</div>';
-  html += '</div>';
+  html += '</div></div>';
   
-  overlay.innerHTML = html;
-  document.body.appendChild(overlay);
-  
-  console.log('[showCategoryPage] Overlay criado, cards:', category.menus.length);
+  ov.innerHTML = html;
+  console.log('[showCategoryPage] overlay populado, cards:', category.menus.length, 'display:', ov.style.display);
 }
 
-// Ao clicar em um card do hub: fecha overlay e abre a section
 function _hubGoToSection(section) {
-  const overlay = document.getElementById('hubOverlay');
-  if (overlay) overlay.remove();
+  console.log('[_hubGoToSection] indo para:', section);
+  const ov = document.getElementById('hubOverlay');
+  if (ov) {
+    ov.style.setProperty('display', 'none', 'important');
+    ov.style.setProperty('visibility', 'hidden', 'important');
+  }
   showSection(section);
 }
 
@@ -5543,8 +5562,14 @@ function _highlightCatButton(section) {
 }
 
 function showSection(section) {
-  // Remover overlay do hub (se existir) — ao entrar em qualquer menu, o overlay sai
-  try { const _ov = document.getElementById('hubOverlay'); if (_ov) _ov.remove(); } catch(e) {}
+  // Esconder overlay do hub (mas mantém no DOM para reuso)
+  try { 
+    const _ov = document.getElementById('hubOverlay'); 
+    if (_ov) { 
+      _ov.style.setProperty('display', 'none', 'important');
+      _ov.style.setProperty('visibility', 'hidden', 'important');
+    } 
+  } catch(e) {}
 
   // Redirect financeiro → kpis (menu Financeiro foi integrado ao KPIs)
   if (arguments[0] === 'financeiro') { arguments[0] = 'kpis'; }
