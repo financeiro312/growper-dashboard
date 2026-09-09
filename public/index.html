@@ -609,27 +609,35 @@ body.scalia-mode .company-badge {
 /* ============ Sidebar: botões de categoria ============ */
 .nav-cat-simple {
   width: 100% !important;
-  padding: 12px 14px !important;
+  padding: 11px 10px !important;
   background: transparent !important;
   border: 1px solid transparent !important;
   color: #cbd5e1 !important;
   cursor: pointer !important;
   display: flex !important;
   align-items: center !important;
-  gap: 12px !important;
+  gap: 9px !important;
   font-family: Poppins, sans-serif !important;
-  font-size: 13px !important;
+  font-size: 12px !important;
   font-weight: 600 !important;
+  letter-spacing: -0.1px !important;
   border-radius: 10px !important;
   transition: all 0.15s ease !important;
   text-align: left !important;
   margin-bottom: 4px !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+}
+.nav-cat-simple > span:not(.nav-icon) {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
 }
 .nav-cat-simple .nav-icon {
-  font-size: 17px !important;
+  font-size: 15px !important;
   line-height: 1 !important;
   flex-shrink: 0 !important;
-  width: 22px !important;
+  width: 18px !important;
   text-align: center !important;
 }
 .nav-cat-simple:hover {
