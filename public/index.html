@@ -5442,6 +5442,7 @@ window._popularExcelDropdown = function() {
 window._reembolsoState = {
   encontroAtualId: null,
   taxaPorKm: 1.00,  // R$ por km (configurável)
+  ordemColab: 'inserido', // 'inserido' (ordem de cadastro), 'az' (por número asc), 'za' (por número desc)
 };
 
 function _reembolsoLoad() {
@@ -5462,6 +5463,20 @@ function _reembolsoSave(data) {
   try {
     localStorage.setItem('reembolso_v1', JSON.stringify(data));
   } catch(e) { console.error('[reembolso] erro save:', e); }
+}
+
+function _reembolsoNumeroColab(nome) {
+  // Extrai o número entre parênteses no início do nome. Ex: "(001) João" → 1
+  const m = String(nome || '').match(/^\s*\((\d+)\)/);
+  return m ? Number(m[1]) : Infinity; // sem número vai pro final
+}
+
+function _reembolsoToggleOrdemColab() {
+  const ordens = ['inserido', 'az', 'za'];
+  const atual = window._reembolsoState.ordemColab || 'inserido';
+  const proxima = ordens[(ordens.indexOf(atual) + 1) % ordens.length];
+  window._reembolsoState.ordemColab = proxima;
+  renderReembolso();
 }
 
 function _reembolsoFmt(v) {
@@ -5632,7 +5647,10 @@ function renderReembolso() {
   } else {
     html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:1100px">';
     html += '<thead><tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0">';
-    html += '<th style="padding:12px 14px;text-align:left;font-weight:700;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:0.4px">Colaborador</th>';
+    const _ord = window._reembolsoState.ordemColab || 'inserido';
+    const _seta = _ord === 'az' ? '▲' : (_ord === 'za' ? '▼' : '⇅');
+    const _tit = _ord === 'az' ? 'Ordenado por número (crescente). Clique para inverter.' : (_ord === 'za' ? 'Ordenado por número (decrescente). Clique para desligar.' : 'Ordem de cadastro. Clique para ordenar pelo número entre parênteses.');
+    html += '<th onclick="_reembolsoToggleOrdemColab()" title="' + _tit + '" style="padding:12px 14px;text-align:left;font-weight:700;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:0.4px;cursor:pointer;user-select:none">Colaborador <span style="color:' + (_ord==='inserido'?'#94a3b8':'#8b5cf6') + ';font-size:10px;margin-left:4px">' + _seta + '</span></th>';
     html += '<th style="padding:12px 8px;text-align:center;font-weight:700;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:0.4px">Vai?</th>';
     html += '<th style="padding:12px 8px;text-align:center;font-weight:700;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:0.4px" title="Km só ida — o sistema calcula ida+volta">Km ida</th>';
     html += '<th style="padding:12px 8px;text-align:center;font-weight:700;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:0.4px">🎫 Passagem</th>';
@@ -5643,7 +5661,17 @@ function renderReembolso() {
     if (!isFechado) html += '<th style="padding:12px 8px"></th>';
     html += '</tr></thead><tbody>';
     
-    encontroAtual.colaboradores.forEach((col, idx) => {
+    // Ordenar colaboradores conforme setinha
+    const ordemAtual = window._reembolsoState.ordemColab || 'inserido';
+    // Mantém índice original (idx real no array) para operações de edição/remoção
+    let colaboradoresOrdenados = encontroAtual.colaboradores.map((c, i) => ({ col: c, idx: i }));
+    if (ordemAtual === 'az') {
+      colaboradoresOrdenados.sort((a, b) => _reembolsoNumeroColab(a.col.nome) - _reembolsoNumeroColab(b.col.nome));
+    } else if (ordemAtual === 'za') {
+      colaboradoresOrdenados.sort((a, b) => _reembolsoNumeroColab(b.col.nome) - _reembolsoNumeroColab(a.col.nome));
+    }
+    
+    colaboradoresOrdenados.forEach(({col, idx}) => {
       const vai = col.vai !== false; // default true (compatível com dados antigos)
       const calc = _reembolsoCalcColab(col, taxaKm);
       const totalReal = vai ? calc.total : 0;
@@ -7381,12 +7409,13 @@ function renderRecebiveis() {
   if (!window._recOrdem) window._recOrdem = 'valor';
   
   listaFiltrada.sort(([idA, nomeA], [idB, nomeB]) => {
-    if (window._recOrdem === 'az') return nomeA.localeCompare(nomeB);
-    if (window._recOrdem === 'za') return nomeB.localeCompare(nomeA);
-    // 'valor' - padrão
+    // A-Z / Z-A agora ordenam pelo NÚMERO do ID (que aparece entre parênteses: "(107) Aprove")
+    if (window._recOrdem === 'az') return (Number(idA)||0) - (Number(idB)||0);
+    if (window._recOrdem === 'za') return (Number(idB)||0) - (Number(idA)||0);
+    // 'valor' - padrão (maior receita primeiro)
     const totA = MONTHS.reduce((s,m) => s + (mensaPorMes[m][idA] ? mensaPorMes[m][idA].mensa : 0), 0);
     const totB = MONTHS.reduce((s,m) => s + (mensaPorMes[m][idB] ? mensaPorMes[m][idB].mensa : 0), 0);
-    return totB - totA || nomeA.localeCompare(nomeB);
+    return totB - totA || (Number(idA)||0) - (Number(idB)||0);
   });
   
   // Totais
