@@ -688,6 +688,51 @@ table td:first-child { white-space: normal; }
   margin-bottom: 8px;
 }
 
+
+/* ============ SIDEBAR: 5 BOTÕES SIMPLES DE CATEGORIA ============ */
+.sidebar-cats {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 12px;
+}
+.sidebar-cat-btn {
+  width: 100%;
+  padding: 14px 16px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: #cbd5e1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: Poppins;
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  border-radius: 10px;
+  transition: all 0.15s ease;
+  text-align: left;
+}
+.sidebar-cat-btn:hover {
+  background: rgba(255,255,255,0.06);
+  color: white;
+  border-color: rgba(255,255,255,0.08);
+}
+.sidebar-cat-btn.active {
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.25), rgba(59, 130, 246, 0.15));
+  color: white;
+  border-color: rgba(59, 130, 246, 0.3);
+}
+.sidebar-cat-btn .scb-icon {
+  font-size: 18px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.sidebar-cat-btn .scb-label {
+  flex: 1;
+}
+
 /* Botão Home no header */
 .home-btn {
   padding: 8px 14px;
@@ -930,64 +975,43 @@ body.scalia-mode .company-badge {
 <!-- ============== TELA SCALIA EM CONSTRUÇÃO ============== -->
 
 <div class="sidebar">
-  <div class="logo-section"><div class="logo-dot"></div><div class="logo-text">Financeiro</div></div>
-  <div class="nav-section nav-cat-section" data-cat="financeiro">
-    <button class="nav-cat-btn" onclick="toggleNavCat('financeiro')">
-      <span class="nav-cat-icon">💼</span>
-      <span class="nav-cat-label">Financeiro</span>
-      <span class="nav-cat-arrow">▸</span>
+  <div class="logo-section"><div class="logo-dot"></div><div class="logo-text">Growper</div></div>
+  <div class="sidebar-cats">
+    <button class="sidebar-cat-btn" data-cat="financeiro" onclick="showCategory('financeiro')">
+      <span class="scb-icon">💼</span>
+      <span class="scb-label">Financeiro</span>
     </button>
-    <div class="nav-buttons nav-cat-menu">
-      <button class="nav-btn active" data-section="main"><span class="nav-icon">📊</span><span>Principal</span></button>
-      <button class="nav-btn" data-section="recebiveis"><span class="nav-icon">💰</span><span>Mensalidades</span></button>
-      <button class="nav-btn" data-section="card"><span class="nav-icon">💳</span><span>Cartão de Crédito</span></button>
-      <button class="nav-btn" data-section="kits"><span class="nav-icon">🎁</span><span>Orçamento de Kits</span></button>
-    </div>
+    <button class="sidebar-cat-btn" data-cat="dp" onclick="showCategory('dp')">
+      <span class="scb-icon">👥</span>
+      <span class="scb-label">Departamento Pessoal</span>
+    </button>
+    <button class="sidebar-cat-btn" data-cat="estrategico" onclick="showCategory('estrategico')">
+      <span class="scb-icon">🎯</span>
+      <span class="scb-label">Estratégico</span>
+    </button>
+    <button class="sidebar-cat-btn" data-cat="notif" onclick="showCategory('notif')">
+      <span class="scb-icon">🔔</span>
+      <span class="scb-label">Notificações</span>
+    </button>
+    <button class="sidebar-cat-btn" data-cat="contab" onclick="showCategory('contab')">
+      <span class="scb-icon">📋</span>
+      <span class="scb-label">Contabilidade</span>
+    </button>
   </div>
-  <div class="nav-section nav-cat-section" data-cat="dp">
-    <button class="nav-cat-btn" onclick="toggleNavCat('dp')">
-      <span class="nav-cat-icon">👥</span>
-      <span class="nav-cat-label">Departamento Pessoal</span>
-      <span class="nav-cat-arrow">▸</span>
-    </button>
-    <div class="nav-buttons nav-cat-menu">
-      <button class="nav-btn" data-section="rh"><span class="nav-icon">👥</span><span>RH</span></button>
-      <button class="nav-btn" data-section="estoque"><span class="nav-icon">📦</span><span>Estoque</span></button>
-    </div>
-  </div>
-  <div class="nav-section nav-cat-section" data-cat="estrategico">
-    <button class="nav-cat-btn" onclick="toggleNavCat('estrategico')">
-      <span class="nav-cat-icon">🎯</span>
-      <span class="nav-cat-label">Estratégico</span>
-      <span class="nav-cat-arrow">▸</span>
-    </button>
-    <div class="nav-buttons nav-cat-menu">
-      <button class="nav-btn" data-section="kpis"><span class="nav-icon">📊</span><span>KPI's Financeiro</span></button>
-      <button class="nav-btn" data-section="ma"><span class="nav-icon">💎</span><span>M&A / Investor Ready</span></button>
-    </div>
-  </div>
-  <div class="nav-section nav-cat-section" data-cat="notif">
-    <button class="nav-cat-btn" onclick="toggleNavCat('notif')">
-      <span class="nav-cat-icon">🔔</span>
-      <span class="nav-cat-label">Notificações</span>
-      <span class="nav-cat-arrow">▸</span>
-    </button>
-    <div class="nav-buttons nav-cat-menu">
-      <button class="nav-btn" data-section="notif"><span class="nav-icon">📲</span><span>Notificações</span></button>
-    </div>
-  </div>
-  <div class="nav-section nav-cat-section" data-cat="contab">
-    <button class="nav-cat-btn" onclick="toggleNavCat('contab')">
-      <span class="nav-cat-icon">📋</span>
-      <span class="nav-cat-label">Contabilidade</span>
-      <span class="nav-cat-arrow">▸</span>
-    </button>
-    <div class="nav-buttons nav-cat-menu">
-      <button class="nav-btn" data-section="dre"><span class="nav-icon">📋</span><span>DRE</span></button>
-    </div>
+  <!-- Nav-btns escondidos: existem só para compatibilidade com código antigo -->
+  <div style="display:none">
+    <button class="nav-btn" data-section="main"></button>
+    <button class="nav-btn" data-section="recebiveis"></button>
+    <button class="nav-btn" data-section="card"></button>
+    <button class="nav-btn" data-section="kits"></button>
+    <button class="nav-btn" data-section="rh"></button>
+    <button class="nav-btn" data-section="estoque"></button>
+    <button class="nav-btn" data-section="kpis"></button>
+    <button class="nav-btn" data-section="ma"></button>
+    <button class="nav-btn" data-section="notif"></button>
+    <button class="nav-btn" data-section="dre"></button>
   </div>
 </div>
-
 <div class="main-content">
   <div class="header">
     <div class="header-content">
@@ -5371,55 +5395,37 @@ function renderHub() {
   const container = document.getElementById('hubContent');
   if (!container) return;
   
-  const cat = window._hubCategory;
-  let html = '';
+  const catId = window._hubCategory || 'financeiro';
+  const category = HUB_CATEGORIAS.find(c => c.id === catId);
+  if (!category) return;
   
-  if (cat === null) {
-    // HOME: mostrar todas as categorias
-    html += `<div class="hub-header">
-      <div class="hub-title">Painel de Controle</div>
-      <div class="hub-subtitle">Selecione uma área para acessar seus menus</div>
+  let html = '';
+  html += `<div class="hub-header">
+    <div class="hub-title" style="color:${category.color}">${category.icon} ${category.name}</div>
+    <div class="hub-subtitle">${category.desc}</div>
+  </div>`;
+  html += '<div class="hub-grid">';
+  category.menus.forEach(m => {
+    html += `<div class="hub-card" style="--hub-accent:${category.color}" onclick="showSection('${m.section}')">
+      <div class="hc-icon">${m.icon}</div>
+      <div class="hc-name">${m.name}</div>
+      <div class="hc-desc">${m.desc}</div>
     </div>`;
-    html += '<div class="hub-grid">';
-    HUB_CATEGORIAS.forEach(c => {
-      html += `<div class="hub-card" style="--hub-accent:${c.color}" onclick="window._hubCategory='${c.id}'; renderHub()">
-        <div class="hc-count">${c.menus.length} menu${c.menus.length > 1 ? 's' : ''}</div>
-        <div class="hc-icon">${c.icon}</div>
-        <div class="hc-name">${c.name}</div>
-        <div class="hc-desc">${c.desc}</div>
-      </div>`;
-    });
-    html += '</div>';
-  } else {
-    // SUBCATEGORIA: mostrar menus da categoria
-    const category = HUB_CATEGORIAS.find(c => c.id === cat);
-    if (!category) {
-      window._hubCategory = null;
-      renderHub();
-      return;
-    }
-    html += `<button class="hub-back-btn" onclick="window._hubCategory=null; renderHub()">← Voltar ao painel</button>`;
-    html += `<div class="hub-breadcrumb">
-      <span class="bc-link" onclick="window._hubCategory=null; renderHub()">Painel</span>
-      <span>›</span>
-      <span>${category.name}</span>
-    </div>`;
-    html += `<div class="hub-header">
-      <div class="hub-title">${category.icon} ${category.name}</div>
-      <div class="hub-subtitle">${category.desc}</div>
-    </div>`;
-    html += '<div class="hub-grid">';
-    category.menus.forEach(m => {
-      html += `<div class="hub-card" style="--hub-accent:${category.color}" onclick="showSection('${m.section}')">
-        <div class="hc-icon">${m.icon}</div>
-        <div class="hc-name">${m.name}</div>
-        <div class="hc-desc">${m.desc}</div>
-      </div>`;
-    });
-    html += '</div>';
-  }
+  });
+  html += '</div>';
   
   container.innerHTML = html;
+}
+
+// Ao clicar num botão da sidebar (categoria), abre a página daquela categoria
+function showCategory(catId) {
+  window._hubCategory = catId;
+  // Marcar botão ativo
+  document.querySelectorAll('.sidebar-cat-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.querySelector('.sidebar-cat-btn[data-cat="' + catId + '"]');
+  if (btn) btn.classList.add('active');
+  // Mostrar hubSection com a categoria
+  showSection('hub');
 }
 
 // ============ Sidebar: categorias expansíveis ============
@@ -5454,8 +5460,16 @@ function showSection(section) {
   // Redirect financeiro → kpis (menu Financeiro foi integrado ao KPIs)
   if (arguments[0] === 'financeiro') { arguments[0] = 'kpis'; }
   
-  // Expandir a categoria da sidebar que contém essa section
-  try { _openCatOfSection(section); } catch(e) {}
+  // Marcar botão da sidebar da categoria correta
+  try {
+    const catId = _SECTION_TO_CAT[section];
+    if (catId) {
+      document.querySelectorAll('.sidebar-cat-btn').forEach(b => b.classList.remove('active'));
+      const btn = document.querySelector('.sidebar-cat-btn[data-cat="' + catId + '"]');
+      if (btn) btn.classList.add('active');
+      window._hubCategory = catId;
+    }
+  } catch(e) {}
   
   // HUB: painel de controle central
   if (section === 'hub') {
@@ -9130,8 +9144,8 @@ function selectCompany(companyId) {
     document.getElementById('companyName').textContent = 'Growper Digital';
     // Restaurar sidebar Growper completa
     scaliaSidebarToggle(false);
-    // Mostrar seção Principal Growper
-    showSection('main');
+    // Abrir categoria Financeiro por padrão (mostra os cards dos menus)
+    showCategory('financeiro');
   } else if (companyId === 'scalia') {
     document.body.classList.add('scalia-mode');
     document.getElementById('companyName').textContent = 'Scalia Performance';
