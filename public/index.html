@@ -626,6 +626,68 @@ table td:first-child { white-space: normal; }
   border-color: #cbd5e1;
 }
 
+
+/* ============ SIDEBAR CATEGORIAS EXPANSÍVEIS ============ */
+.nav-cat-section {
+  margin-bottom: 4px;
+}
+.nav-cat-btn {
+  width: 100%;
+  padding: 12px 14px;
+  background: transparent;
+  border: none;
+  color: #cbd5e1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: Poppins;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+  text-align: left;
+}
+.nav-cat-btn:hover {
+  background: rgba(255,255,255,0.05);
+  color: white;
+}
+.nav-cat-btn .nav-cat-icon {
+  font-size: 16px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.nav-cat-btn .nav-cat-label {
+  flex: 1;
+}
+.nav-cat-btn .nav-cat-arrow {
+  font-size: 10px;
+  color: #94a3b8;
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+.nav-cat-section.nav-cat-open > .nav-cat-btn {
+  color: white;
+  background: rgba(37, 99, 235, 0.15);
+}
+.nav-cat-section.nav-cat-open > .nav-cat-btn .nav-cat-arrow {
+  transform: rotate(90deg);
+  color: #60a5fa;
+}
+.nav-cat-menu {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.25s ease;
+  padding-left: 8px;
+  margin-top: 0;
+}
+.nav-cat-section.nav-cat-open > .nav-cat-menu {
+  max-height: 500px;
+  margin-top: 4px;
+  margin-bottom: 8px;
+}
+
 /* Botão Home no header */
 .home-btn {
   padding: 8px 14px;
@@ -869,38 +931,58 @@ body.scalia-mode .company-badge {
 
 <div class="sidebar">
   <div class="logo-section"><div class="logo-dot"></div><div class="logo-text">Financeiro</div></div>
-  <div class="nav-section">
-    <div class="nav-label">Financeiro</div>
-    <div class="nav-buttons">
+  <div class="nav-section nav-cat-section" data-cat="financeiro">
+    <button class="nav-cat-btn" onclick="toggleNavCat('financeiro')">
+      <span class="nav-cat-icon">💼</span>
+      <span class="nav-cat-label">Financeiro</span>
+      <span class="nav-cat-arrow">▸</span>
+    </button>
+    <div class="nav-buttons nav-cat-menu">
       <button class="nav-btn active" data-section="main"><span class="nav-icon">📊</span><span>Principal</span></button>
       <button class="nav-btn" data-section="recebiveis"><span class="nav-icon">💰</span><span>Mensalidades</span></button>
       <button class="nav-btn" data-section="card"><span class="nav-icon">💳</span><span>Cartão de Crédito</span></button>
       <button class="nav-btn" data-section="kits"><span class="nav-icon">🎁</span><span>Orçamento de Kits</span></button>
     </div>
   </div>
-  <div class="nav-section">
-    <div class="nav-label">Departamento Pessoal</div>
-    <div class="nav-buttons">
+  <div class="nav-section nav-cat-section" data-cat="dp">
+    <button class="nav-cat-btn" onclick="toggleNavCat('dp')">
+      <span class="nav-cat-icon">👥</span>
+      <span class="nav-cat-label">Departamento Pessoal</span>
+      <span class="nav-cat-arrow">▸</span>
+    </button>
+    <div class="nav-buttons nav-cat-menu">
       <button class="nav-btn" data-section="rh"><span class="nav-icon">👥</span><span>RH</span></button>
       <button class="nav-btn" data-section="estoque"><span class="nav-icon">📦</span><span>Estoque</span></button>
     </div>
   </div>
-  <div class="nav-section">
-    <div class="nav-label">Estratégico</div>
-    <div class="nav-buttons">
+  <div class="nav-section nav-cat-section" data-cat="estrategico">
+    <button class="nav-cat-btn" onclick="toggleNavCat('estrategico')">
+      <span class="nav-cat-icon">🎯</span>
+      <span class="nav-cat-label">Estratégico</span>
+      <span class="nav-cat-arrow">▸</span>
+    </button>
+    <div class="nav-buttons nav-cat-menu">
       <button class="nav-btn" data-section="kpis"><span class="nav-icon">📊</span><span>KPI's Financeiro</span></button>
       <button class="nav-btn" data-section="ma"><span class="nav-icon">💎</span><span>M&A / Investor Ready</span></button>
     </div>
   </div>
-  <div class="nav-section">
-    <div class="nav-label">Notificações</div>
-    <div class="nav-buttons">
+  <div class="nav-section nav-cat-section" data-cat="notif">
+    <button class="nav-cat-btn" onclick="toggleNavCat('notif')">
+      <span class="nav-cat-icon">🔔</span>
+      <span class="nav-cat-label">Notificações</span>
+      <span class="nav-cat-arrow">▸</span>
+    </button>
+    <div class="nav-buttons nav-cat-menu">
       <button class="nav-btn" data-section="notif"><span class="nav-icon">📲</span><span>Notificações</span></button>
     </div>
   </div>
-  <div class="nav-section">
-    <div class="nav-label">Contabilidade</div>
-    <div class="nav-buttons">
+  <div class="nav-section nav-cat-section" data-cat="contab">
+    <button class="nav-cat-btn" onclick="toggleNavCat('contab')">
+      <span class="nav-cat-icon">📋</span>
+      <span class="nav-cat-label">Contabilidade</span>
+      <span class="nav-cat-arrow">▸</span>
+    </button>
+    <div class="nav-buttons nav-cat-menu">
       <button class="nav-btn" data-section="dre"><span class="nav-icon">📋</span><span>DRE</span></button>
     </div>
   </div>
@@ -909,7 +991,7 @@ body.scalia-mode .company-badge {
 <div class="main-content">
   <div class="header">
     <div class="header-content">
-      <div class="header-title" id="headerTitle"><span class="company-badge" id="companyBadge" onclick="backToSelector()" title="Clique para trocar de empresa"><span class="cb-icon">📊</span><span id="companyName">Growper Digital</span></span><button class="home-btn" onclick="showSection('hub')" title="Voltar ao painel de controle">🏠 Início</button><span id="sectionTitle">Dashboard Principal</span></div>
+      <div class="header-title" id="headerTitle"><span class="company-badge" id="companyBadge" onclick="backToSelector()" title="Clique para trocar de empresa"><span class="cb-icon">📊</span><span id="companyName">Growper Digital</span></span><span id="sectionTitle">Dashboard Principal</span></div>
       <div class="header-controls">
 
 <select id="selYear" onchange="if(typeof _onYearChange==='function')_onYearChange(this.value)"><option value="2026">2026</option><option value="2025">2025</option></select>
@@ -5340,9 +5422,40 @@ function renderHub() {
   container.innerHTML = html;
 }
 
+// ============ Sidebar: categorias expansíveis ============
+function toggleNavCat(catId) {
+  const el = document.querySelector('.nav-cat-section[data-cat="' + catId + '"]');
+  if (!el) return;
+  const isOpen = el.classList.contains('nav-cat-open');
+  // Fechar todas
+  document.querySelectorAll('.nav-cat-section').forEach(s => s.classList.remove('nav-cat-open'));
+  // Alternar a clicada
+  if (!isOpen) el.classList.add('nav-cat-open');
+}
+
+// Descobrir qual categoria contém uma section específica
+const _SECTION_TO_CAT = {
+  main: 'financeiro', recebiveis: 'financeiro', card: 'financeiro', kits: 'financeiro',
+  rh: 'dp', estoque: 'dp',
+  kpis: 'estrategico', ma: 'estrategico',
+  notif: 'notif',
+  dre: 'contab',
+};
+
+function _openCatOfSection(section) {
+  const catId = _SECTION_TO_CAT[section];
+  if (!catId) return;
+  document.querySelectorAll('.nav-cat-section').forEach(s => s.classList.remove('nav-cat-open'));
+  const el = document.querySelector('.nav-cat-section[data-cat="' + catId + '"]');
+  if (el) el.classList.add('nav-cat-open');
+}
+
 function showSection(section) {
   // Redirect financeiro → kpis (menu Financeiro foi integrado ao KPIs)
   if (arguments[0] === 'financeiro') { arguments[0] = 'kpis'; }
+  
+  // Expandir a categoria da sidebar que contém essa section
+  try { _openCatOfSection(section); } catch(e) {}
   
   // HUB: painel de controle central
   if (section === 'hub') {
@@ -9017,9 +9130,8 @@ function selectCompany(companyId) {
     document.getElementById('companyName').textContent = 'Growper Digital';
     // Restaurar sidebar Growper completa
     scaliaSidebarToggle(false);
-    // Mostrar HUB (Painel de Controle) como página inicial
-    window._hubCategory = null;
-    showSection('hub');
+    // Mostrar seção Principal Growper
+    showSection('main');
   } else if (companyId === 'scalia') {
     document.body.classList.add('scalia-mode');
     document.getElementById('companyName').textContent = 'Scalia Performance';
