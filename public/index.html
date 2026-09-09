@@ -253,8 +253,9 @@ table td:first-child { white-space: normal; }
   font-size: 10.5px !important; 
   padding: 12px 8px !important; 
   text-align: center !important; 
-  color: white !important;
-  background: linear-gradient(180deg,#065f46 0%,#047857 100%) !important;
+  color: #ffffff !important;
+  background-color: #047857 !important;
+  background-image: none !important;
   text-transform: uppercase !important;
   letter-spacing: 0.4px !important;
   font-weight: 700 !important;
@@ -262,13 +263,15 @@ table td:first-child { white-space: normal; }
   top: 0 !important;
   z-index: 99 !important;
   border-left: 1px solid #059669 !important;
+  border-bottom: 2px solid #065f46 !important;
 }
 #mainTable thead th:first-child { 
   font-size: 11px !important; 
   text-align: left !important;
   padding: 12px 14px !important;
-  color: white !important;
-  background: linear-gradient(180deg,#065f46 0%,#047857 100%) !important;
+  color: #ffffff !important;
+  background-color: #065f46 !important;
+  background-image: none !important;
   position: sticky !important;
   left: 0 !important;
   top: 0 !important;
@@ -279,18 +282,24 @@ table td:first-child { white-space: normal; }
   max-width: 300px !important;
 }
 #mainTable thead th:last-child { 
-  background: linear-gradient(180deg,#064e3b 0%,#065f46 100%) !important;
+  background-color: #064e3b !important;
+  background-image: none !important;
   border-left: 2px solid #10b981 !important;
   font-weight: 800 !important;
 }
+/* Todo texto dentro do TH (inclusive spans) fica branco */
+#mainTable thead th, #mainTable thead th * {
+  color: #ffffff !important;
+}
 /* Botão de expandir projetado dentro do TH verde */
 #mainTable thead th button {
-  background: rgba(255,255,255,0.18) !important;
-  color: white !important;
-  border: 1px solid rgba(255,255,255,0.4) !important;
+  background-color: rgba(255,255,255,0.2) !important;
+  background-image: none !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255,255,255,0.5) !important;
 }
 #mainTable thead th button:hover {
-  background: rgba(255,255,255,0.28) !important;
+  background-color: rgba(255,255,255,0.35) !important;
 }
 #mainTable tbody td:not(:first-child) { text-align: right !important; }
 #mainTable .value-cell { 
@@ -10411,6 +10420,15 @@ if (document.readyState === 'loading') {
   window._renderMainHero = function() {
     const cont = document.getElementById('mainHeroContainer');
     if (!cont) return;
+    
+    // ANTES de reescrever innerHTML: mover controles do header para local seguro (body)
+    // para não perdê-los ao apagar o slot antigo
+    let hc = document.querySelector('.header-controls');
+    if (hc) {
+      hc.style.display = 'none';
+      document.body.appendChild(hc); // move pra fora do DOM que vai ser destruído
+    }
+    
     const { data } = _getDataForSection('main');
     const rows = _applyFilters(data);
     const ano = (typeof currentYear !== 'undefined') ? currentYear : '2026';
@@ -10471,12 +10489,10 @@ if (document.readyState === 'loading') {
       </div>
     `;
     
-    // Mover controles do header para dentro do hero (preserva event handlers)
-    const hc = document.querySelector('.header-controls');
+    // Colocar controles no slot do hero (já preservados no body acima)
     const slot = document.getElementById('heroFiltrosSlot');
-    if (hc && slot && hc.parentElement !== slot) {
+    if (hc && slot) {
       slot.appendChild(hc);
-      // Ajustar cores dos controles para o fundo escuro do hero
       hc.style.display = 'flex';
       hc.style.flexWrap = 'wrap';
       hc.style.gap = '10px';
