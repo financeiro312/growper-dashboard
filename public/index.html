@@ -5470,6 +5470,10 @@ function _reembolsoFmt(v) {
 }
 
 function _reembolsoCalcColab(col, taxaKm) {
+  // Se colaborador NÃO vai ao encontro, todos os valores ficam zerados
+  if (col.vai === false) {
+    return { passagem: 0, combustivel: 0, hospedagem: 0, aluguel: 0, total: 0, combKm: 0 };
+  }
   const passagem = col.passagem && col.passagem.precisa ? Number(col.passagem.valor || 0) : 0;
   const combKm = Number(col.kmDistancia || 0) * 2; // ida e volta
   const combustivel = col.combustivel && col.combustivel.precisa ? combKm * Number(taxaKm || 0) : 0;
@@ -5611,7 +5615,7 @@ function renderReembolso() {
   html += `<div style="background:white;border:1px solid #e2e8f0;border-radius:12px;padding:14px 18px"><div style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.4px">🎫 Passagens</div><div style="font-size:18px;font-weight:800;color:#0f172a;margin-top:4px">${_reembolsoFmt(totPassagem)}</div></div>`;
   html += `<div style="background:white;border:1px solid #e2e8f0;border-radius:12px;padding:14px 18px"><div style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.4px">🛢️ Combustível</div><div style="font-size:18px;font-weight:800;color:#0f172a;margin-top:4px">${_reembolsoFmt(totCombustivel)}</div><div style="font-size:10.5px;color:#94a3b8;margin-top:2px">${totKm} km × R$ ${taxaKm.toFixed(2)}</div></div>`;
   html += `<div style="background:white;border:1px solid #e2e8f0;border-radius:12px;padding:14px 18px"><div style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.4px">🏨 Hospedagem</div><div style="font-size:18px;font-weight:800;color:#0f172a;margin-top:4px">${_reembolsoFmt(totHospedagem)}</div></div>`;
-  html += `<div style="background:white;border:1px solid #e2e8f0;border-radius:12px;padding:14px 18px"><div style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.4px">🚗 Aluguel</div><div style="font-size:18px;font-weight:800;color:#0f172a;margin-top:4px">${_reembolsoFmt(totAluguel)}</div><div style="font-size:10.5px;color:#94a3b8;margin-top:2px">${encontroAtual.colaboradores.filter(x=>x.aluguel&&x.aluguel.precisa).length} colaborador(es)</div></div>`;
+  html += `<div style="background:white;border:1px solid #e2e8f0;border-radius:12px;padding:14px 18px"><div style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.4px">🚗 Aluguel</div><div style="font-size:18px;font-weight:800;color:#0f172a;margin-top:4px">${_reembolsoFmt(totAluguel)}</div><div style="font-size:10.5px;color:#94a3b8;margin-top:2px">${encontroAtual.colaboradores.filter(x=>x.vai!==false&&x.aluguel&&x.aluguel.precisa).length} colaborador(es)</div></div>`;
   html += '</div>';
   
   // Tabela de colaboradores
@@ -5626,111 +5630,72 @@ function renderReembolso() {
   if (encontroAtual.colaboradores.length === 0) {
     html += '<div style="padding:60px 20px;text-align:center;color:#94a3b8"><div style="font-size:40px;margin-bottom:8px">✈️</div><div style="font-size:14px;font-weight:600">Nenhum colaborador cadastrado ainda</div><div style="font-size:12px;margin-top:4px">Clique em "+ Adicionar Colaborador" para começar</div></div>';
   } else {
-    // Layout novo: cards por colaborador, mais bonito e organizado
-    html += '<div style="padding:16px 18px;display:flex;flex-direction:column;gap:12px">';
+    html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:1100px">';
+    html += '<thead><tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0">';
+    html += '<th style="padding:12px 14px;text-align:left;font-weight:700;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:0.4px">Colaborador</th>';
+    html += '<th style="padding:12px 8px;text-align:center;font-weight:700;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:0.4px">Vai?</th>';
+    html += '<th style="padding:12px 8px;text-align:center;font-weight:700;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:0.4px" title="Km só ida — o sistema calcula ida+volta">Km ida</th>';
+    html += '<th style="padding:12px 8px;text-align:center;font-weight:700;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:0.4px">🎫 Passagem</th>';
+    html += '<th style="padding:12px 8px;text-align:center;font-weight:700;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:0.4px">🛢️ Combustível</th>';
+    html += '<th style="padding:12px 8px;text-align:center;font-weight:700;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:0.4px">🏨 Hospedagem</th>';
+    html += '<th style="padding:12px 8px;text-align:center;font-weight:700;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:0.4px" title="Excepcional — geralmente sócios">🚗 Aluguel</th>';
+    html += '<th style="padding:12px 14px;text-align:right;font-weight:700;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:0.4px">Total</th>';
+    if (!isFechado) html += '<th style="padding:12px 8px"></th>';
+    html += '</tr></thead><tbody>';
+    
     encontroAtual.colaboradores.forEach((col, idx) => {
+      const vai = col.vai !== false; // default true (compatível com dados antigos)
       const calc = _reembolsoCalcColab(col, taxaKm);
-      const pP = col.passagem && col.passagem.precisa;
-      const pC = col.combustivel && col.combustivel.precisa;
-      const pH = col.hospedagem && col.hospedagem.precisa;
-      const pA = col.aluguel && col.aluguel.precisa;
-      const nomeSafe = (col.nome||'').replace(/"/g,'&quot;');
+      const totalReal = vai ? calc.total : 0;
+      const rowStyle = vai ? 'border-bottom:1px solid #f1f5f9' : 'border-bottom:1px solid #f1f5f9;background:#fafafa;color:#94a3b8';
+      const inputBgDis = 'background:#f1f5f9;color:#94a3b8';
       
-      html += `<div style="background:white;border:1px solid #e2e8f0;border-radius:12px;padding:0;overflow:hidden;transition:all 0.15s ease;box-shadow:0 1px 3px rgba(15,23,42,0.04)">`;
+      html += `<tr style="${rowStyle}">`;
+      // Nome
+      html += `<td style="padding:10px 14px"><input type="text" value="${(col.nome||'').replace(/"/g,'&quot;')}" ${disabledAttr} onchange="_reembolsoUpdColab(${idx},'nome',this.value)" placeholder="Nome" style="width:100%;padding:6px 8px;border:1px solid transparent;border-radius:6px;font-family:Poppins;font-size:13px;background:transparent;font-weight:500;color:${vai?'#0f172a':'#64748b'}" ${isFechado?'':`onfocus="this.style.border='1px solid #cbd5e1';this.style.background='white'" onblur="this.style.border='1px solid transparent';this.style.background='transparent'"`}></td>`;
+      // Vai? toggle
+      html += `<td style="padding:10px 8px;text-align:center"><label style="display:inline-flex;align-items:center;gap:4px;cursor:${isFechado?'default':'pointer'};font-size:11px;color:#64748b;font-weight:600"><input type="checkbox" ${vai?'checked':''} ${disabledAttr} onchange="_reembolsoUpdColab(${idx},'vai',this.checked)" style="width:15px;height:15px;accent-color:#10b981;cursor:${isFechado?'default':'pointer'}">${vai?'Vai':'Não vai'}</label></td>`;
       
-      // Header do card: nome + km + total + remover
-      html += `<div style="display:grid;grid-template-columns:1fr auto auto auto;gap:14px;align-items:center;padding:14px 18px;background:linear-gradient(180deg,#f8fafc 0%,#ffffff 100%);border-bottom:1px solid #e2e8f0">`;
+      if (vai) {
+        // Km ida
+        html += `<td style="padding:10px 8px;text-align:center"><input type="number" min="0" ${disabledAttr} value="${col.kmDistancia||0}" onchange="_reembolsoUpdColab(${idx},'kmDistancia',this.value)" style="width:70px;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-family:Poppins;font-size:13px;text-align:center${isFechado?';'+inputBgDis:''}"></td>`;
+        // Passagem
+        const pP = col.passagem && col.passagem.precisa;
+        html += `<td style="padding:10px 8px;text-align:center"><div style="display:flex;flex-direction:column;align-items:center;gap:4px"><label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#64748b;${isFechado?'':'cursor:pointer'}"><input type="checkbox" ${pP?'checked':''} ${disabledAttr} onchange="_reembolsoUpdColabSub(${idx},'passagem','precisa',this.checked)"> Precisa</label>${pP?`<input type="number" min="0" step="0.01" ${disabledAttr} value="${(col.passagem&&col.passagem.valor)||0}" onchange="_reembolsoUpdColabSub(${idx},'passagem','valor',this.value)" style="width:100px;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-family:Poppins;font-size:13px;text-align:center${isFechado?';'+inputBgDis:''}" placeholder="R$">`:''}</div></td>`;
+        // Combustível
+        const pC = col.combustivel && col.combustivel.precisa;
+        html += `<td style="padding:10px 8px;text-align:center"><div style="display:flex;flex-direction:column;align-items:center;gap:4px"><label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#64748b;${isFechado?'':'cursor:pointer'}"><input type="checkbox" ${pC?'checked':''} ${disabledAttr} onchange="_reembolsoUpdColabSub(${idx},'combustivel','precisa',this.checked)"> Precisa</label>${pC?`<div style="font-size:13px;font-weight:600;color:#0f172a">${_reembolsoFmt(calc.combustivel)}</div><div style="font-size:10px;color:#94a3b8">${calc.combKm}km × R$${taxaKm.toFixed(2)}</div>`:''}</div></td>`;
+        // Hospedagem
+        const pH = col.hospedagem && col.hospedagem.precisa;
+        html += `<td style="padding:10px 8px;text-align:center"><div style="display:flex;flex-direction:column;align-items:center;gap:4px"><label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#64748b;${isFechado?'':'cursor:pointer'}"><input type="checkbox" ${pH?'checked':''} ${disabledAttr} onchange="_reembolsoUpdColabSub(${idx},'hospedagem','precisa',this.checked)"> Precisa</label>${pH?`<input type="number" min="0" step="0.01" ${disabledAttr} value="${(col.hospedagem&&col.hospedagem.valor)||0}" onchange="_reembolsoUpdColabSub(${idx},'hospedagem','valor',this.value)" style="width:100px;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-family:Poppins;font-size:13px;text-align:center${isFechado?';'+inputBgDis:''}" placeholder="R$">`:''}</div></td>`;
+        // Aluguel
+        const pA = col.aluguel && col.aluguel.precisa;
+        html += `<td style="padding:10px 8px;text-align:center"><div style="display:flex;flex-direction:column;align-items:center;gap:4px"><label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#64748b;${isFechado?'':'cursor:pointer'}" title="Excepcional — geralmente sócios"><input type="checkbox" ${pA?'checked':''} ${disabledAttr} onchange="_reembolsoUpdColabSub(${idx},'aluguel','precisa',this.checked)"> Precisa</label>${pA?`<input type="number" min="0" step="0.01" ${disabledAttr} value="${(col.aluguel&&col.aluguel.valor)||0}" onchange="_reembolsoUpdColabSub(${idx},'aluguel','valor',this.value)" style="width:100px;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-family:Poppins;font-size:13px;text-align:center${isFechado?';'+inputBgDis:''}" placeholder="R$">`:''}</div></td>`;
+        // Total
+        html += `<td style="padding:10px 14px;text-align:right;font-weight:700;font-size:14px;color:#0f172a">${_reembolsoFmt(totalReal)}</td>`;
+      } else {
+        // NÃO VAI: colspan de 5 colunas com justificativa
+        html += `<td colspan="5" style="padding:10px 14px"><div style="display:flex;align-items:center;gap:8px"><span style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;flex-shrink:0">Justificativa:</span><input type="text" value="${(col.justificativa||'').replace(/"/g,'&quot;')}" ${disabledAttr} onchange="_reembolsoUpdColab(${idx},'justificativa',this.value)" placeholder="Ex: viagem particular, atestado médico, etc." style="flex:1;padding:6px 10px;border:1px solid #e2e8f0;border-radius:6px;font-family:Poppins;font-size:12.5px;background:white;color:#64748b;font-style:italic${isFechado?';'+inputBgDis:''}"></div></td>`;
+        // Total zerado
+        html += `<td style="padding:10px 14px;text-align:right;font-weight:600;font-size:13px;color:#94a3b8">—</td>`;
+      }
       
-      // Nome (com avatar de inicial)
-      const inicial = (col.nome || '?').charAt(0).toUpperCase();
-      html += `<div style="display:flex;align-items:center;gap:10px;min-width:0">`;
-      html += `<div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0">${inicial}</div>`;
-      html += `<input type="text" value="${nomeSafe}" ${disabledAttr} onchange="_reembolsoUpdColab(${idx},'nome',this.value)" placeholder="Nome do colaborador" style="flex:1;min-width:0;padding:7px 10px;border:1px solid transparent;border-radius:6px;font-family:Poppins;font-size:14px;font-weight:600;color:#0f172a;background:transparent" ${isFechado?'':`onfocus="this.style.border='1px solid #cbd5e1';this.style.background='white'" onblur="this.style.border='1px solid transparent';this.style.background='transparent'"`}>`;
-      html += `</div>`;
-      
-      // Km ida
-      html += `<div style="display:flex;align-items:center;gap:6px;background:#f1f5f9;padding:6px 12px;border-radius:8px">`;
-      html += `<span style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.4px">Km ida</span>`;
-      html += `<input type="number" min="0" ${disabledAttr} value="${col.kmDistancia||0}" onchange="_reembolsoUpdColab(${idx},'kmDistancia',this.value)" style="width:60px;padding:4px 6px;border:1px solid #d1d5db;border-radius:5px;font-family:Poppins;font-size:13px;text-align:center;background:white;font-weight:600">`;
-      html += `</div>`;
-      
-      // Total (destaque roxo)
-      html += `<div style="background:linear-gradient(135deg,#faf5ff,#f3e8ff);border:1px solid #d8b4fe;padding:6px 14px;border-radius:8px;text-align:right">`;
-      html += `<div style="font-size:10px;color:#7c3aed;font-weight:700;text-transform:uppercase;letter-spacing:0.4px">Total</div>`;
-      html += `<div style="font-size:16px;font-weight:800;color:#6b21a8;line-height:1.2">${_reembolsoFmt(calc.total)}</div>`;
-      html += `</div>`;
-      
-      // Botão remover
+      // Excluir
       if (!isFechado) {
-        html += `<button onclick="_reembolsoRmColab(${idx})" style="background:transparent;border:1px solid #fecaca;color:#ef4444;cursor:pointer;font-size:14px;padding:8px 10px;border-radius:8px" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='transparent'" title="Remover colaborador">🗑️</button>`;
+        html += `<td style="padding:10px 8px;text-align:center"><button onclick="_reembolsoRmColab(${idx})" style="background:transparent;border:none;color:#ef4444;cursor:pointer;font-size:16px;padding:4px 8px;border-radius:6px" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='transparent'" title="Remover">🗑️</button></td>`;
       }
-      html += `</div>`;
-      
-      // Corpo: 4 caixinhas dos tipos de reembolso
-      html += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;padding:16px 18px">`;
-      
-      // === PASSAGEM ===
-      const passagemBg = pP ? '#eff6ff' : '#f9fafb';
-      const passagemBorder = pP ? '#93c5fd' : '#e2e8f0';
-      html += `<div style="background:${passagemBg};border:1px solid ${passagemBorder};border-radius:10px;padding:12px 14px">`;
-      html += `<label style="display:flex;align-items:center;gap:8px;cursor:${isFechado?'default':'pointer'};margin-bottom:${pP?'8px':'0'}">`;
-      html += `<input type="checkbox" ${pP?'checked':''} ${disabledAttr} onchange="_reembolsoUpdColabSub(${idx},'passagem','precisa',this.checked)" style="width:15px;height:15px;accent-color:#3b82f6;cursor:${isFechado?'default':'pointer'}">`;
-      html += `<span style="font-size:12.5px;font-weight:700;color:${pP?'#1e40af':'#64748b'};display:flex;align-items:center;gap:5px">🎫 Passagem</span>`;
-      html += `</label>`;
-      if (pP) {
-        html += `<div style="display:flex;align-items:center;gap:5px"><span style="font-size:11px;color:#64748b;font-weight:600">R$</span><input type="number" min="0" step="0.01" ${disabledAttr} value="${(col.passagem&&col.passagem.valor)||0}" onchange="_reembolsoUpdColabSub(${idx},'passagem','valor',this.value)" style="flex:1;padding:6px 8px;border:1px solid #93c5fd;border-radius:6px;font-family:Poppins;font-size:13px;font-weight:600;background:white${isFechado?';color:#64748b':''}" placeholder="0,00"></div>`;
-      }
-      html += `</div>`;
-      
-      // === COMBUSTÍVEL ===
-      const combBg = pC ? '#fef3c7' : '#f9fafb';
-      const combBorder = pC ? '#fbbf24' : '#e2e8f0';
-      html += `<div style="background:${combBg};border:1px solid ${combBorder};border-radius:10px;padding:12px 14px">`;
-      html += `<label style="display:flex;align-items:center;gap:8px;cursor:${isFechado?'default':'pointer'};margin-bottom:${pC?'8px':'0'}">`;
-      html += `<input type="checkbox" ${pC?'checked':''} ${disabledAttr} onchange="_reembolsoUpdColabSub(${idx},'combustivel','precisa',this.checked)" style="width:15px;height:15px;accent-color:#d97706;cursor:${isFechado?'default':'pointer'}">`;
-      html += `<span style="font-size:12.5px;font-weight:700;color:${pC?'#92400e':'#64748b'};display:flex;align-items:center;gap:5px">🛢️ Combustível</span>`;
-      html += `</label>`;
-      if (pC) {
-        html += `<div style="font-size:16px;font-weight:800;color:#78350f;line-height:1.2">${_reembolsoFmt(calc.combustivel)}</div>`;
-        html += `<div style="font-size:10.5px;color:#92400e;margin-top:2px;font-weight:500">${calc.combKm} km × R$ ${taxaKm.toFixed(2)}</div>`;
-      }
-      html += `</div>`;
-      
-      // === HOSPEDAGEM ===
-      const hospBg = pH ? '#ecfdf5' : '#f9fafb';
-      const hospBorder = pH ? '#6ee7b7' : '#e2e8f0';
-      html += `<div style="background:${hospBg};border:1px solid ${hospBorder};border-radius:10px;padding:12px 14px">`;
-      html += `<label style="display:flex;align-items:center;gap:8px;cursor:${isFechado?'default':'pointer'};margin-bottom:${pH?'8px':'0'}">`;
-      html += `<input type="checkbox" ${pH?'checked':''} ${disabledAttr} onchange="_reembolsoUpdColabSub(${idx},'hospedagem','precisa',this.checked)" style="width:15px;height:15px;accent-color:#059669;cursor:${isFechado?'default':'pointer'}">`;
-      html += `<span style="font-size:12.5px;font-weight:700;color:${pH?'#065f46':'#64748b'};display:flex;align-items:center;gap:5px">🏨 Hospedagem</span>`;
-      html += `</label>`;
-      if (pH) {
-        html += `<div style="display:flex;align-items:center;gap:5px"><span style="font-size:11px;color:#64748b;font-weight:600">R$</span><input type="number" min="0" step="0.01" ${disabledAttr} value="${(col.hospedagem&&col.hospedagem.valor)||0}" onchange="_reembolsoUpdColabSub(${idx},'hospedagem','valor',this.value)" style="flex:1;padding:6px 8px;border:1px solid #6ee7b7;border-radius:6px;font-family:Poppins;font-size:13px;font-weight:600;background:white${isFechado?';color:#64748b':''}" placeholder="0,00"></div>`;
-      }
-      html += `</div>`;
-      
-      // === ALUGUEL ===
-      const alugBg = pA ? '#fef2f2' : '#f9fafb';
-      const alugBorder = pA ? '#fca5a5' : '#e2e8f0';
-      html += `<div style="background:${alugBg};border:1px solid ${alugBorder};border-radius:10px;padding:12px 14px" title="Excepcional — geralmente sócios">`;
-      html += `<label style="display:flex;align-items:center;gap:8px;cursor:${isFechado?'default':'pointer'};margin-bottom:${pA?'8px':'0'}">`;
-      html += `<input type="checkbox" ${pA?'checked':''} ${disabledAttr} onchange="_reembolsoUpdColabSub(${idx},'aluguel','precisa',this.checked)" style="width:15px;height:15px;accent-color:#dc2626;cursor:${isFechado?'default':'pointer'}">`;
-      html += `<span style="font-size:12.5px;font-weight:700;color:${pA?'#991b1b':'#64748b'};display:flex;align-items:center;gap:5px">🚗 Aluguel</span>`;
-      html += `</label>`;
-      if (pA) {
-        html += `<div style="display:flex;align-items:center;gap:5px"><span style="font-size:11px;color:#64748b;font-weight:600">R$</span><input type="number" min="0" step="0.01" ${disabledAttr} value="${(col.aluguel&&col.aluguel.valor)||0}" onchange="_reembolsoUpdColabSub(${idx},'aluguel','valor',this.value)" style="flex:1;padding:6px 8px;border:1px solid #fca5a5;border-radius:6px;font-family:Poppins;font-size:13px;font-weight:600;background:white${isFechado?';color:#64748b':''}" placeholder="0,00"></div>`;
-      }
-      html += `</div>`;
-      
-      html += `</div>`; // fecha grid de tipos
-      html += `</div>`; // fecha card
+      html += `</tr>`;
     });
-    html += '</div>';
-    // Rodapé com total geral
-    html += `<div style="padding:16px 20px;background:linear-gradient(180deg,#faf5ff 0%,#f3e8ff 100%);border-top:2px solid #8b5cf6;display:flex;justify-content:space-between;align-items:center">`;
-    html += `<span style="font-size:13px;font-weight:700;color:#6b21a8;text-transform:uppercase;letter-spacing:0.5px">Total do encontro</span>`;
-    html += `<span style="font-size:20px;font-weight:800;color:#6b21a8">${_reembolsoFmt(totGeral)}</span>`;
-    html += `</div>`;
+    
+    // Contagem: quantos vão vs não vão
+    const numVao = encontroAtual.colaboradores.filter(c => c.vai !== false).length;
+    const numNaoVao = encontroAtual.colaboradores.length - numVao;
+    
+    // Linha total
+    const colspan = isFechado ? 7 : 7;
+    html += `<tr style="background:#faf5ff;border-top:2px solid #8b5cf6"><td colspan="${colspan}" style="padding:14px;text-align:right;font-weight:700;color:#0f172a">TOTAL DO ENCONTRO (${numVao} vão${numNaoVao > 0 ? ', ' + numNaoVao + ' não vão' : ''}):</td><td style="padding:14px;text-align:right;font-weight:800;color:#8b5cf6;font-size:15px">${_reembolsoFmt(totGeral)}</td>${!isFechado?'<td></td>':''}</tr>`;
+    
+    html += '</tbody></table></div>';
   }
   
   html += '</div>'; // fecha tabela
@@ -5816,6 +5781,8 @@ function _reembolsoAddColab() {
   if (enc) {
     enc.colaboradores.push({
       nome: '',
+      vai: true,
+      justificativa: '',
       kmDistancia: 0,
       passagem: { precisa: false, valor: 0 },
       combustivel: { precisa: false, valor: 0 },
@@ -5842,6 +5809,7 @@ function _reembolsoUpdColab(idx, campo, valor) {
   const enc = data.encontros.find(e => e.id === window._reembolsoState.encontroAtualId);
   if (enc && enc.colaboradores[idx]) {
     if (campo === 'kmDistancia') valor = Number(valor) || 0;
+    if (campo === 'vai') valor = !!valor; // bool
     enc.colaboradores[idx][campo] = valor;
     _reembolsoSave(data);
     renderReembolso();
@@ -11213,7 +11181,14 @@ if (document.readyState === 'loading') {
     let saldoOpAcum = 0;
     let saldoOpFinal = 0;
     let saldoOpProjAcum = 0;
-    MONTHS.forEach(m => {
+    
+    // NOVO: identificar último mês com movimento real (rec ou desp)
+    let _ultMesComMovOp = -1;
+    MONTHS.forEach((m, i) => {
+      if ((totRecMes[m] || 0) !== 0 || (totDespComCartao[m] || 0) !== 0) _ultMesComMovOp = i;
+    });
+    
+    MONTHS.forEach((m, mesIdx) => {
       const anoMes = String(m).slice(0, 7);
       if (anoMes < '2026-06') {
         soCells += `<td style="text-align:right;padding:14px 8px;font-weight:800;background:#d1fae5;color:#94a3b8">—</td>`;
@@ -11235,8 +11210,14 @@ if (document.readyState === 'loading') {
         });
         saldoOpProjAcum += (recP - despP);
       }
-      saldoOpFinal = saldoOpAcum;
-      soCells += `<td style="text-align:right;padding:14px 8px;font-weight:800;background:#d1fae5" class="${_cls(saldoOpAcum)}">${_fmtSigned(saldoOpAcum)}</td>`;
+      // NOVO: só mostrar saldo se mês está dentro do range conciliado
+      const mostrarSaldo = (mesIdx <= _ultMesComMovOp);
+      if (mostrarSaldo) {
+        saldoOpFinal = saldoOpAcum;
+        soCells += `<td style="text-align:right;padding:14px 8px;font-weight:800;background:#d1fae5" class="${_cls(saldoOpAcum)}">${_fmtSigned(saldoOpAcum)}</td>`;
+      } else {
+        soCells += `<td style="text-align:right;padding:14px 8px;font-weight:600;background:#d1fae5;color:#94a3b8">—</td>`;
+      }
       if (projetadoVisible[m]) {
         soCells += `<td style="text-align:right;padding:14px 6px;font-weight:800;background:#fef9c3;color:${saldoOpProjAcum>=0?'#065f46':'#991b1b'};font-size:12.5px">${_fmtSigned(saldoOpProjAcum)}</td>`;
       }
@@ -11473,18 +11454,13 @@ if (document.readyState === 'loading') {
     });
     
     // Renderiza uma linha de saldo (para dada conta, com saldo inicial)
-    // NOVO: identificar último mês com movimento real (conciliado). Meses posteriores não mostram saldo.
-    const _mesTemMov = {};
-    MONTHS.forEach(m => {
-      let temAlgum = false;
-      // Considera Inter+Itaú (todas as contas relevantes)
-      if ((movPorConta['Banco Inter'][m] || 0) !== 0) temAlgum = true;
-      if ((movPorConta['Itaú Unibanco'][m] || 0) !== 0) temAlgum = true;
-      _mesTemMov[m] = temAlgum;
-    });
-    // Último mês com movimento
+    // Critério: só mostra saldo em meses que têm receita OU despesa operacional real
     let _ultConcIdx = -1;
-    MONTHS.forEach((m, i) => { if (_mesTemMov[m]) _ultConcIdx = i; });
+    MONTHS.forEach((m, i) => {
+      const temRec = (totRecMes[m] || 0) !== 0;
+      const temDesp = (totDespComCartao[m] || 0) !== 0;
+      if (temRec || temDesp) _ultConcIdx = i;
+    });
     
     const renderLinhaSaldo = (nome, contas, bg, cor, ini) => {
       let cells = `<td style="padding:12px 14px;font-weight:800;color:${cor};background:${bg}">${nome}</td>`;
