@@ -249,57 +249,37 @@ table td:first-child { white-space: normal; }
 #mainTable tbody tr.result-row td:first-child { background: #ecfdf5; }
 #mainTable tbody tr.grand-total td:first-child { background: #d1fae5; }
 #mainTable tbody tr.spacer td { background: transparent; box-shadow: none; }
+/* Header Principal: fundo verde claro + fonte preta */
 #mainTable thead th { 
   font-size: 10.5px !important; 
   padding: 12px 8px !important; 
   text-align: center !important; 
-  color: #ffffff !important;
-  background-color: #047857 !important;
+  color: #0f172a !important;
+  background-color: #d1fae5 !important;
   background-image: none !important;
   text-transform: uppercase !important;
   letter-spacing: 0.4px !important;
   font-weight: 700 !important;
-  position: sticky !important;
-  top: 0 !important;
-  z-index: 99 !important;
-  border-left: 1px solid #059669 !important;
-  border-bottom: 2px solid #065f46 !important;
+  border-bottom: 2px solid #10b981 !important;
 }
 #mainTable thead th:first-child { 
-  font-size: 11px !important; 
-  text-align: left !important;
-  padding: 12px 14px !important;
-  color: #ffffff !important;
-  background-color: #065f46 !important;
+  color: #0f172a !important;
+  background-color: #a7f3d0 !important;
   background-image: none !important;
-  position: sticky !important;
-  left: 0 !important;
-  top: 0 !important;
-  z-index: 100 !important;
   border-right: 2px solid #10b981 !important;
-  box-shadow: 2px 0 6px rgba(6,95,70,0.15) !important;
-  min-width: 240px !important;
-  max-width: 300px !important;
 }
 #mainTable thead th:last-child { 
-  background-color: #064e3b !important;
+  background-color: #86efac !important;
   background-image: none !important;
   border-left: 2px solid #10b981 !important;
-  font-weight: 800 !important;
 }
-/* Todo texto dentro do TH (inclusive spans) fica branco */
 #mainTable thead th, #mainTable thead th * {
-  color: #ffffff !important;
+  color: #0f172a !important;
 }
-/* Botão de expandir projetado dentro do TH verde */
 #mainTable thead th button {
-  background-color: rgba(255,255,255,0.2) !important;
-  background-image: none !important;
-  color: #ffffff !important;
-  border: 1px solid rgba(255,255,255,0.5) !important;
-}
-#mainTable thead th button:hover {
-  background-color: rgba(255,255,255,0.35) !important;
+  background-color: white !important;
+  color: #065f46 !important;
+  border: 1px solid #10b981 !important;
 }
 #mainTable tbody td:not(:first-child) { text-align: right !important; }
 #mainTable .value-cell { 
@@ -419,6 +399,20 @@ table td:first-child { white-space: normal; }
   top: 0;
   z-index: 20;
   background: #f9fafb !important;
+}
+/* OVERRIDE — Principal: fundo verde claro + fonte preta (vence sobre .table-container) */
+.table-container #mainTable thead th {
+  background: #d1fae5 !important;
+  background-color: #d1fae5 !important;
+  color: #0f172a !important;
+}
+.table-container #mainTable thead th:first-child {
+  background: #a7f3d0 !important;
+  background-color: #a7f3d0 !important;
+}
+.table-container #mainTable thead th:last-child {
+  background: #86efac !important;
+  background-color: #86efac !important;
 }
 
 /* Tabela do Principal: 2 linhas de header */
@@ -695,6 +689,60 @@ body.scalia-mode .company-badge {
   border-color: rgba(59, 130, 246, 0.4) !important;
   box-shadow: 0 4px 12px -4px rgba(59, 130, 246, 0.4) !important;
 }
+
+/* Filtros dentro do hero do Principal — visual escuro/translúcido */
+#heroFiltrosSlot select,
+#heroFiltrosSlot #selContaBtn,
+#heroFiltrosSlot .view-btn {
+  background: rgba(255,255,255,0.12) !important;
+  color: #f8fafc !important;
+  border: 1px solid rgba(255,255,255,0.25) !important;
+  padding: 8px 12px !important;
+  border-radius: 8px !important;
+  font-family: Poppins, sans-serif !important;
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  backdrop-filter: blur(10px);
+}
+#heroFiltrosSlot .view-btn.active {
+  background: rgba(255,255,255,0.28) !important;
+  border-color: rgba(255,255,255,0.5) !important;
+}
+#heroFiltrosSlot select option {
+  background: #0f172a !important;
+  color: white !important;
+}
+#heroFiltrosSlot #selContaLabel {
+  color: #f8fafc !important;
+}
+#heroFiltrosSlot #selContaBtn span {
+  color: #f8fafc !important;
+}
+/* Dropdown das contas — z-index alto e visível fora do hero */
+#heroFiltrosSlot #selContaDropdown {
+  z-index: 999 !important;
+  background: white !important;
+  color: #0f172a !important;
+  min-width: 240px !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.25) !important;
+}
+#heroFiltrosSlot #selContaDropdown label,
+#heroFiltrosSlot #selContaDropdown span {
+  color: #0f172a !important;
+}
+#heroFiltrosSlot #selContaDropdown label {
+  background: white !important;
+}
+#heroFiltrosSlot .view-buttons {
+  display: inline-flex;
+  gap: 4px;
+  background: rgba(255,255,255,0.05);
+  padding: 3px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.15);
+}
+
 </style>
 
 <style>
@@ -4419,16 +4467,50 @@ function renderKPIs() {
       </div>
     </div>
     
-    <!-- TABS -->
-    <div style="display:flex;gap:6px;background:white;padding:6px;border-radius:14px;margin-bottom:20px;width:fit-content;border:1px solid #e2e8f0;box-shadow:0 1px 2px rgba(0,0,0,0.04);flex-wrap:wrap">
-      ${tabBtn('rentabilidade', '💰', 'Rentabilidade', '#059669')}
-      ${tabBtn('liquidez', '💧', 'Liquidez', '#0284c7')}
-      ${tabBtn('eficiencia', '⚡', 'Eficiência', '#d97706')}
-      ${tabBtn('valuation', '📈', 'Valuation', '#7c3aed')}
+    </div>`;  // fecha hero
+    
+    // ============ HOME (sem categoria selecionada) — 4 cards grandes ============
+    if (!window._kpiV2Tab || window._kpiV2Tab === 'home') {
+      const catCard = (id, icone, titulo, cor, corBg, kpiPreview, previewLabel) => `
+        <div onclick="window._kpiV2Tab='${id}'; window.scrollTo(0,0); renderKPIs()" 
+             style="background:white;border-radius:16px;padding:28px;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,0.04);cursor:pointer;transition:all 0.2s;position:relative;overflow:hidden"
+             onmouseover="this.style.transform='translateY(-4px)';this.style.boxShadow='0 12px 28px rgba(0,0,0,0.1)';this.style.borderColor='${cor}'"
+             onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 1px 3px rgba(0,0,0,0.04)';this.style.borderColor='#e2e8f0'">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+            <div style="width:56px;height:56px;background:${corBg};border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:28px">${icone}</div>
+            <span style="font-size:11px;color:${cor};font-weight:800;letter-spacing:0.5px">ABRIR PÁGINA →</span>
+          </div>
+          <div style="font-size:22px;font-weight:800;color:#0f172a;margin-bottom:6px">${titulo}</div>
+          <div style="border-top:1px solid #f1f5f9;padding-top:14px;margin-top:14px">
+            <div style="font-size:10.5px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;margin-bottom:4px">${previewLabel}</div>
+            <div style="font-size:22px;font-weight:800;color:${cor}">${kpiPreview}</div>
+          </div>
+        </div>`;
+      
+      html += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px">
+        ${catCard('rentabilidade', '💰', 'Rentabilidade', '#059669', '#d1fae5', _fmtPct(margemLiquida), 'Margem Líquida')}
+        ${catCard('liquidez', '💧', 'Liquidez', '#0284c7', '#dbeafe', ilc.toFixed(2) + 'x', 'ILC (Liquidez Corrente)')}
+        ${catCard('eficiencia', '⚡', 'Eficiência', '#d97706', '#fef3c7', produtividadeMO.toFixed(2) + 'x', 'Produtividade Mão de Obra')}
+        ${catCard('valuation', '📈', 'Valuation', '#7c3aed', '#f3e8ff', _fmtRs(fcf), 'FCF (Free Cash Flow)')}
+      </div>`;
+      html += '</div>';
+      container.innerHTML = html;
+      return;
+    }
+    
+    // ============ PÁGINA de uma categoria (rentabilidade / liquidez / etc) ============
+    // Botão voltar no topo
+    html += `<div style="margin-bottom:20px">
+      <button onclick="window._kpiV2Tab='home'; window.scrollTo(0,0); renderKPIs()" 
+              style="padding:10px 18px;background:white;color:#334155;border:1px solid #cbd5e1;border-radius:8px;font-family:Poppins;font-weight:600;font-size:12.5px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s"
+              onmouseover="this.style.background='#f1f5f9';this.style.borderColor='#94a3b8'"
+              onmouseout="this.style.background='white';this.style.borderColor='#cbd5e1'">
+        ← Voltar aos indicadores
+      </button>
     </div>`;
-  
-  // ============ TAB RENTABILIDADE ============
-  if (window._kpiV2Tab === 'rentabilidade') {
+    
+    // ============ PÁGINA RENTABILIDADE ============
+    if (window._kpiV2Tab === 'rentabilidade') {
     const semMB = margemBruta >= 60 ? 'green' : (margemBruta >= 40 ? 'yellow' : 'red');
     const semML = margemLiquida >= 20 ? 'green' : (margemLiquida >= 10 ? 'yellow' : 'red');
     const semROI = roi >= 30 ? 'green' : (roi >= 15 ? 'yellow' : 'red');
@@ -7236,7 +7318,7 @@ function renderRecebiveis() {
   let html = `<div style="padding:28px 24px;max-width:1900px;margin:0 auto;background:#f5f5f7;min-height:100vh">
     
     <div style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#064e3b 100%);border-radius:20px;padding:32px 36px;margin-bottom:20px;color:white;position:relative;overflow:hidden">
-      <div style="position:absolute;top:0;right:0;width:400px;height:400px;background:radial-gradient(circle,rgba(16,185,129,0.15) 0%,transparent 70%);pointer-events:none"></div>
+      <div style="position:absolute;top:0;right:0;width:400px;height:400px;background:radial-gradient(circle,rgba(16,185,129,0.15) 0%,transparent 70%);pointer-events:none;border-radius:20px"></div>
       <div style="position:relative;z-index:1">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:20px;margin-bottom:24px">
           <div>
@@ -10449,8 +10531,8 @@ if (document.readyState === 'loading') {
     
     cont.innerHTML = `
       <div style="padding:20px 24px 0;max-width:1900px;margin:0 auto">
-        <div style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#064e3b 100%);border-radius:20px;padding:32px 36px 24px;margin-bottom:20px;color:white;position:relative;overflow:hidden">
-          <div style="position:absolute;top:0;right:0;width:400px;height:400px;background:radial-gradient(circle,rgba(16,185,129,0.15) 0%,transparent 70%);pointer-events:none"></div>
+        <div style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#064e3b 100%);border-radius:20px;padding:32px 36px 24px;margin-bottom:20px;color:white;position:relative">
+          <div style="position:absolute;top:0;right:0;width:400px;height:400px;background:radial-gradient(circle,rgba(16,185,129,0.15) 0%,transparent 70%);pointer-events:none;border-radius:20px"></div>
           <div style="position:relative;z-index:1">
             <div>
               <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:2px;font-weight:700;margin-bottom:8px">💼 Fluxo de Caixa</div>
@@ -10675,7 +10757,7 @@ if (document.readyState === 'loading') {
 
     // Construir HTML — cabeçalho com toggle Projetado por mês
     const thead = document.getElementById('tableHead');
-    let theadHtml = '<tr><th style="text-align:left;padding:12px 14px;position:sticky;left:0;top:0;z-index:100;background:linear-gradient(180deg,#065f46 0%,#047857 100%);color:white;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;border-right:2px solid #10b981;box-shadow:2px 0 6px rgba(6,95,70,0.15);min-width:280px">Descrição</th>';
+    let theadHtml = '<tr><th style="text-align:left !important;padding:12px 14px !important;position:sticky !important;left:0 !important;top:0 !important;z-index:100 !important;background:#a7f3d0 !important;background-color:#a7f3d0 !important;color:#0f172a !important;font-size:11px !important;text-transform:uppercase !important;letter-spacing:0.5px !important;font-weight:800 !important;border-right:2px solid #10b981 !important;border-bottom:2px solid #10b981 !important;box-shadow:2px 0 6px rgba(6,95,70,0.15) !important;min-width:280px !important">Descrição</th>';
     // Iterar em MONTHS filtrado e pegar label pelo índice REAL do mês no ano
     MONTHS.forEach(mes => {
       // Extrair mês (01-12) do formato 'YYYY-MM'
@@ -10683,12 +10765,12 @@ if (document.readyState === 'loading') {
       const mLabel = MONTH_LABELS[monthNum - 1];
       const vis = projetadoVisible[mes];
       const btnIcon = vis ? '◀' : '▶';
-      theadHtml += `<th style="text-align:right;padding:12px 8px;position:sticky;top:0;z-index:99;background:linear-gradient(180deg,#065f46 0%,#047857 100%);color:white;font-size:11px;text-transform:uppercase;letter-spacing:0.4px;font-weight:700;border-left:1px solid #059669">${mLabel.toUpperCase()}<button onclick="toggleProjetadoMes('${mes}')" title="${vis?'Ocultar':'Mostrar'} projetado" style="margin-left:6px;width:18px;height:18px;border:1px solid ${vis?'#fbbf24':'rgba(255,255,255,0.4)'};background:${vis?'#fef3c7':'rgba(255,255,255,0.15)'};color:${vis?'#92400e':'white'};border-radius:4px;font-weight:700;font-size:11px;cursor:pointer;line-height:1;padding:0;font-family:Poppins">${btnIcon}</button></th>`;
+      theadHtml += `<th style="text-align:right !important;padding:12px 8px !important;position:sticky !important;top:0 !important;z-index:99 !important;background:#d1fae5 !important;background-color:#d1fae5 !important;color:#0f172a !important;font-size:11px !important;text-transform:uppercase !important;letter-spacing:0.4px !important;font-weight:700 !important;border-left:1px solid #a7f3d0 !important;border-bottom:2px solid #10b981 !important">${mLabel.toUpperCase()}<button onclick="toggleProjetadoMes('${mes}')" title="${vis?'Ocultar':'Mostrar'} projetado" style="margin-left:6px;width:18px;height:18px;border:1px solid ${vis?'#f59e0b':'#059669'};background-color:${vis?'#fef3c7':'white'};color:${vis?'#92400e':'#065f46'};border-radius:4px;font-weight:700;font-size:11px;cursor:pointer;line-height:1;padding:0;font-family:Poppins">${btnIcon}</button></th>`;
       if (vis) {
-        theadHtml += `<th style="text-align:right;padding:12px 6px;position:sticky;top:0;z-index:99;background:linear-gradient(180deg,#fbbf24 0%,#f59e0b 100%);color:#7c2d12;font-size:11px;text-transform:uppercase;letter-spacing:0.4px;font-weight:700;border-left:1px solid #d97706">PROJ ${mLabel.toUpperCase()}</th>`;
+        theadHtml += `<th style="text-align:right !important;padding:12px 6px !important;position:sticky !important;top:0 !important;z-index:99 !important;background:#fef3c7 !important;background-color:#fef3c7 !important;color:#92400e !important;font-size:11px !important;text-transform:uppercase !important;letter-spacing:0.4px !important;font-weight:700 !important;border-left:1px solid #fbbf24 !important;border-bottom:2px solid #f59e0b !important">PROJ ${mLabel.toUpperCase()}</th>`;
       }
     });
-    theadHtml += '<th style="text-align:right;padding:12px 14px;position:sticky;top:0;z-index:99;background:linear-gradient(180deg,#064e3b 0%,#065f46 100%);color:white;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;font-weight:800;border-left:2px solid #10b981">Total</th></tr>';
+    theadHtml += '<th style="text-align:right !important;padding:12px 14px !important;position:sticky !important;top:0 !important;z-index:99 !important;background:#86efac !important;background-color:#86efac !important;color:#0f172a !important;font-size:11px !important;text-transform:uppercase !important;letter-spacing:0.5px !important;font-weight:800 !important;border-left:2px solid #10b981 !important;border-bottom:2px solid #10b981 !important">Total</th></tr>';
     thead.innerHTML = theadHtml;
 
     let html = '';
