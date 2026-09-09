@@ -236,13 +236,19 @@ table td:first-child { white-space: normal; }
   padding: 6px 4px !important;
   font-size: 11px !important;
 }
-#mainTable thead th:first-child, #mainTable tbody td:first-child { 
+#mainTable thead th:first-child, #mainTable tbody td:first-child { position: sticky; left: 0; z-index: 5; 
   white-space: nowrap !important;
   font-size: 12px !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
-  max-width: 240px;
+  max-width: 280px;
+  min-width: 240px;
 }
+#mainTable tbody td:first-child { background: white; box-shadow: 2px 0 4px rgba(0,0,0,0.05); }
+#mainTable tbody tr.section-header td:first-child { background: #f8fafc; }
+#mainTable tbody tr.result-row td:first-child { background: #ecfdf5; }
+#mainTable tbody tr.grand-total td:first-child { background: #d1fae5; }
+#mainTable tbody tr.spacer td { background: transparent; box-shadow: none; }
 #mainTable thead th { 
   font-size: 10px !important; 
   padding: 8px 4px !important; 
@@ -854,7 +860,7 @@ body.scalia-mode .company-badge {
     </div>
   </div>
   <div class="main">
-    <div id="mainSection"><div class="table-container"><table id="mainTable"><thead id="tableHead"></thead><tbody id="tableBody"></tbody></table></div><div id="summaryContainer" class="summary-container"></div></div>
+    <div id="mainSection"><div id="mainHeroContainer"></div><div id="mainFiltroMesContainer"></div><div class="table-container"><table id="mainTable"><thead id="tableHead"></thead><tbody id="tableBody"></tbody></table></div><div id="summaryContainer" class="summary-container"></div></div>
     <div id="areaSection" class="hidden">
   <div style="display:flex;gap:8px;margin-bottom:24px;border-bottom:1px solid var(--border)">
     <button class="area-tab-btn active" data-areatab="mensal" style="padding:10px 18px;border:none;background:transparent;color:var(--primary);font-family:Poppins;font-size:13px;font-weight:600;cursor:pointer;border-bottom:2px solid var(--primary)">📅 Mensal</button>
@@ -5723,6 +5729,7 @@ function renderReembolso() {
     html += `<th style="${_thBase};text-align:center;min-width:150px">🛢️ Combustível</th>`;
     html += `<th style="${_thBase};text-align:center;min-width:130px">🏨 Hospedagem</th>`;
     html += `<th style="${_thBase};text-align:center;min-width:130px" title="Excepcional — geralmente sócios">🚗 Aluguel</th>`;
+    html += `<th style="${_thBase};text-align:center;min-width:105px" title="Marcar após efetuar o reembolso">✓ Pago?</th>`;
     html += `<th style="${_thBase};text-align:right;min-width:90px">Total</th>`;
     if (!isFechado) html += `<th style="${_thBase};text-align:center;width:40px"></th>`;
     html += '</tr></thead><tbody>';
@@ -5785,6 +5792,8 @@ function renderReembolso() {
         html += `<td style="padding:5px 6px">${_renderCampo(col, idx, 'combustivel', '#d97706')}</td>`;
         html += `<td style="padding:5px 6px">${_renderCampo(col, idx, 'hospedagem', '#059669')}</td>`;
         html += `<td style="padding:5px 6px">${_renderCampo(col, idx, 'aluguel', '#dc2626')}</td>`;
+        // Coluna Pago? — só faz sentido para status='reembolso'
+        html += `<td style="padding:5px 6px;text-align:center"><label style="display:inline-flex;align-items:center;gap:5px;cursor:${isFechado?'default':'pointer'};font-size:11px;color:${col.reembolsado?'#065f46':'#94a3b8'};font-weight:${col.reembolsado?'700':'500'}"><input type="checkbox" ${col.reembolsado?'checked':''} ${disabledAttr} onchange="_reembolsoUpdColab(${idx},'reembolsado',this.checked)" style="width:15px;height:15px;accent-color:#10b981;cursor:${isFechado?'default':'pointer'};margin:0">${col.reembolsado?'Pago':'Pendente'}</label></td>`;
         html += `<td style="padding:6px 10px;text-align:right;font-weight:700;font-size:13px;color:#0f172a">${_reembolsoFmt(calc.total)}</td>`;
       } else {
         const obsAtual = col.observacao || col.justificativa || '';
@@ -5810,7 +5819,13 @@ function renderReembolso() {
     if (nNaoVai > 0) partes.push(nNaoVai + ' não vão');
     const resumo = partes.length ? ' (' + partes.join(', ') + ')' : '';
     
-    html += `<tr style="background:#faf5ff;border-top:2px solid #8b5cf6;position:sticky;bottom:0;z-index:10"><td colspan="7" style="padding:14px 16px;text-align:left;font-weight:700;color:#0f172a;background:#faf5ff">TOTAL DO ENCONTRO${resumo}</td><td style="padding:14px 10px;text-align:right;font-weight:800;color:#8b5cf6;font-size:15px;background:#faf5ff;position:sticky;right:0">${_reembolsoFmt(totGeral)}</td>${!isFechado?'<td style="background:#faf5ff"></td>':''}</tr>`;
+    // Contador de reembolsos feitos vs pendentes
+    const totReembolsados = encontroAtual.colaboradores.filter(c => _reembolsoStatus(c) === 'reembolso' && c.reembolsado).length;
+    const totPendentes = nReemb - totReembolsados;
+    let statusPag = '';
+    if (nReemb > 0) statusPag = ` · <span style="color:${totPendentes>0?'#dc2626':'#065f46'};font-weight:800">${totReembolsados}/${nReemb} pagos</span>`;
+    
+    html += `<tr style="background:#faf5ff;border-top:2px solid #8b5cf6;position:sticky;bottom:0;z-index:10"><td colspan="8" style="padding:14px 16px;text-align:left;font-weight:700;color:#0f172a;background:#faf5ff">TOTAL DO ENCONTRO${resumo}${statusPag}</td><td style="padding:14px 10px;text-align:right;font-weight:800;color:#8b5cf6;font-size:15px;background:#faf5ff;position:sticky;right:0">${_reembolsoFmt(totGeral)}</td>${!isFechado?'<td style="background:#faf5ff"></td>':''}</tr>`;
     
     html += '</tbody></table></div>';
   }
@@ -5910,8 +5925,9 @@ function _reembolsoAddColab() {
   if (enc) {
     enc.colaboradores.push({
       nome: '',
-      status: 'reembolso',        // 'reembolso' | 'sem_reembolso' | 'nao_vai'
-      observacao: '',             // motivo / justificativa
+      status: 'reembolso',
+      observacao: '',
+      reembolsado: false,
       kmDistancia: 0,
       passagem: { precisa: false, valor: 0 },
       combustivel: { precisa: false, valor: 0 },
@@ -5938,7 +5954,7 @@ function _reembolsoUpdColab(idx, campo, valor) {
   const enc = data.encontros.find(e => e.id === window._reembolsoState.encontroAtualId);
   if (enc && enc.colaboradores[idx]) {
     if (campo === 'kmDistancia') valor = Number(valor) || 0;
-    if (campo === 'vai') valor = !!valor;
+    if (campo === 'vai' || campo === 'reembolsado') valor = !!valor;
     enc.colaboradores[idx][campo] = valor;
     // Ao mudar status para nao-reembolso, migra "justificativa" antiga para observacao
     if (campo === 'status' && enc.colaboradores[idx].justificativa && !enc.colaboradores[idx].observacao) {
@@ -10734,11 +10750,125 @@ if (document.readyState === 'loading') {
   // =====================================================================================
   // renderMain com estrutura gerencial hierárquica
   // =====================================================================================
+  if (!window._mainMesFiltro) window._mainMesFiltro = 'todos';
+  
+  // Renderiza hero executivo do Principal com KPIs
+  window._renderMainHero = function() {
+    const cont = document.getElementById('mainHeroContainer');
+    if (!cont) return;
+    // Calcular totais rapidamente usando _getDataForSection
+    const { data } = _getDataForSection('main');
+    const rows = _applyFilters(data);
+    const ano = (typeof currentYear !== 'undefined') ? currentYear : '2026';
+    
+    let totRec = 0, totDesp = 0;
+    rows.forEach(r => {
+      const val = r.valorPago || 0;
+      const mes = String(r.mesPagto || '').slice(0, 7);
+      if (!mes.startsWith(ano)) return;
+      if (r.tipo === '1. Contas a Receber') totRec += val;
+      else if (r.tipo === '2. Contas a Pagar') totDesp += val;
+    });
+    const resultado = totRec + totDesp;
+    const margem = totRec > 0 ? (resultado / totRec * 100) : 0;
+    
+    const _fmtM = v => 'R$ ' + Math.abs(v).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    const _fmtS = v => (v >= 0 ? '+' : '-') + 'R$ ' + Math.abs(v).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    
+    cont.innerHTML = `
+      <div style="padding:20px 24px 0;max-width:1900px;margin:0 auto">
+        <div style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#064e3b 100%);border-radius:20px;padding:32px 36px;margin-bottom:20px;color:white;position:relative;overflow:hidden">
+          <div style="position:absolute;top:0;right:0;width:400px;height:400px;background:radial-gradient(circle,rgba(16,185,129,0.15) 0%,transparent 70%);pointer-events:none"></div>
+          <div style="position:relative;z-index:1">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:20px">
+              <div>
+                <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:2px;font-weight:700;margin-bottom:8px">💼 Fluxo de Caixa</div>
+                <h1 style="margin:0;font-size:28px;font-weight:800;letter-spacing:-1px;line-height:1.1">Dashboard Principal</h1>
+                <p style="margin:8px 0 0;color:#cbd5e1;font-size:13px">Receitas, despesas e resultado operacional consolidado · ${ano}</p>
+              </div>
+            </div>
+            
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px;margin-top:28px;padding-top:24px;border-top:1px solid rgba(255,255,255,0.1)">
+              <div>
+                <div style="font-size:10px;color:#86efac;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">💰 Receitas</div>
+                <div style="font-size:26px;font-weight:800;color:#10b981;letter-spacing:-0.5px">${_fmtM(totRec)}</div>
+                <div style="font-size:10.5px;color:#94a3b8;margin-top:2px">Realizado no ano</div>
+              </div>
+              <div>
+                <div style="font-size:10px;color:#fca5a5;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">💸 Despesas</div>
+                <div style="font-size:26px;font-weight:800;color:#ef4444;letter-spacing:-0.5px">${_fmtM(totDesp)}</div>
+                <div style="font-size:10.5px;color:#94a3b8;margin-top:2px">Realizado no ano</div>
+              </div>
+              <div>
+                <div style="font-size:10px;color:${resultado>=0?'#86efac':'#fca5a5'};text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">📊 Resultado Operacional</div>
+                <div style="font-size:26px;font-weight:800;color:${resultado>=0?'#10b981':'#ef4444'};letter-spacing:-0.5px">${_fmtS(resultado)}</div>
+                <div style="font-size:10.5px;color:#94a3b8;margin-top:2px">Margem: ${margem.toFixed(1)}%</div>
+              </div>
+              <div>
+                <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">📅 Período</div>
+                <div style="font-size:22px;font-weight:800;color:#f8fafc;letter-spacing:-0.5px">${window._mainMesFiltro === 'todos' ? 'Ano ' + ano : _mainFmtMesNome(window._mainMesFiltro)}</div>
+                <div style="font-size:10.5px;color:#94a3b8;margin-top:2px">${rows.length.toLocaleString('pt-BR')} lançamentos</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  };
+  
+  // Renderiza barra de filtro de mês (chip azul + botão limpar)
+  window._renderMainFiltroMes = function() {
+    const cont = document.getElementById('mainFiltroMesContainer');
+    if (!cont) return;
+    const MONTH_NAMES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    const ano = (typeof currentYear !== 'undefined') ? currentYear : '2026';
+    const filtroAtivo = window._mainMesFiltro !== 'todos';
+    
+    let html = '<div style="padding:0 24px 12px;max-width:1900px;margin:0 auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap">';
+    html += '<span style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Filtrar por mês:</span>';
+    html += '<div style="display:flex;gap:4px;flex-wrap:wrap">';
+    // Botão "Todos"
+    html += `<button onclick="_mainSetMesFiltro('todos')" style="padding:5px 12px;background:${!filtroAtivo?'#065f46':'white'};color:${!filtroAtivo?'white':'#334155'};border:1px solid ${!filtroAtivo?'#065f46':'#cbd5e1'};border-radius:6px;font-family:Poppins;font-weight:600;font-size:11px;cursor:pointer;transition:all 0.15s">Todos</button>`;
+    MONTH_NAMES.forEach((n, i) => {
+      const mesKey = ano + '-' + String(i+1).padStart(2, '0');
+      const ativo = window._mainMesFiltro === mesKey;
+      html += `<button onclick="_mainSetMesFiltro('${mesKey}')" style="padding:5px 12px;background:${ativo?'#065f46':'white'};color:${ativo?'white':'#334155'};border:1px solid ${ativo?'#065f46':'#cbd5e1'};border-radius:6px;font-family:Poppins;font-weight:600;font-size:11px;cursor:pointer;transition:all 0.15s">${n}</button>`;
+    });
+    html += '</div>';
+    if (filtroAtivo) {
+      html += `<button onclick="_mainSetMesFiltro('todos')" style="padding:5px 10px;background:#fef3c7;color:#78350f;border:1px solid #fbbf24;border-radius:6px;font-family:Poppins;font-weight:700;font-size:10.5px;cursor:pointer">✕ Limpar filtro</button>`;
+    }
+    html += '</div>';
+    cont.innerHTML = html;
+  };
+  
+  // Helpers
+  window._mainSetMesFiltro = function(mes) {
+    window._mainMesFiltro = mes;
+    if (typeof window.renderMain === 'function') window.renderMain();
+  };
+  
+  window._mainFmtMesNome = function(mesKey) {
+    const NAMES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+    const partes = String(mesKey || '').split('-');
+    if (partes.length < 2) return mesKey;
+    return NAMES[parseInt(partes[1]) - 1] + ' ' + partes[0];
+  };
+  
+  
   window.renderMain = function() {
     // Limpar cache de drill-down entre renders (evita colisão de chaves)
     Object.keys(_drillCache).forEach(k => delete _drillCache[k]);
+    
+    // Renderizar hero + filtro de mês (funcões definidas ao final)
+    if (typeof _renderMainHero === 'function') _renderMainHero();
+    if (typeof _renderMainFiltroMes === 'function') _renderMainFiltroMes();
 
-    const MONTHS = _getMonths();
+    let MONTHS = _getMonths();
+    // Aplicar filtro de mês
+    if (window._mainMesFiltro && window._mainMesFiltro !== 'todos') {
+      MONTHS = MONTHS.filter(m => m === window._mainMesFiltro);
+    }
     const MONTH_LABELS = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
     const MONTH_NAMES = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
 
@@ -10906,7 +11036,7 @@ if (document.readyState === 'loading') {
 
     // Construir HTML — cabeçalho com toggle Projetado por mês
     const thead = document.getElementById('tableHead');
-    let theadHtml = '<tr><th style="text-align:left;padding:10px 14px">Descrição</th>';
+    let theadHtml = '<tr><th style="text-align:left;padding:12px 14px;position:sticky;left:0;top:0;z-index:100;background:linear-gradient(180deg,#065f46 0%,#047857 100%);color:white;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;border-right:2px solid #10b981;box-shadow:2px 0 6px rgba(6,95,70,0.15);min-width:280px">Descrição</th>';
     // Iterar em MONTHS filtrado e pegar label pelo índice REAL do mês no ano
     MONTHS.forEach(mes => {
       // Extrair mês (01-12) do formato 'YYYY-MM'
@@ -10914,12 +11044,12 @@ if (document.readyState === 'loading') {
       const mLabel = MONTH_LABELS[monthNum - 1];
       const vis = projetadoVisible[mes];
       const btnIcon = vis ? '◀' : '▶';
-      theadHtml += `<th style="text-align:right;padding:10px 8px">${mLabel.toUpperCase()}<button onclick="toggleProjetadoMes('${mes}')" title="${vis?'Ocultar':'Mostrar'} projetado" style="margin-left:6px;width:18px;height:18px;border:1px solid ${vis?'#f59e0b':'#d1d5db'};background:${vis?'#fef9c3':'white'};color:${vis?'#92400e':'#6b7280'};border-radius:4px;font-weight:700;font-size:11px;cursor:pointer;line-height:1;padding:0;font-family:Poppins">${btnIcon}</button></th>`;
+      theadHtml += `<th style="text-align:right;padding:12px 8px;position:sticky;top:0;z-index:99;background:linear-gradient(180deg,#065f46 0%,#047857 100%);color:white;font-size:11px;text-transform:uppercase;letter-spacing:0.4px;font-weight:700;border-left:1px solid #059669">${mLabel.toUpperCase()}<button onclick="toggleProjetadoMes('${mes}')" title="${vis?'Ocultar':'Mostrar'} projetado" style="margin-left:6px;width:18px;height:18px;border:1px solid ${vis?'#fbbf24':'rgba(255,255,255,0.4)'};background:${vis?'#fef3c7':'rgba(255,255,255,0.15)'};color:${vis?'#92400e':'white'};border-radius:4px;font-weight:700;font-size:11px;cursor:pointer;line-height:1;padding:0;font-family:Poppins">${btnIcon}</button></th>`;
       if (vis) {
-        theadHtml += `<th style="text-align:right;padding:10px 6px;background:#fef9c3;color:#92400e;font-size:11px">PROJ ${mLabel.toUpperCase()}</th>`;
+        theadHtml += `<th style="text-align:right;padding:12px 6px;position:sticky;top:0;z-index:99;background:linear-gradient(180deg,#fbbf24 0%,#f59e0b 100%);color:#7c2d12;font-size:11px;text-transform:uppercase;letter-spacing:0.4px;font-weight:700;border-left:1px solid #d97706">PROJ ${mLabel.toUpperCase()}</th>`;
       }
     });
-    theadHtml += '<th style="text-align:right;padding:10px 12px">Total</th></tr>';
+    theadHtml += '<th style="text-align:right;padding:12px 14px;position:sticky;top:0;z-index:99;background:linear-gradient(180deg,#064e3b 0%,#065f46 100%);color:white;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;font-weight:800;border-left:2px solid #10b981">Total</th></tr>';
     thead.innerHTML = theadHtml;
 
     let html = '';
