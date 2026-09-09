@@ -781,7 +781,7 @@ body.scalia-mode .company-badge {
 <!-- ============== TELA SCALIA EM CONSTRUÇÃO ============== -->
 
 <div class="sidebar">
-  <div class="logo-section"><div class="logo-dot"></div><div class="logo-text">Growper Digital</div></div>
+  <div class="logo-section" id="logoSection" onclick="backToSelector()" title="Trocar de empresa" style="cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='rgba(16,185,129,0.2)'" onmouseout="this.style.background='rgba(16,185,129,0.1)'"><div class="logo-dot"></div><div class="logo-text" id="companyName">Growper Digital</div><div style="margin-left:auto;color:rgba(255,255,255,0.6);font-size:12px;font-weight:700" title="Voltar à seleção de empresa">↻</div></div>
   <div class="nav-section">
     <div class="nav-buttons">
       <button class="nav-btn nav-cat-simple" onclick="showCategoryPage('financeiro')" data-cat="financeiro">
@@ -805,7 +805,12 @@ body.scalia-mode .company-badge {
 <div class="main-content">
   <div class="header">
     <div class="header-content">
-      <div class="header-title" id="headerTitle"><span class="company-badge" id="companyBadge" onclick="backToSelector()" title="Trocar de empresa"><span class="cb-icon">◀</span><span id="companyName">Growper Digital</span></span><span id="sectionTitle">Dashboard Principal</span></div>
+      <div class="header-title" id="headerTitle" style="display:flex;align-items:center;gap:12px"><button id="btnVoltarCat"
+        onclick="_voltarParaCategoria()"
+        onmouseover="this.style.background='#f1f5f9';this.style.borderColor='#64748b';this.style.color='#0f172a'"
+        onmouseout="this.style.background='white';this.style.borderColor='#cbd5e1';this.style.color='#475569'"
+        title="Voltar aos menus da categoria"
+        style="display:none;background:white;color:#475569;border:1px solid #cbd5e1;padding:6px 14px;border-radius:8px;font-family:Poppins,sans-serif;font-weight:600;font-size:12.5px;cursor:pointer;align-items:center;gap:6px;transition:all 0.15s;user-select:none;flex-shrink:0">← Voltar</button><span id="sectionTitle">Dashboard Principal</span></div>
       <div class="header-controls">
 
 <select id="selYear" onchange="if(typeof _onYearChange==='function')_onYearChange(this.value)"><option value="2026">2026</option><option value="2025">2025</option></select>
@@ -12349,14 +12354,6 @@ window.showCategoryPage = abrirCategoria;
   }
 })();
 </script>
-
-<!-- Botão minimalista de voltar para o painel da categoria -->
-<button id="btnVoltarCat"
-        onclick="_voltarParaCategoria()"
-        onmouseover="this.style.background='#f1f5f9';this.style.borderColor='#64748b';this.style.color='#0f172a'"
-        onmouseout="this.style.background='white';this.style.borderColor='#cbd5e1';this.style.color='#475569'"
-        title="Voltar aos menus da categoria"
-        style="display:none;position:fixed;top:80px;left:260px;background:white;color:#475569;border:1px solid #cbd5e1;padding:8px 16px;border-radius:8px;font-family:Poppins,sans-serif;font-weight:600;font-size:12.5px;cursor:pointer;align-items:center;gap:6px;transition:all 0.15s;box-shadow:0 2px 8px rgba(0,0,0,0.08);z-index:50;user-select:none">← Voltar</button>
 
 </body>
 </html>
