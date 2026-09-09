@@ -5474,8 +5474,9 @@ function _reembolsoCalcColab(col, taxaKm) {
   const combKm = Number(col.kmDistancia || 0) * 2; // ida e volta
   const combustivel = col.combustivel && col.combustivel.precisa ? combKm * Number(taxaKm || 0) : 0;
   const hospedagem = col.hospedagem && col.hospedagem.precisa ? Number(col.hospedagem.valor || 0) : 0;
-  const total = passagem + combustivel + hospedagem;
-  return { passagem, combustivel, hospedagem, total, combKm };
+  const aluguel = col.aluguel && col.aluguel.precisa ? Number(col.aluguel.valor || 0) : 0;
+  const total = passagem + combustivel + hospedagem + aluguel;
+  return { passagem, combustivel, hospedagem, aluguel, total, combKm };
 }
 
 function renderReembolso() {
@@ -5491,12 +5492,13 @@ function renderReembolso() {
       id: 'enc_' + Date.now(),
       data: new Date().toISOString().slice(0, 10),
       local: 'São Paulo',
+      status: 'aberto',
       colaboradores: []
     });
     _reembolsoSave(data);
   }
   
-  // Selecionar encontro atual (mais recente ou selecionado)
+  // Selecionar encontro atual
   if (!window._reembolsoState.encontroAtualId) {
     window._reembolsoState.encontroAtualId = data.encontros[data.encontros.length - 1].id;
   }
@@ -5506,18 +5508,23 @@ function renderReembolso() {
     window._reembolsoState.encontroAtualId = encontroAtual.id;
   }
   
-  // Calcular totais gerais do encontro
-  let totGeral = 0, totPassagem = 0, totCombustivel = 0, totHospedagem = 0, totKm = 0;
+  // Garantir campo status
+  if (!encontroAtual.status) encontroAtual.status = 'aberto';
+  const isFechado = encontroAtual.status === 'fechado';
+  const disabledAttr = isFechado ? 'disabled' : '';
+  
+  // Calcular totais
+  let totGeral = 0, totPassagem = 0, totCombustivel = 0, totHospedagem = 0, totAluguel = 0, totKm = 0;
   encontroAtual.colaboradores.forEach(col => {
     const calc = _reembolsoCalcColab(col, taxaKm);
     totGeral += calc.total;
     totPassagem += calc.passagem;
     totCombustivel += calc.combustivel;
     totHospedagem += calc.hospedagem;
+    totAluguel += calc.aluguel;
     totKm += Number(col.kmDistancia || 0) * 2;
   });
   
-  // Header
   let html = '<div style="max-width:1400px;margin:0 auto">';
   
   // Título
@@ -5525,20 +5532,21 @@ function renderReembolso() {
   html += '<span style="width:40px;height:40px;border-radius:10px;background:#8b5cf6;color:white;display:inline-flex;align-items:center;justify-content:center;font-size:20px">✈️</span>';
   html += '<div>';
   html += '<div style="font-size:22px;font-weight:800;color:#0f172a;letter-spacing:-0.4px">Reembolso — Encontros Presenciais</div>';
-  html += '<div style="font-size:12.5px;color:#64748b">Controle de passagem, combustível e hospedagem para colaboradores fora do endereço da empresa</div>';
+  html += '<div style="font-size:12.5px;color:#64748b">Controle de passagem, combustível, hospedagem e aluguel de veículo</div>';
   html += '</div>';
   html += '</div>';
   
-  // Barra de configuração: encontro + local + data + taxa km
-  html += '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px 20px;margin-bottom:20px;display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr auto;gap:14px;align-items:end">';
+  // Barra de configuração
+  html += '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px 20px;margin-bottom:12px;display:grid;grid-template-columns:1.5fr 1fr 1fr 1.1fr auto;gap:14px;align-items:end">';
   
-  // Seletor de encontro
+  // Encontro (dropdown)
   html += '<div>';
   html += '<label style="display:block;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px">Encontro</label>';
   html += '<select onchange="window._reembolsoState.encontroAtualId=this.value;renderReembolso()" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font-family:Poppins;font-size:13px;background:white">';
   data.encontros.slice().reverse().forEach(e => {
     const sel = e.id === encontroAtual.id ? ' selected' : '';
-    const label = _reembolsoFmtData(e.data) + ' — ' + (e.local || 'Sem local');
+    const stat = e.status === 'fechado' ? ' ✓' : '';
+    const label = _reembolsoFmtData(e.data) + ' — ' + (e.local || 'Sem local') + stat;
     html += `<option value="${e.id}"${sel}>${label}</option>`;
   });
   html += '</select>';
@@ -5547,24 +5555,24 @@ function renderReembolso() {
   // Data
   html += '<div>';
   html += '<label style="display:block;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px">Data</label>';
-  html += `<input type="date" value="${encontroAtual.data}" onchange="_reembolsoUpdEncontro('data', this.value)" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font-family:Poppins;font-size:13px">`;
+  html += `<input type="date" value="${encontroAtual.data}" ${disabledAttr} onchange="_reembolsoUpdEncontro('data', this.value)" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font-family:Poppins;font-size:13px${isFechado?';background:#f1f5f9;color:#64748b':''}">`;
   html += '</div>';
   
   // Local
   html += '<div>';
   html += '<label style="display:block;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px">Local</label>';
-  html += `<input type="text" value="${encontroAtual.local || ''}" onchange="_reembolsoUpdEncontro('local', this.value)" placeholder="Ex: São Paulo" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font-family:Poppins;font-size:13px">`;
+  html += `<input type="text" value="${(encontroAtual.local||'').replace(/"/g,'&quot;')}" ${disabledAttr} onchange="_reembolsoUpdEncontro('local', this.value)" placeholder="Ex: São Paulo" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font-family:Poppins;font-size:13px${isFechado?';background:#f1f5f9;color:#64748b':''}">`;
   html += '</div>';
   
-  // Taxa por km
+  // Taxa por km — com rótulo claro
   html += '<div>';
-  html += '<label style="display:block;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px" title="Valor pago por km de combustível (aplicado no cálculo de ida+volta)">R$ / km 🛢️</label>';
-  html += `<input type="number" step="0.01" min="0" value="${taxaKm.toFixed(2)}" onchange="_reembolsoUpdTaxa(this.value)" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font-family:Poppins;font-size:13px">`;
+  html += '<label style="display:block;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px" title="Valor pago por km — usado no cálculo automático do combustível">Taxa combustível</label>';
+  html += `<div style="display:flex;align-items:center;gap:4px"><span style="font-size:12px;color:#64748b;font-weight:600">R$</span><input type="number" step="0.01" min="0" value="${taxaKm.toFixed(2)}" ${disabledAttr} onchange="_reembolsoUpdTaxa(this.value)" style="flex:1;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font-family:Poppins;font-size:13px${isFechado?';background:#f1f5f9;color:#64748b':''}"><span style="font-size:12px;color:#64748b;font-weight:600">/km</span></div>`;
   html += '</div>';
   
   // Botões
   html += '<div style="display:flex;gap:8px">';
-  html += '<button onclick="_reembolsoNovoEncontro()" style="padding:9px 14px;background:#8b5cf6;color:white;border:none;border-radius:8px;font-family:Poppins;font-weight:600;font-size:12.5px;cursor:pointer;white-space:nowrap">+ Novo Encontro</button>';
+  html += '<button onclick="_reembolsoNovoEncontro()" style="padding:9px 14px;background:#8b5cf6;color:white;border:none;border-radius:8px;font-family:Poppins;font-weight:600;font-size:12.5px;cursor:pointer;white-space:nowrap">+ Novo</button>';
   if (data.encontros.length > 1) {
     html += '<button onclick="_reembolsoExcluirEncontro()" style="padding:9px 12px;background:white;color:#ef4444;border:1px solid #fecaca;border-radius:8px;font-family:Poppins;font-weight:600;font-size:12.5px;cursor:pointer" title="Excluir este encontro">🗑️</button>';
   }
@@ -5572,61 +5580,96 @@ function renderReembolso() {
   
   html += '</div>';
   
+  // Info bar explicando o R$/km
+  html += `<div style="background:#eff6ff;border:1px solid #dbeafe;border-radius:8px;padding:10px 14px;margin-bottom:20px;font-size:12px;color:#1e40af;display:flex;align-items:center;gap:8px"><span style="font-size:14px">💡</span><span><strong>Como funciona a taxa:</strong> quando você marca "Precisa combustível" em algum colaborador, o sistema calcula automaticamente <code style="background:#dbeafe;padding:1px 6px;border-radius:4px;font-family:monospace">km_ida × 2 × R$${taxaKm.toFixed(2)}</code> (ida + volta). Sugestão de mercado: R$ 0,80 a R$ 1,50/km.</span></div>`;
+  
+  // Status do encontro + botões de ação
+  html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;background:white;border:1px solid #e2e8f0;border-radius:10px;padding:12px 16px">';
+  html += '<div style="display:flex;align-items:center;gap:12px">';
+  if (isFechado) {
+    html += '<span style="background:#dcfce7;color:#166534;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:0.3px;text-transform:uppercase">✓ Fechado</span>';
+    if (encontroAtual.dataFechamento) {
+      html += `<span style="font-size:12px;color:#64748b">Fechado em ${_reembolsoFmtData(encontroAtual.dataFechamento)}</span>`;
+    }
+  } else {
+    html += '<span style="background:#fef3c7;color:#92400e;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:0.3px;text-transform:uppercase">● Em Aberto</span>';
+    html += '<span style="font-size:12px;color:#64748b">Você pode adicionar e editar colaboradores. Feche o encontro quando estiver tudo confirmado.</span>';
+  }
+  html += '</div>';
+  html += '<div style="display:flex;gap:8px">';
+  if (isFechado) {
+    html += '<button onclick="_reembolsoReabrir()" style="padding:8px 14px;background:white;color:#64748b;border:1px solid #d1d5db;border-radius:8px;font-family:Poppins;font-weight:600;font-size:12.5px;cursor:pointer">🔓 Reabrir</button>';
+  } else if (encontroAtual.colaboradores.length > 0) {
+    html += '<button onclick="_reembolsoFechar()" style="padding:8px 16px;background:#16a34a;color:white;border:none;border-radius:8px;font-family:Poppins;font-weight:600;font-size:12.5px;cursor:pointer">✓ Fechar Encontro</button>';
+  }
+  html += '</div>';
+  html += '</div>';
+  
   // Cards de totais
-  html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px">';
-  html += `<div style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);border-radius:12px;padding:14px 18px;color:white"><div style="font-size:11px;opacity:0.85;font-weight:600;text-transform:uppercase;letter-spacing:0.4px">Total Geral</div><div style="font-size:22px;font-weight:800;margin-top:4px">${_reembolsoFmt(totGeral)}</div></div>`;
-  html += `<div style="background:white;border:1px solid #e2e8f0;border-radius:12px;padding:14px 18px"><div style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.4px">🎫 Passagens</div><div style="font-size:20px;font-weight:800;color:#0f172a;margin-top:4px">${_reembolsoFmt(totPassagem)}</div></div>`;
-  html += `<div style="background:white;border:1px solid #e2e8f0;border-radius:12px;padding:14px 18px"><div style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.4px">🛢️ Combustível</div><div style="font-size:20px;font-weight:800;color:#0f172a;margin-top:4px">${_reembolsoFmt(totCombustivel)}</div><div style="font-size:11px;color:#94a3b8;margin-top:2px">${totKm} km × R$ ${taxaKm.toFixed(2)}</div></div>`;
-  html += `<div style="background:white;border:1px solid #e2e8f0;border-radius:12px;padding:14px 18px"><div style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.4px">🏨 Hospedagem</div><div style="font-size:20px;font-weight:800;color:#0f172a;margin-top:4px">${_reembolsoFmt(totHospedagem)}</div></div>`;
-  html += `<div style="background:white;border:1px solid #e2e8f0;border-radius:12px;padding:14px 18px"><div style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.4px">👥 Colaboradores</div><div style="font-size:20px;font-weight:800;color:#0f172a;margin-top:4px">${encontroAtual.colaboradores.length}</div></div>`;
+  html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px">';
+  html += `<div style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);border-radius:12px;padding:14px 18px;color:white"><div style="font-size:11px;opacity:0.85;font-weight:600;text-transform:uppercase;letter-spacing:0.4px">Total do Encontro</div><div style="font-size:22px;font-weight:800;margin-top:4px">${_reembolsoFmt(totGeral)}</div></div>`;
+  html += `<div style="background:white;border:1px solid #e2e8f0;border-radius:12px;padding:14px 18px"><div style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.4px">🎫 Passagens</div><div style="font-size:18px;font-weight:800;color:#0f172a;margin-top:4px">${_reembolsoFmt(totPassagem)}</div></div>`;
+  html += `<div style="background:white;border:1px solid #e2e8f0;border-radius:12px;padding:14px 18px"><div style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.4px">🛢️ Combustível</div><div style="font-size:18px;font-weight:800;color:#0f172a;margin-top:4px">${_reembolsoFmt(totCombustivel)}</div><div style="font-size:10.5px;color:#94a3b8;margin-top:2px">${totKm} km × R$ ${taxaKm.toFixed(2)}</div></div>`;
+  html += `<div style="background:white;border:1px solid #e2e8f0;border-radius:12px;padding:14px 18px"><div style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.4px">🏨 Hospedagem</div><div style="font-size:18px;font-weight:800;color:#0f172a;margin-top:4px">${_reembolsoFmt(totHospedagem)}</div></div>`;
+  html += `<div style="background:white;border:1px solid #e2e8f0;border-radius:12px;padding:14px 18px"><div style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.4px">🚗 Aluguel</div><div style="font-size:18px;font-weight:800;color:#0f172a;margin-top:4px">${_reembolsoFmt(totAluguel)}</div><div style="font-size:10.5px;color:#94a3b8;margin-top:2px">${encontroAtual.colaboradores.filter(x=>x.aluguel&&x.aluguel.precisa).length} colaborador(es)</div></div>`;
   html += '</div>';
   
   // Tabela de colaboradores
   html += '<div style="background:white;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden">';
   html += '<div style="padding:14px 18px;background:#f8fafc;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center">';
-  html += '<div style="font-size:14px;font-weight:700;color:#0f172a">Colaboradores no encontro</div>';
-  html += '<button onclick="_reembolsoAddColab()" style="padding:8px 14px;background:#10b981;color:white;border:none;border-radius:8px;font-family:Poppins;font-weight:600;font-size:12.5px;cursor:pointer">+ Adicionar Colaborador</button>';
+  html += `<div style="font-size:14px;font-weight:700;color:#0f172a">Colaboradores (${encontroAtual.colaboradores.length})</div>`;
+  if (!isFechado) {
+    html += '<button onclick="_reembolsoAddColab()" style="padding:8px 14px;background:#10b981;color:white;border:none;border-radius:8px;font-family:Poppins;font-weight:600;font-size:12.5px;cursor:pointer">+ Adicionar Colaborador</button>';
+  }
   html += '</div>';
   
   if (encontroAtual.colaboradores.length === 0) {
     html += '<div style="padding:60px 20px;text-align:center;color:#94a3b8"><div style="font-size:40px;margin-bottom:8px">✈️</div><div style="font-size:14px;font-weight:600">Nenhum colaborador cadastrado ainda</div><div style="font-size:12px;margin-top:4px">Clique em "+ Adicionar Colaborador" para começar</div></div>';
   } else {
-    html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">';
+    html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:1050px">';
     html += '<thead><tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0">';
     html += '<th style="padding:12px 14px;text-align:left;font-weight:700;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:0.4px">Colaborador</th>';
     html += '<th style="padding:12px 8px;text-align:center;font-weight:700;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:0.4px" title="Km só ida — o sistema calcula ida+volta">Km ida</th>';
     html += '<th style="padding:12px 8px;text-align:center;font-weight:700;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:0.4px">🎫 Passagem</th>';
     html += '<th style="padding:12px 8px;text-align:center;font-weight:700;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:0.4px">🛢️ Combustível</th>';
     html += '<th style="padding:12px 8px;text-align:center;font-weight:700;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:0.4px">🏨 Hospedagem</th>';
+    html += '<th style="padding:12px 8px;text-align:center;font-weight:700;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:0.4px" title="Uso excepcional — geralmente para sócios">🚗 Aluguel</th>';
     html += '<th style="padding:12px 14px;text-align:right;font-weight:700;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:0.4px">Total</th>';
-    html += '<th style="padding:12px 8px"></th>';
+    if (!isFechado) html += '<th style="padding:12px 8px"></th>';
     html += '</tr></thead><tbody>';
     
     encontroAtual.colaboradores.forEach((col, idx) => {
       const calc = _reembolsoCalcColab(col, taxaKm);
+      const roCell = isFechado ? 'background:#f8fafc' : '';
       html += `<tr style="border-bottom:1px solid #f1f5f9">`;
       // Nome
-      html += `<td style="padding:10px 14px"><input type="text" value="${(col.nome||'').replace(/"/g,'&quot;')}" onchange="_reembolsoUpdColab(${idx},'nome',this.value)" placeholder="Nome" style="width:100%;padding:6px 8px;border:1px solid transparent;border-radius:6px;font-family:Poppins;font-size:13px;background:transparent" onfocus="this.style.border='1px solid #cbd5e1';this.style.background='white'" onblur="this.style.border='1px solid transparent';this.style.background='transparent'"></td>`;
+      html += `<td style="padding:10px 14px"><input type="text" value="${(col.nome||'').replace(/"/g,'&quot;')}" ${disabledAttr} onchange="_reembolsoUpdColab(${idx},'nome',this.value)" placeholder="Nome" style="width:100%;padding:6px 8px;border:1px solid transparent;border-radius:6px;font-family:Poppins;font-size:13px;background:transparent;${roCell?'color:#0f172a':''}" ${isFechado?'':`onfocus="this.style.border='1px solid #cbd5e1';this.style.background='white'" onblur="this.style.border='1px solid transparent';this.style.background='transparent'"`}></td>`;
       // Km
-      html += `<td style="padding:10px 8px;text-align:center"><input type="number" min="0" value="${col.kmDistancia||0}" onchange="_reembolsoUpdColab(${idx},'kmDistancia',this.value)" style="width:70px;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-family:Poppins;font-size:13px;text-align:center"></td>`;
+      html += `<td style="padding:10px 8px;text-align:center"><input type="number" min="0" ${disabledAttr} value="${col.kmDistancia||0}" onchange="_reembolsoUpdColab(${idx},'kmDistancia',this.value)" style="width:70px;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-family:Poppins;font-size:13px;text-align:center${isFechado?';background:#f8fafc':''}"></td>`;
       // Passagem
       const pP = col.passagem && col.passagem.precisa;
-      html += `<td style="padding:10px 8px;text-align:center"><div style="display:flex;flex-direction:column;align-items:center;gap:4px"><label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#64748b;cursor:pointer"><input type="checkbox" ${pP?'checked':''} onchange="_reembolsoUpdColabSub(${idx},'passagem','precisa',this.checked)"> Precisa</label>${pP?`<input type="number" min="0" step="0.01" value="${(col.passagem&&col.passagem.valor)||0}" onchange="_reembolsoUpdColabSub(${idx},'passagem','valor',this.value)" style="width:100px;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-family:Poppins;font-size:13px;text-align:center" placeholder="R$">`:''}</div></td>`;
+      html += `<td style="padding:10px 8px;text-align:center"><div style="display:flex;flex-direction:column;align-items:center;gap:4px"><label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#64748b;${isFechado?'':'cursor:pointer'}"><input type="checkbox" ${pP?'checked':''} ${disabledAttr} onchange="_reembolsoUpdColabSub(${idx},'passagem','precisa',this.checked)"> Precisa</label>${pP?`<input type="number" min="0" step="0.01" ${disabledAttr} value="${(col.passagem&&col.passagem.valor)||0}" onchange="_reembolsoUpdColabSub(${idx},'passagem','valor',this.value)" style="width:100px;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-family:Poppins;font-size:13px;text-align:center${isFechado?';background:#f8fafc':''}" placeholder="R$">`:''}</div></td>`;
       // Combustível (auto-calc)
       const pC = col.combustivel && col.combustivel.precisa;
-      html += `<td style="padding:10px 8px;text-align:center"><div style="display:flex;flex-direction:column;align-items:center;gap:4px"><label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#64748b;cursor:pointer"><input type="checkbox" ${pC?'checked':''} onchange="_reembolsoUpdColabSub(${idx},'combustivel','precisa',this.checked)"> Precisa</label>${pC?`<div style="font-size:13px;font-weight:600;color:#0f172a">${_reembolsoFmt(calc.combustivel)}</div><div style="font-size:10px;color:#94a3b8">${calc.combKm}km × R$${taxaKm.toFixed(2)}</div>`:''}</div></td>`;
+      html += `<td style="padding:10px 8px;text-align:center"><div style="display:flex;flex-direction:column;align-items:center;gap:4px"><label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#64748b;${isFechado?'':'cursor:pointer'}"><input type="checkbox" ${pC?'checked':''} ${disabledAttr} onchange="_reembolsoUpdColabSub(${idx},'combustivel','precisa',this.checked)"> Precisa</label>${pC?`<div style="font-size:13px;font-weight:600;color:#0f172a">${_reembolsoFmt(calc.combustivel)}</div><div style="font-size:10px;color:#94a3b8">${calc.combKm}km × R$${taxaKm.toFixed(2)}</div>`:''}</div></td>`;
       // Hospedagem
       const pH = col.hospedagem && col.hospedagem.precisa;
-      html += `<td style="padding:10px 8px;text-align:center"><div style="display:flex;flex-direction:column;align-items:center;gap:4px"><label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#64748b;cursor:pointer"><input type="checkbox" ${pH?'checked':''} onchange="_reembolsoUpdColabSub(${idx},'hospedagem','precisa',this.checked)"> Precisa</label>${pH?`<input type="number" min="0" step="0.01" value="${(col.hospedagem&&col.hospedagem.valor)||0}" onchange="_reembolsoUpdColabSub(${idx},'hospedagem','valor',this.value)" style="width:100px;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-family:Poppins;font-size:13px;text-align:center" placeholder="R$">`:''}</div></td>`;
+      html += `<td style="padding:10px 8px;text-align:center"><div style="display:flex;flex-direction:column;align-items:center;gap:4px"><label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#64748b;${isFechado?'':'cursor:pointer'}"><input type="checkbox" ${pH?'checked':''} ${disabledAttr} onchange="_reembolsoUpdColabSub(${idx},'hospedagem','precisa',this.checked)"> Precisa</label>${pH?`<input type="number" min="0" step="0.01" ${disabledAttr} value="${(col.hospedagem&&col.hospedagem.valor)||0}" onchange="_reembolsoUpdColabSub(${idx},'hospedagem','valor',this.value)" style="width:100px;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-family:Poppins;font-size:13px;text-align:center${isFechado?';background:#f8fafc':''}" placeholder="R$">`:''}</div></td>`;
+      // Aluguel (NOVO)
+      const pA = col.aluguel && col.aluguel.precisa;
+      html += `<td style="padding:10px 8px;text-align:center"><div style="display:flex;flex-direction:column;align-items:center;gap:4px"><label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#64748b;${isFechado?'':'cursor:pointer'}" title="Excepcional — para sócios"><input type="checkbox" ${pA?'checked':''} ${disabledAttr} onchange="_reembolsoUpdColabSub(${idx},'aluguel','precisa',this.checked)"> Precisa</label>${pA?`<input type="number" min="0" step="0.01" ${disabledAttr} value="${(col.aluguel&&col.aluguel.valor)||0}" onchange="_reembolsoUpdColabSub(${idx},'aluguel','valor',this.value)" style="width:100px;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-family:Poppins;font-size:13px;text-align:center${isFechado?';background:#f8fafc':''}" placeholder="R$">`:''}</div></td>`;
       // Total
       html += `<td style="padding:10px 14px;text-align:right;font-weight:700;font-size:14px;color:#0f172a">${_reembolsoFmt(calc.total)}</td>`;
-      // Excluir
-      html += `<td style="padding:10px 8px;text-align:center"><button onclick="_reembolsoRmColab(${idx})" style="background:transparent;border:none;color:#ef4444;cursor:pointer;font-size:16px;padding:4px 8px;border-radius:6px" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='transparent'" title="Remover">🗑️</button></td>`;
+      // Excluir (só se não fechado)
+      if (!isFechado) {
+        html += `<td style="padding:10px 8px;text-align:center"><button onclick="_reembolsoRmColab(${idx})" style="background:transparent;border:none;color:#ef4444;cursor:pointer;font-size:16px;padding:4px 8px;border-radius:6px" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='transparent'" title="Remover">🗑️</button></td>`;
+      }
       html += `</tr>`;
     });
     
     // Linha total
-    html += `<tr style="background:#faf5ff;border-top:2px solid #8b5cf6"><td colspan="5" style="padding:14px;text-align:right;font-weight:700;color:#0f172a">TOTAL DO ENCONTRO:</td><td style="padding:14px;text-align:right;font-weight:800;color:#8b5cf6;font-size:15px">${_reembolsoFmt(totGeral)}</td><td></td></tr>`;
+    const colspan = isFechado ? 6 : 6;
+    html += `<tr style="background:#faf5ff;border-top:2px solid #8b5cf6"><td colspan="${colspan}" style="padding:14px;text-align:right;font-weight:700;color:#0f172a">TOTAL DO ENCONTRO:</td><td style="padding:14px;text-align:right;font-weight:800;color:#8b5cf6;font-size:15px">${_reembolsoFmt(totGeral)}</td>${!isFechado?'<td></td>':''}</tr>`;
     
     html += '</tbody></table></div>';
   }
@@ -5663,12 +5706,34 @@ function _reembolsoUpdEncontro(campo, valor) {
   }
 }
 
+function _reembolsoFechar() {
+  const data = _reembolsoLoad();
+  const enc = data.encontros.find(e => e.id === window._reembolsoState.encontroAtualId);
+  if (!enc) return;
+  if (!confirm('Fechar este encontro? Depois de fechado, os campos ficam bloqueados. Você pode reabrir se precisar corrigir.')) return;
+  enc.status = 'fechado';
+  enc.dataFechamento = new Date().toISOString().slice(0, 10);
+  _reembolsoSave(data);
+  renderReembolso();
+}
+
+function _reembolsoReabrir() {
+  const data = _reembolsoLoad();
+  const enc = data.encontros.find(e => e.id === window._reembolsoState.encontroAtualId);
+  if (!enc) return;
+  enc.status = 'aberto';
+  delete enc.dataFechamento;
+  _reembolsoSave(data);
+  renderReembolso();
+}
+
 function _reembolsoNovoEncontro() {
   const data = _reembolsoLoad();
   const novo = {
     id: 'enc_' + Date.now(),
     data: new Date().toISOString().slice(0, 10),
     local: '',
+    status: 'aberto',
     colaboradores: []
   };
   data.encontros.push(novo);
@@ -5695,7 +5760,8 @@ function _reembolsoAddColab() {
       kmDistancia: 0,
       passagem: { precisa: false, valor: 0 },
       combustivel: { precisa: false, valor: 0 },
-      hospedagem: { precisa: false, valor: 0 }
+      hospedagem: { precisa: false, valor: 0 },
+      aluguel: { precisa: false, valor: 0 }
     });
     _reembolsoSave(data);
     renderReembolso();
