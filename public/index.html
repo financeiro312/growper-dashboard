@@ -981,7 +981,7 @@ body.scalia-mode .company-badge {
 <!-- ============== TELA SCALIA EM CONSTRUÇÃO ============== -->
 
 <div class="sidebar">
-  <div class="logo-section"><div class="logo-dot"></div><div class="logo-text">Financeiro</div></div>
+  <div class="logo-section"><div class="logo-dot"></div><div class="logo-text">Growper Digital</div></div>
   <div class="nav-section">
     <div class="nav-buttons">
       <button class="nav-btn nav-cat-simple" onclick="showCategoryPage('financeiro')" data-cat="financeiro">
@@ -5383,11 +5383,20 @@ const HUB_CATEGORIAS = [
 
 function renderHub() {
   const container = document.getElementById('hubContent');
-  if (!container) return;
+  if (!container) {
+    console.error('[renderHub] hubContent não existe no DOM');
+    return;
+  }
   
   const catId = window._hubCategory || 'financeiro';
   const category = HUB_CATEGORIAS.find(c => c.id === catId);
-  if (!category) return;
+  if (!category) {
+    console.error('[renderHub] categoria não encontrada:', catId);
+    container.innerHTML = '<div style="padding:40px;color:#f8fafc;text-align:center">Categoria "' + catId + '" não configurada.</div>';
+    return;
+  }
+  
+  console.log('[renderHub] renderizando:', category.name, 'com', category.menus.length, 'menus');
   
   // Fundo tenue da cor da categoria (10% opacidade)
   const catBg = category.color + '15'; // hex + alpha
@@ -5432,12 +5441,56 @@ function showCategory(catId) {
 // ============ Sidebar: navegação por categoria ============
 // Abre a página de uma categoria (mostra os menus dela como cards grandes)
 function showCategoryPage(catId) {
+  console.log('[showCategoryPage] Abrindo categoria:', catId);
   window._hubCategory = catId;
-  showSection('hub');
-  // Destacar o botão da categoria na sidebar
-  document.querySelectorAll('.nav-cat-simple').forEach(btn => btn.classList.remove('active'));
-  const btn = document.querySelector('.nav-cat-simple[data-cat="' + catId + '"]');
-  if (btn) btn.classList.add('active');
+  
+  // 1) Destacar botão da sidebar
+  try {
+    document.querySelectorAll('.nav-cat-simple').forEach(btn => btn.classList.remove('active'));
+    const btn = document.querySelector('.nav-cat-simple[data-cat="' + catId + '"]');
+    if (btn) btn.classList.add('active');
+  } catch(e) { console.error('[showCategoryPage] erro sidebar:', e); }
+  
+  // 2) Esconder todas as seções e mostrar hubSection (SEM depender de showSection)
+  try {
+    const secoes = ['hubSection','mainSection','areaSection','cardSection','recebiveisSection','kpisSection','rhSection','notifSection','financeiroSection','maSection','estoqueSection','dreSection','pjsSection','margemSection','ticketSection','scaliaMainSection2','scaliaCardSection2','scaliaKitsSection2'];
+    secoes.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.add('hidden');
+    });
+    const hubS = document.getElementById('hubSection');
+    if (hubS) {
+      hubS.classList.remove('hidden');
+      hubS.style.display = ''; // garantia extra
+    } else {
+      console.error('[showCategoryPage] hubSection não encontrada no DOM!');
+    }
+    currentSection = 'hub';
+  } catch(e) { console.error('[showCategoryPage] erro sections:', e); }
+  
+  // 3) Título e filtros
+  try {
+    const st = document.getElementById('sectionTitle');
+    if (st) st.textContent = 'Painel de Controle';
+    const viewBtns = document.getElementById('viewButtons');
+    if (viewBtns) viewBtns.classList.add('hidden');
+    const selContaWrap = document.getElementById('selContaWrap');
+    if (selContaWrap) selContaWrap.style.display = 'none';
+    const selConciliado = document.getElementById('selConciliado');
+    if (selConciliado) selConciliado.style.display = 'none';
+    const selYear = document.getElementById('selYear');
+    if (selYear) selYear.style.display = 'none';
+  } catch(e) { console.error('[showCategoryPage] erro filtros:', e); }
+  
+  // 4) Renderizar cards
+  try {
+    if (typeof renderHub === 'function') {
+      renderHub();
+      console.log('[showCategoryPage] renderHub OK, categoria:', catId);
+    } else {
+      console.error('[showCategoryPage] renderHub não é função!');
+    }
+  } catch(e) { console.error('[showCategoryPage] erro renderHub:', e); }
 }
 
 // Descobrir qual categoria contém uma section específica
