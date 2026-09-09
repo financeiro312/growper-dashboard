@@ -807,10 +807,10 @@ body.scalia-mode .company-badge {
     <div class="header-content">
       <div class="header-title" id="headerTitle" style="display:flex;align-items:center;gap:12px"><button id="btnVoltarCat" type="button"
         onclick="_voltarParaCategoria()"
-        onmouseover="this.style.background='#f1f5f9';this.style.borderColor='#64748b';this.style.color='#0f172a'"
-        onmouseout="this.style.background='white';this.style.borderColor='#cbd5e1';this.style.color='#475569'"
+        onmouseover="this.style.background='#e2e8f0';this.style.borderColor='#94a3b8'"
+        onmouseout="this.style.background='#f1f5f9';this.style.borderColor='#cbd5e1'"
         title="Voltar aos menus da categoria"
-        style="display:none;background:white;color:#475569;border:1px solid #cbd5e1;padding:4px 10px;border-radius:6px;font-family:Poppins,sans-serif;font-weight:600;font-size:11px;line-height:1.2;cursor:pointer;transition:all 0.15s;user-select:none;flex-shrink:0;white-space:nowrap;height:26px;box-sizing:border-box">← Voltar</button><span id="sectionTitle">Dashboard Principal</span></div>
+        style="display:none;background:#f1f5f9;color:#334155;border:1px solid #cbd5e1;padding:10px 18px;border-radius:8px;font-family:Poppins,sans-serif;font-weight:600;font-size:12.5px;cursor:pointer;transition:all 0.15s;user-select:none;flex-shrink:0;white-space:nowrap">← Voltar</button><span id="sectionTitle">Dashboard Principal</span></div>
       <div class="header-controls">
 
 <select id="selYear" onchange="if(typeof _onYearChange==='function')_onYearChange(this.value)"><option value="2026">2026</option><option value="2025">2025</option></select>
@@ -5700,7 +5700,9 @@ function renderReembolso() {
     html += '<div style="padding:60px 20px;text-align:center;color:#94a3b8"><div style="font-size:40px;margin-bottom:8px">✈️</div><div style="font-size:14px;font-weight:600">Nenhum colaborador cadastrado ainda</div><div style="font-size:12px;margin-top:4px">Clique em "+ Adicionar Colaborador" para começar</div></div>';
   } else {
     // Wrapper com altura fixa e scroll → habilita sticky header
-    html += '<div id="_reembolsoTableWrap" style="max-height:65vh;overflow:auto;position:relative"><table style="width:100%;border-collapse:collapse;font-size:12.5px">';
+    // Barra de scroll horizontal em cima (padrão Mensalidades)
+    html += '<div id="_reembolsoScrollTop" style="overflow-x:auto;overflow-y:hidden;height:16px;border-bottom:1px solid #e2e8f0;background:#f8fafc"><div id="_reembolsoScrollTopInner" style="height:1px"></div></div>';
+    html += '<div id="_reembolsoTableWrap" style="max-height:60vh;overflow:auto;position:relative" onscroll="const t=document.getElementById(\'_reembolsoScrollTop\');if(t)t.scrollLeft=this.scrollLeft"><table id="_reembolsoTable" style="width:100%;border-collapse:collapse;font-size:12.5px">';
     
     // Header (sticky com position:sticky top:0)
     const _ordC = window._reembolsoState.ordemColab || 'inserido';
@@ -5817,6 +5819,18 @@ function renderReembolso() {
   html += '</div>'; // fecha container
   
   cont.innerHTML = html;
+  
+  // Sincronizar largura da barra de scroll superior com a tabela real
+  setTimeout(() => {
+    const scMain = document.getElementById('_reembolsoTableWrap');
+    const scTop = document.getElementById('_reembolsoScrollTop');
+    const scTopInner = document.getElementById('_reembolsoScrollTopInner');
+    const tbl = document.getElementById('_reembolsoTable');
+    if (scMain && scTop && scTopInner && tbl) {
+      scTopInner.style.width = tbl.scrollWidth + 'px';
+      scTop.onscroll = () => { scMain.scrollLeft = scTop.scrollLeft; };
+    }
+  }, 50);
 }
 
 function _reembolsoFmtData(iso) {
