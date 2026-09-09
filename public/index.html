@@ -512,35 +512,28 @@ table td:first-child { white-space: normal; }
    Estilo baseado em Metabase / Power BI / Looker
 ========================================================= */
 
-/* Fundo do painel: azul escuro com textura sutil */
 #hubSection {
   background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%) !important;
   min-height: 100vh !important;
-  position: relative;
+  overflow-y: auto !important;
 }
-#hubSection::before {
-  content: '';
-  position: fixed;
-  top: 0; left: 210px; right: 0; bottom: 0;
-  background-image: 
-    radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.08) 0%, transparent 40%),
-    radial-gradient(circle at 80% 60%, rgba(139, 92, 246, 0.06) 0%, transparent 40%);
-  pointer-events: none;
-  z-index: 0;
-}
+#hubSection.hidden { display: none !important; }
+#hubSection:not(.hidden) { display: block !important; }
+
 #hubContent {
   padding: 48px 40px !important;
   max-width: 1280px !important;
   margin: 0 auto !important;
   position: relative;
   z-index: 1;
+  min-height: 400px;
 }
 
-/* Header da categoria — texto branco sobre fundo escuro */
+/* Header da categoria */
 #hubContent .hub-header {
-  margin-bottom: 36px;
-  padding-bottom: 24px;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+  margin-bottom: 36px !important;
+  padding-bottom: 24px !important;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.15) !important;
 }
 #hubContent .hub-title {
   font-size: 28px !important;
@@ -553,22 +546,23 @@ table td:first-child { white-space: normal; }
   gap: 14px !important;
 }
 #hubContent .hub-title-icon {
-  width: 46px;
-  height: 46px;
-  border-radius: 12px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 22px;
-  background: var(--hub-accent, #3b82f6);
-  color: white;
-  box-shadow: 0 8px 20px -4px var(--hub-accent, #3b82f6), inset 0 1px 0 rgba(255,255,255,0.2);
+  width: 46px !important;
+  height: 46px !important;
+  border-radius: 12px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 22px !important;
+  background: #3b82f6 !important;
+  color: white !important;
+  box-shadow: 0 8px 20px -4px rgba(59, 130, 246, 0.6) !important;
 }
 #hubContent .hub-subtitle {
   font-size: 14px !important;
   color: #94a3b8 !important;
   font-weight: 500 !important;
   padding-left: 60px !important;
+  margin: 0 !important;
 }
 
 /* Grid de cards */
@@ -578,11 +572,10 @@ table td:first-child { white-space: normal; }
   gap: 18px !important;
 }
 
-/* Card estilo BI: fundo escuro semi-transparente com borda glow */
+/* CARD — fundo sólido escuro (sem transparência que pode ficar invisível) */
 #hubContent .hub-card {
-  background: linear-gradient(135deg, rgba(30, 41, 59, 0.85) 0%, rgba(15, 23, 42, 0.85) 100%) !important;
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(148, 163, 184, 0.15) !important;
+  background: #1e293b !important;
+  border: 1px solid rgba(148, 163, 184, 0.2) !important;
   border-radius: 14px !important;
   padding: 22px 24px !important;
   cursor: pointer !important;
@@ -591,49 +584,34 @@ table td:first-child { white-space: normal; }
   align-items: flex-start !important;
   gap: 16px !important;
   text-align: left !important;
-  min-height: unset !important;
+  min-height: 90px !important;
   position: relative !important;
   overflow: hidden !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25) !important;
 }
-/* Barra de acento à esquerda */
 #hubContent .hub-card::before {
   content: '' !important;
   position: absolute !important;
   left: 0 !important; top: 0 !important; bottom: 0 !important;
   width: 3px !important;
-  background: var(--hub-accent, #3b82f6) !important;
+  background: #3b82f6 !important;
   border-radius: 0 3px 3px 0 !important;
   transform: scaleY(0.3) !important;
-  transform-origin: center !important;
   transition: transform 0.25s ease !important;
   opacity: 0.6 !important;
 }
-/* Glow sutil de cor da categoria */
-#hubContent .hub-card::after {
-  content: '';
-  position: absolute;
-  top: -40%; right: -30%;
-  width: 200px; height: 200px;
-  background: radial-gradient(circle, var(--hub-accent, #3b82f6) 0%, transparent 70%);
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  pointer-events: none;
-}
 #hubContent .hub-card:hover {
-  border-color: var(--hub-accent, #3b82f6) !important;
-  box-shadow: 0 12px 40px -8px var(--hub-accent, #3b82f6), 0 4px 12px rgba(0,0,0,0.3) !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 12px 32px -8px rgba(59, 130, 246, 0.4), 0 4px 12px rgba(0, 0, 0, 0.3) !important;
   transform: translateY(-3px) !important;
+  background: #253449 !important;
 }
 #hubContent .hub-card:hover::before {
   transform: scaleY(1) !important;
   opacity: 1 !important;
 }
-#hubContent .hub-card:hover::after {
-  opacity: 0.12;
-}
 
-/* Chip do ícone */
+/* Chip do ícone (dentro do card) — cor da categoria via var */
 #hubContent .hub-card .hc-icon {
   flex-shrink: 0 !important;
   width: 44px !important;
@@ -643,19 +621,18 @@ table td:first-child { white-space: normal; }
   align-items: center !important;
   justify-content: center !important;
   font-size: 20px !important;
-  background: linear-gradient(135deg, var(--hub-accent, #3b82f6), color-mix(in srgb, var(--hub-accent, #3b82f6) 70%, black)) !important;
+  background: #3b82f6 !important;
   color: white !important;
   transition: all 0.25s ease !important;
   line-height: 1 !important;
   margin: 0 !important;
-  box-shadow: 0 4px 12px -4px var(--hub-accent, #3b82f6), inset 0 1px 0 rgba(255,255,255,0.15) !important;
+  box-shadow: 0 4px 12px -4px rgba(59, 130, 246, 0.5) !important;
 }
 #hubContent .hub-card:hover .hc-icon {
-  transform: scale(1.08) rotate(-3deg) !important;
-  box-shadow: 0 8px 20px -4px var(--hub-accent, #3b82f6), inset 0 1px 0 rgba(255,255,255,0.25) !important;
+  transform: scale(1.08) !important;
 }
 
-/* Corpo do card */
+/* Body do card */
 #hubContent .hub-card .hc-body {
   flex: 1 !important;
   min-width: 0 !important;
@@ -674,12 +651,11 @@ table td:first-child { white-space: normal; }
 #hubContent .hub-card .hc-arrow {
   color: #64748b !important;
   font-size: 16px !important;
-  font-weight: 400 !important;
   transition: all 0.25s ease !important;
   flex-shrink: 0 !important;
 }
 #hubContent .hub-card:hover .hc-arrow {
-  color: var(--hub-accent, #3b82f6) !important;
+  color: #3b82f6 !important;
   transform: translateX(4px) !important;
 }
 #hubContent .hub-card .hc-desc {
@@ -687,11 +663,38 @@ table td:first-child { white-space: normal; }
   color: #94a3b8 !important;
   font-weight: 400 !important;
   line-height: 1.55 !important;
+  margin: 0 !important;
 }
 
-/* =========================================================
-   SIDEBAR: botões de categoria estilizados (nav-cat-simple)
-========================================================= */
+/* Cor específica por categoria — sobrescreve o azul default */
+#hubContent [style*="--hub-accent:#10b981"] .hc-icon,
+#hubContent .hub-title-icon[style*="--hub-accent:#10b981"] { background: #10b981 !important; box-shadow: 0 4px 12px -4px rgba(16, 185, 129, 0.5) !important; }
+#hubContent [style*="--hub-accent:#10b981"].hub-card::before { background: #10b981 !important; }
+#hubContent [style*="--hub-accent:#10b981"].hub-card:hover { border-color: #10b981 !important; box-shadow: 0 12px 32px -8px rgba(16, 185, 129, 0.4) !important; }
+#hubContent [style*="--hub-accent:#10b981"].hub-card:hover .hc-arrow { color: #10b981 !important; }
+
+#hubContent [style*="--hub-accent:#8b5cf6"] .hc-icon,
+#hubContent .hub-title-icon[style*="--hub-accent:#8b5cf6"] { background: #8b5cf6 !important; box-shadow: 0 4px 12px -4px rgba(139, 92, 246, 0.5) !important; }
+#hubContent [style*="--hub-accent:#8b5cf6"].hub-card::before { background: #8b5cf6 !important; }
+#hubContent [style*="--hub-accent:#8b5cf6"].hub-card:hover { border-color: #8b5cf6 !important; box-shadow: 0 12px 32px -8px rgba(139, 92, 246, 0.4) !important; }
+#hubContent [style*="--hub-accent:#8b5cf6"].hub-card:hover .hc-arrow { color: #8b5cf6 !important; }
+
+#hubContent [style*="--hub-accent:#3b82f6"] .hc-icon,
+#hubContent .hub-title-icon[style*="--hub-accent:#3b82f6"] { background: #3b82f6 !important; }
+
+#hubContent [style*="--hub-accent:#ef4444"] .hc-icon,
+#hubContent .hub-title-icon[style*="--hub-accent:#ef4444"] { background: #ef4444 !important; box-shadow: 0 4px 12px -4px rgba(239, 68, 68, 0.5) !important; }
+#hubContent [style*="--hub-accent:#ef4444"].hub-card::before { background: #ef4444 !important; }
+#hubContent [style*="--hub-accent:#ef4444"].hub-card:hover { border-color: #ef4444 !important; box-shadow: 0 12px 32px -8px rgba(239, 68, 68, 0.4) !important; }
+#hubContent [style*="--hub-accent:#ef4444"].hub-card:hover .hc-arrow { color: #ef4444 !important; }
+
+#hubContent [style*="--hub-accent:#f59e0b"] .hc-icon,
+#hubContent .hub-title-icon[style*="--hub-accent:#f59e0b"] { background: #f59e0b !important; box-shadow: 0 4px 12px -4px rgba(245, 158, 11, 0.5) !important; }
+#hubContent [style*="--hub-accent:#f59e0b"].hub-card::before { background: #f59e0b !important; }
+#hubContent [style*="--hub-accent:#f59e0b"].hub-card:hover { border-color: #f59e0b !important; box-shadow: 0 12px 32px -8px rgba(245, 158, 11, 0.4) !important; }
+#hubContent [style*="--hub-accent:#f59e0b"].hub-card:hover .hc-arrow { color: #f59e0b !important; }
+
+/* Sidebar categorias */
 .nav-cat-simple {
   width: 100% !important;
   padding: 12px 14px !important;
@@ -705,12 +708,10 @@ table td:first-child { white-space: normal; }
   font-family: Poppins, sans-serif !important;
   font-size: 13px !important;
   font-weight: 600 !important;
-  letter-spacing: 0.2px !important;
   border-radius: 10px !important;
   transition: all 0.15s ease !important;
   text-align: left !important;
   margin-bottom: 4px !important;
-  position: relative;
 }
 .nav-cat-simple .nav-icon {
   font-size: 17px !important;
@@ -720,23 +721,14 @@ table td:first-child { white-space: normal; }
   text-align: center !important;
 }
 .nav-cat-simple:hover {
-  background: rgba(255, 255, 255, 0.05) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
   color: white !important;
-  border-color: rgba(255, 255, 255, 0.08) !important;
 }
 .nav-cat-simple.active {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(59, 130, 246, 0.1)) !important;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.25), rgba(59, 130, 246, 0.12)) !important;
   color: white !important;
-  border-color: rgba(59, 130, 246, 0.35) !important;
-  box-shadow: 0 4px 12px -4px rgba(59, 130, 246, 0.5), inset 0 1px 0 rgba(255,255,255,0.06) !important;
-}
-.nav-cat-simple.active::before {
-  content: '';
-  position: absolute;
-  left: -12px; top: 8px; bottom: 8px;
-  width: 3px;
-  background: #3b82f6;
-  border-radius: 0 3px 3px 0;
+  border-color: rgba(59, 130, 246, 0.4) !important;
+  box-shadow: 0 4px 12px -4px rgba(59, 130, 246, 0.4) !important;
 }
 
 /* Botão Home no header */
