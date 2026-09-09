@@ -4448,22 +4448,21 @@ function renderKPIs() {
   // ============ HTML ============
   let html = `<div style="padding:20px 24px;max-width:1500px;margin:0 auto;background:#f5f5f7;min-height:100vh">
     
-    <!-- HERO EXECUTIVO — mais compacto -->
-    <div style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#1e40af 100%);border-radius:16px;padding:22px 28px;margin-bottom:16px;color:white;position:relative;overflow:hidden">
-      <div style="position:absolute;top:0;right:0;width:300px;height:300px;background:radial-gradient(circle,rgba(59,130,246,0.15) 0%,transparent 70%);pointer-events:none"></div>
+    <!-- HERO EXECUTIVO — tamanho padrão (igual aos outros menus) -->
+    <div style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#1e40af 100%);border-radius:20px;padding:32px 36px;margin-bottom:16px;color:white;position:relative;overflow:hidden">
+      <div style="position:absolute;top:0;right:0;width:400px;height:400px;background:radial-gradient(circle,rgba(59,130,246,0.15) 0%,transparent 70%);pointer-events:none;border-radius:20px"></div>
       <div style="position:relative;z-index:1">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap">
-          <div>
-            <div style="font-size:11px;color:#93c5fd;text-transform:uppercase;letter-spacing:2px;font-weight:700;margin-bottom:6px">📊 Indicadores de Performance</div>
-            <h1 style="margin:0;font-size:22px;font-weight:800;letter-spacing:-0.5px;line-height:1.1">KPIs Financeiro</h1>
-            <p style="margin:4px 0 0;color:#cbd5e1;font-size:12px">Rentabilidade · Liquidez · Eficiência · Valuation · Ano ${ANO}</p>
-          </div>
-          <div style="display:grid;grid-template-columns:repeat(4,auto);gap:20px;align-items:center">
-            <div><div style="font-size:9.5px;color:#86efac;text-transform:uppercase;letter-spacing:0.8px;font-weight:600">Receita Líquida</div><div style="font-size:17px;font-weight:800;color:#10b981;line-height:1.2">${_fmtRs(receitaLiquida)}</div></div>
-            <div><div style="font-size:9.5px;color:#93c5fd;text-transform:uppercase;letter-spacing:0.8px;font-weight:600">EBITDA</div><div style="font-size:17px;font-weight:800;color:${ebitda>=0?'#3b82f6':'#ef4444'};line-height:1.2">${_fmtRs(ebitda)}</div></div>
-            <div><div style="font-size:9.5px;color:#c4b5fd;text-transform:uppercase;letter-spacing:0.8px;font-weight:600">Margem Líquida</div><div style="font-size:17px;font-weight:800;color:${margemLiquida>=0?'#a855f7':'#ef4444'};line-height:1.2">${_fmtPct(margemLiquida)}</div></div>
-            <div><div style="font-size:9.5px;color:#fde047;text-transform:uppercase;letter-spacing:0.8px;font-weight:600">ILC (Liquidez)</div><div style="font-size:17px;font-weight:800;color:${ilc>=1.5?'#10b981':(ilc>=1?'#eab308':'#ef4444')};line-height:1.2">${ilc.toFixed(2)}x</div></div>
-          </div>
+        <div>
+          <div style="font-size:11px;color:#93c5fd;text-transform:uppercase;letter-spacing:2px;font-weight:700;margin-bottom:8px">📊 Indicadores de Performance</div>
+          <h1 style="margin:0;font-size:28px;font-weight:800;letter-spacing:-1px;line-height:1.1">KPIs Financeiro</h1>
+          <p style="margin:8px 0 0;color:#cbd5e1;font-size:13px">Rentabilidade · Liquidez · Eficiência · Valuation · Ano ${ANO}</p>
+        </div>
+        
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:20px;margin-top:24px;padding-top:22px;border-top:1px solid rgba(255,255,255,0.1)">
+          <div><div style="font-size:10px;color:#86efac;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">Receita Líquida</div><div style="font-size:22px;font-weight:800;color:#10b981">${_fmtRs(receitaLiquida)}</div></div>
+          <div><div style="font-size:10px;color:#93c5fd;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">EBITDA</div><div style="font-size:22px;font-weight:800;color:${ebitda>=0?'#3b82f6':'#ef4444'}">${_fmtRs(ebitda)}</div></div>
+          <div><div style="font-size:10px;color:#c4b5fd;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">Margem Líquida</div><div style="font-size:22px;font-weight:800;color:${margemLiquida>=0?'#a855f7':'#ef4444'}">${_fmtPct(margemLiquida)}</div></div>
+          <div><div style="font-size:10px;color:#fde047;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">ILC (Liquidez)</div><div style="font-size:22px;font-weight:800;color:${ilc>=1.5?'#10b981':(ilc>=1?'#eab308':'#ef4444')}">${ilc.toFixed(2)}x</div></div>
         </div>
       </div>
     </div>
@@ -10532,18 +10531,17 @@ if (document.readyState === 'loading') {
     
     cont.innerHTML = `
       <div style="padding:20px 24px 0;max-width:1900px;margin:0 auto">
-        <div style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#064e3b 100%);border-radius:20px;padding:28px 32px 24px;margin-bottom:20px;color:white;position:relative">
+        <div style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#064e3b 100%);border-radius:20px;padding:20px 32px 24px;margin-bottom:20px;color:white;position:relative">
           <div style="position:absolute;top:0;right:0;width:400px;height:400px;background:radial-gradient(circle,rgba(16,185,129,0.15) 0%,transparent 70%);pointer-events:none;border-radius:20px"></div>
           <div style="position:relative;z-index:1">
-            <!-- Título à esquerda + FILTROS à direita -->
-            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap;margin-bottom:20px">
-              <div>
-                <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:2px;font-weight:700;margin-bottom:8px">💼 Fluxo de Caixa</div>
-                <h1 style="margin:0;font-size:26px;font-weight:800;letter-spacing:-1px;line-height:1.1">Dashboard Principal</h1>
-                <p style="margin:6px 0 0;color:#cbd5e1;font-size:12.5px">Receitas, despesas e resultado operacional · ${ano}</p>
-              </div>
-              <!-- Slot dos filtros (ao lado do título) -->
-              <div id="heroFiltrosSlot" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end"></div>
+            <!-- FILTROS no topo (acima do título) -->
+            <div id="heroFiltrosSlot" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end;margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid rgba(255,255,255,0.1)"></div>
+            
+            <!-- Título abaixo dos filtros -->
+            <div style="margin-bottom:20px">
+              <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:2px;font-weight:700;margin-bottom:8px">💼 Fluxo de Caixa</div>
+              <h1 style="margin:0;font-size:26px;font-weight:800;letter-spacing:-1px;line-height:1.1">Dashboard Principal</h1>
+              <p style="margin:6px 0 0;color:#cbd5e1;font-size:12.5px">Receitas, despesas e resultado operacional · ${ano}</p>
             </div>
             
             <!-- KPIs no rodapé -->
