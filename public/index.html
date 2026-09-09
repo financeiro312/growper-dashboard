@@ -19,7 +19,7 @@
 html, body { height: 100%; }
 body { background: var(--bg); color: var(--text); font-family: 'Poppins', sans-serif; min-height: 100vh; display: flex; }
 .sidebar {
-  width: 210px;
+  width: 240px;
   background: linear-gradient(180deg, var(--sidebar-bg) 0%, var(--sidebar-darker) 100%);
   padding: 20px 12px; position: fixed; height: 100vh; overflow-y: auto; z-index: 50;
   box-shadow: 2px 0 20px rgba(0,0,0,0.1);
@@ -48,7 +48,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Poppins', sans-s
   color: white; box-shadow: 0 2px 8px rgba(16,185,129,0.3);
 }
 .nav-icon { font-size: 14px; min-width: 16px; flex-shrink: 0; }
-.main-content { flex: 1; margin-left: 210px; overflow-y: auto; }
+.main-content { flex: 1; margin-left: 240px; overflow-y: auto; }
 .header {
   background: var(--surface); border-bottom: 1px solid var(--border);
   padding: 20px 32px; position: sticky; top: 0; z-index: 40;
@@ -290,7 +290,7 @@ table td:first-child { white-space: normal; }
 #selectionBar {
   position: fixed;
   bottom: 0;
-  left: 210px;
+  left: 240px;
   right: 0;
   background: linear-gradient(180deg, #1e293b, #0f172a);
   color: white;
@@ -609,35 +609,28 @@ body.scalia-mode .company-badge {
 /* ============ Sidebar: botões de categoria ============ */
 .nav-cat-simple {
   width: 100% !important;
-  padding: 11px 10px !important;
+  padding: 12px 14px !important;
   background: transparent !important;
   border: 1px solid transparent !important;
   color: #cbd5e1 !important;
   cursor: pointer !important;
   display: flex !important;
   align-items: center !important;
-  gap: 9px !important;
+  gap: 12px !important;
   font-family: Poppins, sans-serif !important;
-  font-size: 12px !important;
+  font-size: 13px !important;
   font-weight: 600 !important;
-  letter-spacing: -0.1px !important;
   border-radius: 10px !important;
   transition: all 0.15s ease !important;
   text-align: left !important;
   margin-bottom: 4px !important;
   white-space: nowrap !important;
-  overflow: hidden !important;
-}
-.nav-cat-simple > span:not(.nav-icon) {
-  white-space: nowrap !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
 }
 .nav-cat-simple .nav-icon {
-  font-size: 15px !important;
+  font-size: 17px !important;
   line-height: 1 !important;
   flex-shrink: 0 !important;
-  width: 18px !important;
+  width: 22px !important;
   text-align: center !important;
 }
 .nav-cat-simple:hover {
@@ -873,7 +866,8 @@ body.scalia-mode .company-badge {
     <div id="maSection" class="hidden"><div id="maContent"></div></div>
     <div id="estoqueSection" class="hidden"><div id="estoqueContent"></div></div>
     <div id="kpisSection" class="hidden"><div id="kpisContent"></div></div>
-    <div id="dreSection" class="hidden"><div id="dreContent"></div></div>
+    <div id="reembolsoSection" class="hidden"><div id="reembolsoContainer" style="padding:24px 32px;font-family:Poppins,sans-serif"></div></div>
+<div id="dreSection" class="hidden"><div id="dreContent"></div></div>
     <div id="pjsSection" class="hidden">
   <div style="display:flex;gap:8px;margin-bottom:24px;border-bottom:1px solid var(--border)">
     <button class="pj-tab-btn active" data-pjtab="custo" style="padding:10px 18px;border:none;background:transparent;color:var(--primary);font-family:Poppins;font-size:13px;font-weight:600;cursor:pointer;border-bottom:2px solid var(--primary)">💰 Custo</button>
@@ -5194,7 +5188,7 @@ function showSection(section) {
   // Re-aplicar destaque da categoria pai (garantia após reset)
   
   // Esconder TODAS as seções (Growper + Scalia)
-  ['mainSection','areaSection','cardSection','recebiveisSection','kpisSection','rhSection','notifSection','financeiroSection','maSection','estoqueSection','dreSection','pjsSection','margemSection','ticketSection','scaliaMainSection2','scaliaCardSection2','scaliaKitsSection2'].forEach(id => {
+  ['mainSection','areaSection','cardSection','recebiveisSection','kpisSection','rhSection','notifSection','financeiroSection','maSection','estoqueSection','reembolsoSection','dreSection','pjsSection','margemSection','ticketSection','scaliaMainSection2','scaliaCardSection2','scaliaKitsSection2'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add('hidden');
   });
@@ -5206,7 +5200,7 @@ function showSection(section) {
     card: 'Cartão de Crédito', recebiveis: 'Mensalidades', kpis: "KPI's Financeiros",
     dre: 'DRE - Demonstração de Resultado', pjs: 'Análise de PJs',
     margem: 'Margem de Lucro', ticket: 'Ticket Médio', rh: 'RH — Departamento Pessoal', estoque: 'Estoque',
-    notif: 'Notificações', ma: 'M&A / Investor Ready',
+    notif: 'Notificações', ma: 'M&A / Investor Ready', reembolso: 'Reembolso — Encontros Presenciais',
     scaliaMain: 'Dashboard Principal', scaliaCard: 'Cartão de Crédito', scaliaKits: 'Orçamento de Kits', kits: 'Orçamento de Kits'
   };
   document.getElementById('sectionTitle').textContent = titles[section] || 'Dashboard Principal';
@@ -5219,7 +5213,7 @@ function showSection(section) {
   const selContaWrap = document.getElementById('selContaWrap');
   
   // CARTÃO DE CRÉDITO, KITS ou RH: filtros minimalistas
-  if (section === 'card' || section === 'scaliaKits' || section === 'kits' || section === 'rh' || section === 'kpis' || section === 'recebiveis' || section === 'notif' || section === 'financeiro' || section === 'ma' || section === 'estoque') {
+  if (section === 'card' || section === 'scaliaKits' || section === 'kits' || section === 'rh' || section === 'kpis' || section === 'recebiveis' || section === 'notif' || section === 'financeiro' || section === 'ma' || section === 'estoque' || section === 'reembolso') {
     viewBtns.classList.add('hidden');
     if (selConta) selConta.style.display = 'none';
     if (selConciliado) selConciliado.style.display = 'none';
@@ -5443,6 +5437,305 @@ window._popularExcelDropdown = function() {
   dd.innerHTML = opts;
 };
 
+
+// =================== REEMBOLSO — Encontros Presenciais ===================
+window._reembolsoState = {
+  encontroAtualId: null,
+  taxaPorKm: 1.00,  // R$ por km (configurável)
+};
+
+function _reembolsoLoad() {
+  try {
+    const raw = localStorage.getItem('reembolso_v1');
+    if (raw) {
+      const data = JSON.parse(raw);
+      return {
+        taxaPorKm: typeof data.taxaPorKm === 'number' ? data.taxaPorKm : 1.00,
+        encontros: Array.isArray(data.encontros) ? data.encontros : []
+      };
+    }
+  } catch(e) { console.error('[reembolso] erro load:', e); }
+  return { taxaPorKm: 1.00, encontros: [] };
+}
+
+function _reembolsoSave(data) {
+  try {
+    localStorage.setItem('reembolso_v1', JSON.stringify(data));
+  } catch(e) { console.error('[reembolso] erro save:', e); }
+}
+
+function _reembolsoFmt(v) {
+  const n = Number(v) || 0;
+  return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function _reembolsoCalcColab(col, taxaKm) {
+  const passagem = col.passagem && col.passagem.precisa ? Number(col.passagem.valor || 0) : 0;
+  const combKm = Number(col.kmDistancia || 0) * 2; // ida e volta
+  const combustivel = col.combustivel && col.combustivel.precisa ? combKm * Number(taxaKm || 0) : 0;
+  const hospedagem = col.hospedagem && col.hospedagem.precisa ? Number(col.hospedagem.valor || 0) : 0;
+  const total = passagem + combustivel + hospedagem;
+  return { passagem, combustivel, hospedagem, total, combKm };
+}
+
+function renderReembolso() {
+  const cont = document.getElementById('reembolsoContainer');
+  if (!cont) return;
+  
+  const data = _reembolsoLoad();
+  const taxaKm = data.taxaPorKm;
+  
+  // Se não há encontros, criar um vazio
+  if (data.encontros.length === 0) {
+    data.encontros.push({
+      id: 'enc_' + Date.now(),
+      data: new Date().toISOString().slice(0, 10),
+      local: 'São Paulo',
+      colaboradores: []
+    });
+    _reembolsoSave(data);
+  }
+  
+  // Selecionar encontro atual (mais recente ou selecionado)
+  if (!window._reembolsoState.encontroAtualId) {
+    window._reembolsoState.encontroAtualId = data.encontros[data.encontros.length - 1].id;
+  }
+  let encontroAtual = data.encontros.find(e => e.id === window._reembolsoState.encontroAtualId);
+  if (!encontroAtual) {
+    encontroAtual = data.encontros[data.encontros.length - 1];
+    window._reembolsoState.encontroAtualId = encontroAtual.id;
+  }
+  
+  // Calcular totais gerais do encontro
+  let totGeral = 0, totPassagem = 0, totCombustivel = 0, totHospedagem = 0, totKm = 0;
+  encontroAtual.colaboradores.forEach(col => {
+    const calc = _reembolsoCalcColab(col, taxaKm);
+    totGeral += calc.total;
+    totPassagem += calc.passagem;
+    totCombustivel += calc.combustivel;
+    totHospedagem += calc.hospedagem;
+    totKm += Number(col.kmDistancia || 0) * 2;
+  });
+  
+  // Header
+  let html = '<div style="max-width:1400px;margin:0 auto">';
+  
+  // Título
+  html += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">';
+  html += '<span style="width:40px;height:40px;border-radius:10px;background:#8b5cf6;color:white;display:inline-flex;align-items:center;justify-content:center;font-size:20px">✈️</span>';
+  html += '<div>';
+  html += '<div style="font-size:22px;font-weight:800;color:#0f172a;letter-spacing:-0.4px">Reembolso — Encontros Presenciais</div>';
+  html += '<div style="font-size:12.5px;color:#64748b">Controle de passagem, combustível e hospedagem para colaboradores fora do endereço da empresa</div>';
+  html += '</div>';
+  html += '</div>';
+  
+  // Barra de configuração: encontro + local + data + taxa km
+  html += '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px 20px;margin-bottom:20px;display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr auto;gap:14px;align-items:end">';
+  
+  // Seletor de encontro
+  html += '<div>';
+  html += '<label style="display:block;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px">Encontro</label>';
+  html += '<select onchange="window._reembolsoState.encontroAtualId=this.value;renderReembolso()" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font-family:Poppins;font-size:13px;background:white">';
+  data.encontros.slice().reverse().forEach(e => {
+    const sel = e.id === encontroAtual.id ? ' selected' : '';
+    const label = _reembolsoFmtData(e.data) + ' — ' + (e.local || 'Sem local');
+    html += `<option value="${e.id}"${sel}>${label}</option>`;
+  });
+  html += '</select>';
+  html += '</div>';
+  
+  // Data
+  html += '<div>';
+  html += '<label style="display:block;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px">Data</label>';
+  html += `<input type="date" value="${encontroAtual.data}" onchange="_reembolsoUpdEncontro('data', this.value)" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font-family:Poppins;font-size:13px">`;
+  html += '</div>';
+  
+  // Local
+  html += '<div>';
+  html += '<label style="display:block;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px">Local</label>';
+  html += `<input type="text" value="${encontroAtual.local || ''}" onchange="_reembolsoUpdEncontro('local', this.value)" placeholder="Ex: São Paulo" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font-family:Poppins;font-size:13px">`;
+  html += '</div>';
+  
+  // Taxa por km
+  html += '<div>';
+  html += '<label style="display:block;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px" title="Valor pago por km de combustível (aplicado no cálculo de ida+volta)">R$ / km 🛢️</label>';
+  html += `<input type="number" step="0.01" min="0" value="${taxaKm.toFixed(2)}" onchange="_reembolsoUpdTaxa(this.value)" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font-family:Poppins;font-size:13px">`;
+  html += '</div>';
+  
+  // Botões
+  html += '<div style="display:flex;gap:8px">';
+  html += '<button onclick="_reembolsoNovoEncontro()" style="padding:9px 14px;background:#8b5cf6;color:white;border:none;border-radius:8px;font-family:Poppins;font-weight:600;font-size:12.5px;cursor:pointer;white-space:nowrap">+ Novo Encontro</button>';
+  if (data.encontros.length > 1) {
+    html += '<button onclick="_reembolsoExcluirEncontro()" style="padding:9px 12px;background:white;color:#ef4444;border:1px solid #fecaca;border-radius:8px;font-family:Poppins;font-weight:600;font-size:12.5px;cursor:pointer" title="Excluir este encontro">🗑️</button>';
+  }
+  html += '</div>';
+  
+  html += '</div>';
+  
+  // Cards de totais
+  html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px">';
+  html += `<div style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);border-radius:12px;padding:14px 18px;color:white"><div style="font-size:11px;opacity:0.85;font-weight:600;text-transform:uppercase;letter-spacing:0.4px">Total Geral</div><div style="font-size:22px;font-weight:800;margin-top:4px">${_reembolsoFmt(totGeral)}</div></div>`;
+  html += `<div style="background:white;border:1px solid #e2e8f0;border-radius:12px;padding:14px 18px"><div style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.4px">🎫 Passagens</div><div style="font-size:20px;font-weight:800;color:#0f172a;margin-top:4px">${_reembolsoFmt(totPassagem)}</div></div>`;
+  html += `<div style="background:white;border:1px solid #e2e8f0;border-radius:12px;padding:14px 18px"><div style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.4px">🛢️ Combustível</div><div style="font-size:20px;font-weight:800;color:#0f172a;margin-top:4px">${_reembolsoFmt(totCombustivel)}</div><div style="font-size:11px;color:#94a3b8;margin-top:2px">${totKm} km × R$ ${taxaKm.toFixed(2)}</div></div>`;
+  html += `<div style="background:white;border:1px solid #e2e8f0;border-radius:12px;padding:14px 18px"><div style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.4px">🏨 Hospedagem</div><div style="font-size:20px;font-weight:800;color:#0f172a;margin-top:4px">${_reembolsoFmt(totHospedagem)}</div></div>`;
+  html += `<div style="background:white;border:1px solid #e2e8f0;border-radius:12px;padding:14px 18px"><div style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.4px">👥 Colaboradores</div><div style="font-size:20px;font-weight:800;color:#0f172a;margin-top:4px">${encontroAtual.colaboradores.length}</div></div>`;
+  html += '</div>';
+  
+  // Tabela de colaboradores
+  html += '<div style="background:white;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden">';
+  html += '<div style="padding:14px 18px;background:#f8fafc;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center">';
+  html += '<div style="font-size:14px;font-weight:700;color:#0f172a">Colaboradores no encontro</div>';
+  html += '<button onclick="_reembolsoAddColab()" style="padding:8px 14px;background:#10b981;color:white;border:none;border-radius:8px;font-family:Poppins;font-weight:600;font-size:12.5px;cursor:pointer">+ Adicionar Colaborador</button>';
+  html += '</div>';
+  
+  if (encontroAtual.colaboradores.length === 0) {
+    html += '<div style="padding:60px 20px;text-align:center;color:#94a3b8"><div style="font-size:40px;margin-bottom:8px">✈️</div><div style="font-size:14px;font-weight:600">Nenhum colaborador cadastrado ainda</div><div style="font-size:12px;margin-top:4px">Clique em "+ Adicionar Colaborador" para começar</div></div>';
+  } else {
+    html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">';
+    html += '<thead><tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0">';
+    html += '<th style="padding:12px 14px;text-align:left;font-weight:700;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:0.4px">Colaborador</th>';
+    html += '<th style="padding:12px 8px;text-align:center;font-weight:700;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:0.4px" title="Km só ida — o sistema calcula ida+volta">Km ida</th>';
+    html += '<th style="padding:12px 8px;text-align:center;font-weight:700;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:0.4px">🎫 Passagem</th>';
+    html += '<th style="padding:12px 8px;text-align:center;font-weight:700;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:0.4px">🛢️ Combustível</th>';
+    html += '<th style="padding:12px 8px;text-align:center;font-weight:700;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:0.4px">🏨 Hospedagem</th>';
+    html += '<th style="padding:12px 14px;text-align:right;font-weight:700;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:0.4px">Total</th>';
+    html += '<th style="padding:12px 8px"></th>';
+    html += '</tr></thead><tbody>';
+    
+    encontroAtual.colaboradores.forEach((col, idx) => {
+      const calc = _reembolsoCalcColab(col, taxaKm);
+      html += `<tr style="border-bottom:1px solid #f1f5f9">`;
+      // Nome
+      html += `<td style="padding:10px 14px"><input type="text" value="${(col.nome||'').replace(/"/g,'&quot;')}" onchange="_reembolsoUpdColab(${idx},'nome',this.value)" placeholder="Nome" style="width:100%;padding:6px 8px;border:1px solid transparent;border-radius:6px;font-family:Poppins;font-size:13px;background:transparent" onfocus="this.style.border='1px solid #cbd5e1';this.style.background='white'" onblur="this.style.border='1px solid transparent';this.style.background='transparent'"></td>`;
+      // Km
+      html += `<td style="padding:10px 8px;text-align:center"><input type="number" min="0" value="${col.kmDistancia||0}" onchange="_reembolsoUpdColab(${idx},'kmDistancia',this.value)" style="width:70px;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-family:Poppins;font-size:13px;text-align:center"></td>`;
+      // Passagem
+      const pP = col.passagem && col.passagem.precisa;
+      html += `<td style="padding:10px 8px;text-align:center"><div style="display:flex;flex-direction:column;align-items:center;gap:4px"><label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#64748b;cursor:pointer"><input type="checkbox" ${pP?'checked':''} onchange="_reembolsoUpdColabSub(${idx},'passagem','precisa',this.checked)"> Precisa</label>${pP?`<input type="number" min="0" step="0.01" value="${(col.passagem&&col.passagem.valor)||0}" onchange="_reembolsoUpdColabSub(${idx},'passagem','valor',this.value)" style="width:100px;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-family:Poppins;font-size:13px;text-align:center" placeholder="R$">`:''}</div></td>`;
+      // Combustível (auto-calc)
+      const pC = col.combustivel && col.combustivel.precisa;
+      html += `<td style="padding:10px 8px;text-align:center"><div style="display:flex;flex-direction:column;align-items:center;gap:4px"><label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#64748b;cursor:pointer"><input type="checkbox" ${pC?'checked':''} onchange="_reembolsoUpdColabSub(${idx},'combustivel','precisa',this.checked)"> Precisa</label>${pC?`<div style="font-size:13px;font-weight:600;color:#0f172a">${_reembolsoFmt(calc.combustivel)}</div><div style="font-size:10px;color:#94a3b8">${calc.combKm}km × R$${taxaKm.toFixed(2)}</div>`:''}</div></td>`;
+      // Hospedagem
+      const pH = col.hospedagem && col.hospedagem.precisa;
+      html += `<td style="padding:10px 8px;text-align:center"><div style="display:flex;flex-direction:column;align-items:center;gap:4px"><label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#64748b;cursor:pointer"><input type="checkbox" ${pH?'checked':''} onchange="_reembolsoUpdColabSub(${idx},'hospedagem','precisa',this.checked)"> Precisa</label>${pH?`<input type="number" min="0" step="0.01" value="${(col.hospedagem&&col.hospedagem.valor)||0}" onchange="_reembolsoUpdColabSub(${idx},'hospedagem','valor',this.value)" style="width:100px;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-family:Poppins;font-size:13px;text-align:center" placeholder="R$">`:''}</div></td>`;
+      // Total
+      html += `<td style="padding:10px 14px;text-align:right;font-weight:700;font-size:14px;color:#0f172a">${_reembolsoFmt(calc.total)}</td>`;
+      // Excluir
+      html += `<td style="padding:10px 8px;text-align:center"><button onclick="_reembolsoRmColab(${idx})" style="background:transparent;border:none;color:#ef4444;cursor:pointer;font-size:16px;padding:4px 8px;border-radius:6px" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='transparent'" title="Remover">🗑️</button></td>`;
+      html += `</tr>`;
+    });
+    
+    // Linha total
+    html += `<tr style="background:#faf5ff;border-top:2px solid #8b5cf6"><td colspan="5" style="padding:14px;text-align:right;font-weight:700;color:#0f172a">TOTAL DO ENCONTRO:</td><td style="padding:14px;text-align:right;font-weight:800;color:#8b5cf6;font-size:15px">${_reembolsoFmt(totGeral)}</td><td></td></tr>`;
+    
+    html += '</tbody></table></div>';
+  }
+  
+  html += '</div>'; // fecha tabela
+  html += '</div>'; // fecha container
+  
+  cont.innerHTML = html;
+}
+
+function _reembolsoFmtData(iso) {
+  if (!iso) return '';
+  try {
+    const [y, m, d] = iso.split('-');
+    return `${d}/${m}/${y}`;
+  } catch(e) { return iso; }
+}
+
+// Ações
+function _reembolsoUpdTaxa(v) {
+  const data = _reembolsoLoad();
+  data.taxaPorKm = Number(v) || 0;
+  _reembolsoSave(data);
+  renderReembolso();
+}
+
+function _reembolsoUpdEncontro(campo, valor) {
+  const data = _reembolsoLoad();
+  const enc = data.encontros.find(e => e.id === window._reembolsoState.encontroAtualId);
+  if (enc) {
+    enc[campo] = valor;
+    _reembolsoSave(data);
+    renderReembolso();
+  }
+}
+
+function _reembolsoNovoEncontro() {
+  const data = _reembolsoLoad();
+  const novo = {
+    id: 'enc_' + Date.now(),
+    data: new Date().toISOString().slice(0, 10),
+    local: '',
+    colaboradores: []
+  };
+  data.encontros.push(novo);
+  window._reembolsoState.encontroAtualId = novo.id;
+  _reembolsoSave(data);
+  renderReembolso();
+}
+
+function _reembolsoExcluirEncontro() {
+  if (!confirm('Excluir este encontro e todos os colaboradores?')) return;
+  const data = _reembolsoLoad();
+  data.encontros = data.encontros.filter(e => e.id !== window._reembolsoState.encontroAtualId);
+  window._reembolsoState.encontroAtualId = null;
+  _reembolsoSave(data);
+  renderReembolso();
+}
+
+function _reembolsoAddColab() {
+  const data = _reembolsoLoad();
+  const enc = data.encontros.find(e => e.id === window._reembolsoState.encontroAtualId);
+  if (enc) {
+    enc.colaboradores.push({
+      nome: '',
+      kmDistancia: 0,
+      passagem: { precisa: false, valor: 0 },
+      combustivel: { precisa: false, valor: 0 },
+      hospedagem: { precisa: false, valor: 0 }
+    });
+    _reembolsoSave(data);
+    renderReembolso();
+  }
+}
+
+function _reembolsoRmColab(idx) {
+  const data = _reembolsoLoad();
+  const enc = data.encontros.find(e => e.id === window._reembolsoState.encontroAtualId);
+  if (enc) {
+    enc.colaboradores.splice(idx, 1);
+    _reembolsoSave(data);
+    renderReembolso();
+  }
+}
+
+function _reembolsoUpdColab(idx, campo, valor) {
+  const data = _reembolsoLoad();
+  const enc = data.encontros.find(e => e.id === window._reembolsoState.encontroAtualId);
+  if (enc && enc.colaboradores[idx]) {
+    if (campo === 'kmDistancia') valor = Number(valor) || 0;
+    enc.colaboradores[idx][campo] = valor;
+    _reembolsoSave(data);
+    renderReembolso();
+  }
+}
+
+function _reembolsoUpdColabSub(idx, sub, campo, valor) {
+  const data = _reembolsoLoad();
+  const enc = data.encontros.find(e => e.id === window._reembolsoState.encontroAtualId);
+  if (enc && enc.colaboradores[idx]) {
+    if (!enc.colaboradores[idx][sub]) enc.colaboradores[idx][sub] = {};
+    if (campo === 'valor') valor = Number(valor) || 0;
+    enc.colaboradores[idx][sub][campo] = valor;
+    _reembolsoSave(data);
+    renderReembolso();
+  }
+}
+
+
 function refreshCurrent() {
   if (currentSection === 'main') {
     // Prefere window.renderMain (versão NOVA que respeita filtro de mês)
@@ -5455,6 +5748,7 @@ function refreshCurrent() {
   else if (currentSection === 'financeiro') renderFinanceiro();
   else if (currentSection === 'ma') renderMA();
   else if (currentSection === 'estoque') renderEstoque();
+  else if (currentSection === 'reembolso') renderReembolso();
   else if (currentSection === 'area') renderArea();
   else if (currentSection === 'card') renderCard();
   else if (currentSection === 'recebiveis') renderRecebiveis();
@@ -11536,7 +11830,7 @@ window.CLIENTES_ELO = window.MENSALIDADES_ELO["2026-09"] || [];
 window.CLIENTES_ELO = window.MENSALIDADES_ELO["2026-09"] || [];</script>
 
 <!-- ============ PAINEL DE CATEGORIA (nova implementação limpa) ============ -->
-<div id="painelCat" style="display:none;position:fixed;top:0;left:210px;right:0;bottom:0;background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#0f172a 100%);z-index:99999;overflow-y:auto;font-family:Poppins,sans-serif">
+<div id="painelCat" style="display:none;position:fixed;top:0;left:240px;right:0;bottom:0;background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#0f172a 100%);z-index:99999;overflow-y:auto;font-family:Poppins,sans-serif">
   <div class="painelCat-sub" data-cat="financeiro" style="display:none;padding:48px 40px;max-width:1280px;margin:0 auto;color:#f8fafc">
     <div style="margin-bottom:36px;padding-bottom:24px;border-bottom:1px solid rgba(148,163,184,0.15)">
       <div style="display:flex;align-items:center;gap:14px;margin-bottom:8px">
@@ -11605,6 +11899,16 @@ window.CLIENTES_ELO = window.MENSALIDADES_ELO["2026-09"] || [];</script>
             <span style="color:#64748b;font-size:16px">→</span>
           </div>
           <div style="font-size:12.5px;color:#94a3b8;line-height:1.55">Compras e entregas de camisetas do time</div>
+        </div>
+      </div>
+      <div onclick="abrirMenu('reembolso')" style="background:#1e293b;border:1px solid rgba(148,163,184,0.2);border-radius:14px;padding:22px 24px;cursor:pointer;display:flex;align-items:flex-start;gap:16px;min-height:90px;box-shadow:0 4px 12px rgba(0,0,0,0.25);transition:all 0.25s ease" onmouseover="this.style.borderColor='#8b5cf6';this.style.transform='translateY(-3px)';this.style.background='#253449'" onmouseout="this.style.borderColor='rgba(148,163,184,0.2)';this.style.transform='translateY(0)';this.style.background='#1e293b'">
+        <div style="flex-shrink:0;width:44px;height:44px;border-radius:11px;display:inline-flex;align-items:center;justify-content:center;font-size:20px;background:#8b5cf6;color:white">✈️</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px">
+            <span style="font-size:15.5px;font-weight:700;color:#f8fafc">Reembolso</span>
+            <span style="color:#64748b;font-size:16px">→</span>
+          </div>
+          <div style="font-size:12.5px;color:#94a3b8;line-height:1.55">Encontros presenciais bimestrais: passagem, combustível e hospedagem</div>
         </div>
       </div>
     </div>
