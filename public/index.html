@@ -5455,53 +5455,72 @@ function showCategoryPage(catId) {
   console.log('[showCategoryPage] Abrindo categoria:', catId);
   window._hubCategory = catId;
   
-  // 1) Destacar botão da sidebar
+  // Destacar botão da sidebar
   try {
     document.querySelectorAll('.nav-cat-simple').forEach(btn => btn.classList.remove('active'));
     const btn = document.querySelector('.nav-cat-simple[data-cat="' + catId + '"]');
     if (btn) btn.classList.add('active');
-  } catch(e) { console.error('[showCategoryPage] erro sidebar:', e); }
+  } catch(e) {}
   
-  // 2) Esconder todas as seções e mostrar hubSection (SEM depender de showSection)
-  try {
-    const secoes = ['hubSection','mainSection','areaSection','cardSection','recebiveisSection','kpisSection','rhSection','notifSection','financeiroSection','maSection','estoqueSection','dreSection','pjsSection','margemSection','ticketSection','scaliaMainSection2','scaliaCardSection2','scaliaKitsSection2'];
-    secoes.forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.classList.add('hidden');
-    });
-    const hubS = document.getElementById('hubSection');
-    if (hubS) {
-      hubS.classList.remove('hidden');
-      hubS.style.display = ''; // garantia extra
-    } else {
-      console.error('[showCategoryPage] hubSection não encontrada no DOM!');
-    }
-    currentSection = 'hub';
-  } catch(e) { console.error('[showCategoryPage] erro sections:', e); }
+  const category = HUB_CATEGORIAS.find(c => c.id === catId);
+  if (!category) { console.error('[showCategoryPage] categoria não achada:', catId); return; }
   
-  // 3) Título e filtros
-  try {
-    const st = document.getElementById('sectionTitle');
-    if (st) st.textContent = 'Painel de Controle';
-    const viewBtns = document.getElementById('viewButtons');
-    if (viewBtns) viewBtns.classList.add('hidden');
-    const selContaWrap = document.getElementById('selContaWrap');
-    if (selContaWrap) selContaWrap.style.display = 'none';
-    const selConciliado = document.getElementById('selConciliado');
-    if (selConciliado) selConciliado.style.display = 'none';
-    const selYear = document.getElementById('selYear');
-    if (selYear) selYear.style.display = 'none';
-  } catch(e) { console.error('[showCategoryPage] erro filtros:', e); }
+  const color = category.color;
   
-  // 4) Renderizar cards
-  try {
-    if (typeof renderHub === 'function') {
-      renderHub();
-      console.log('[showCategoryPage] renderHub OK, categoria:', catId);
-    } else {
-      console.error('[showCategoryPage] renderHub não é função!');
-    }
-  } catch(e) { console.error('[showCategoryPage] erro renderHub:', e); }
+  // Remover overlay antigo se existir
+  const oldOverlay = document.getElementById('hubOverlay');
+  if (oldOverlay) oldOverlay.remove();
+  
+  // Criar overlay fullscreen ACIMA de tudo (z-index 999)
+  const overlay = document.createElement('div');
+  overlay.id = 'hubOverlay';
+  overlay.style.cssText = 'position:fixed !important;top:0 !important;left:210px !important;right:0 !important;bottom:0 !important;background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#0f172a 100%) !important;z-index:999 !important;overflow-y:auto !important;font-family:Poppins,sans-serif !important';
+  
+  // Adaptar para mobile (sidebar menor)
+  if (window.innerWidth <= 768) {
+    overlay.style.left = '60px !important';
+  }
+  
+  let html = '<div style="padding:48px 40px;max-width:1280px;margin:0 auto;color:#f8fafc">';
+  
+  // Header
+  html += '<div style="margin-bottom:36px;padding-bottom:24px;border-bottom:1px solid rgba(148,163,184,0.15)">';
+  html += '<div style="display:flex;align-items:center;gap:14px;margin-bottom:8px">';
+  html += '<span style="width:46px;height:46px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;font-size:22px;background:' + color + ';color:white">' + category.icon + '</span>';
+  html += '<span style="font-size:28px;font-weight:800;color:#f8fafc;letter-spacing:-0.8px">' + category.name + '</span>';
+  html += '</div>';
+  html += '<div style="font-size:14px;color:#94a3b8;font-weight:500;padding-left:60px">' + category.desc + '</div>';
+  html += '</div>';
+  
+  // Grid
+  html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:18px">';
+  category.menus.forEach(m => {
+    html += '<div onclick="_hubGoToSection(\'' + m.section + '\')" style="background:#1e293b;border:1px solid rgba(148,163,184,0.2);border-radius:14px;padding:22px 24px;cursor:pointer;display:flex;align-items:flex-start;gap:16px;min-height:90px;box-shadow:0 4px 12px rgba(0,0,0,0.25);transition:all 0.25s ease" ';
+    html += 'onmouseover="this.style.borderColor=\'' + color + '\';this.style.transform=\'translateY(-3px)\';this.style.background=\'#253449\'" ';
+    html += 'onmouseout="this.style.borderColor=\'rgba(148,163,184,0.2)\';this.style.transform=\'translateY(0)\';this.style.background=\'#1e293b\'">';
+    html += '<div style="flex-shrink:0;width:44px;height:44px;border-radius:11px;display:inline-flex;align-items:center;justify-content:center;font-size:20px;background:' + color + ';color:white">' + m.icon + '</div>';
+    html += '<div style="flex:1;min-width:0">';
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px">';
+    html += '<span style="font-size:15.5px;font-weight:700;color:#f8fafc">' + m.name + '</span>';
+    html += '<span style="color:#64748b;font-size:16px">→</span>';
+    html += '</div>';
+    html += '<div style="font-size:12.5px;color:#94a3b8;line-height:1.55">' + m.desc + '</div>';
+    html += '</div></div>';
+  });
+  html += '</div>';
+  html += '</div>';
+  
+  overlay.innerHTML = html;
+  document.body.appendChild(overlay);
+  
+  console.log('[showCategoryPage] Overlay criado, cards:', category.menus.length);
+}
+
+// Ao clicar em um card do hub: fecha overlay e abre a section
+function _hubGoToSection(section) {
+  const overlay = document.getElementById('hubOverlay');
+  if (overlay) overlay.remove();
+  showSection(section);
 }
 
 // Descobrir qual categoria contém uma section específica
@@ -5524,6 +5543,9 @@ function _highlightCatButton(section) {
 }
 
 function showSection(section) {
+  // Remover overlay do hub (se existir) — ao entrar em qualquer menu, o overlay sai
+  try { const _ov = document.getElementById('hubOverlay'); if (_ov) _ov.remove(); } catch(e) {}
+
   // Redirect financeiro → kpis (menu Financeiro foi integrado ao KPIs)
   if (arguments[0] === 'financeiro') { arguments[0] = 'kpis'; }
   
@@ -9215,9 +9237,8 @@ function selectCompany(companyId) {
   if (companyId === 'growper') {
     document.body.classList.remove('scalia-mode');
     document.getElementById('companyName').textContent = 'Growper Digital';
-    // Restaurar sidebar Growper completa
     scaliaSidebarToggle(false);
-    // Abrir categoria Financeiro por padrão (mostra os cards dos menus)
+    // Mostrar categoria Financeiro (overlay com os cards)
     showCategoryPage('financeiro');
   } else if (companyId === 'scalia') {
     document.body.classList.add('scalia-mode');
