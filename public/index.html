@@ -5376,7 +5376,7 @@ const HUB_CATEGORIAS = [
 function renderHub() {
   const container = document.getElementById('hubContent');
   if (!container) {
-    console.error('[renderHub] hubContent não existe no DOM');
+    console.error('[renderHub] hubContent não existe!');
     return;
   }
   
@@ -5384,39 +5384,58 @@ function renderHub() {
   const category = HUB_CATEGORIAS.find(c => c.id === catId);
   if (!category) {
     console.error('[renderHub] categoria não encontrada:', catId);
-    container.innerHTML = '<div style="padding:40px;color:#f8fafc;text-align:center">Categoria "' + catId + '" não configurada.</div>';
     return;
   }
   
   console.log('[renderHub] renderizando:', category.name, 'com', category.menus.length, 'menus');
   
-  // Fundo tenue da cor da categoria (10% opacidade)
-  const catBg = category.color + '15'; // hex + alpha
+  const color = category.color;
   
+  // TUDO em inline style — sem depender de CSS externo
   let html = '';
-  html += `<div class="hub-header">
-    <div class="hub-title">
-      <span class="hub-title-icon" style="--hub-accent:${category.color};--hub-accent-bg:${catBg}">${category.icon}</span>
-      <span>${category.name}</span>
-    </div>
-    <div class="hub-subtitle">${category.desc}</div>
-  </div>`;
-  html += '<div class="hub-grid">';
+  html += '<div style="padding:48px 40px;max-width:1280px;margin:0 auto;color:#f8fafc;font-family:Poppins,sans-serif">';
+  
+  // Header
+  html += '<div style="margin-bottom:36px;padding-bottom:24px;border-bottom:1px solid rgba(148,163,184,0.15)">';
+  html += '<div style="display:flex;align-items:center;gap:14px;margin-bottom:8px">';
+  html += '<span style="width:46px;height:46px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;font-size:22px;background:' + color + ';color:white;box-shadow:0 8px 20px -4px ' + color + '66">' + category.icon + '</span>';
+  html += '<span style="font-size:28px;font-weight:800;color:#f8fafc;letter-spacing:-0.8px">' + category.name + '</span>';
+  html += '</div>';
+  html += '<div style="font-size:14px;color:#94a3b8;font-weight:500;padding-left:60px">' + category.desc + '</div>';
+  html += '</div>';
+  
+  // Grid de cards
+  html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:18px">';
   category.menus.forEach(m => {
-    html += `<div class="hub-card" style="--hub-accent:${category.color};--hub-accent-bg:${catBg}" onclick="showSection('${m.section}')">
-      <div class="hc-icon">${m.icon}</div>
-      <div class="hc-body">
-        <div class="hc-name">
-          <span>${m.name}</span>
-          <span class="hc-arrow">→</span>
-        </div>
-        <div class="hc-desc">${m.desc}</div>
-      </div>
-    </div>`;
+    const cardId = 'hubcard-' + m.section;
+    html += '<div id="' + cardId + '" onclick="showSection(\'' + m.section + '\')" style="background:#1e293b;border:1px solid rgba(148,163,184,0.2);border-radius:14px;padding:22px 24px;cursor:pointer;display:flex;align-items:flex-start;gap:16px;min-height:90px;box-shadow:0 4px 12px rgba(0,0,0,0.25);transition:all 0.25s ease;position:relative;overflow:hidden" ';
+    html += 'onmouseover="this.style.borderColor=\'' + color + '\';this.style.transform=\'translateY(-3px)\';this.style.boxShadow=\'0 12px 32px -8px ' + color + '66\';this.style.background=\'#253449\'" ';
+    html += 'onmouseout="this.style.borderColor=\'rgba(148,163,184,0.2)\';this.style.transform=\'translateY(0)\';this.style.boxShadow=\'0 4px 12px rgba(0,0,0,0.25)\';this.style.background=\'#1e293b\'"';
+    html += '>';
+    // Ícone chip
+    html += '<div style="flex-shrink:0;width:44px;height:44px;border-radius:11px;display:inline-flex;align-items:center;justify-content:center;font-size:20px;background:' + color + ';color:white;box-shadow:0 4px 12px -4px ' + color + '80">' + m.icon + '</div>';
+    // Body
+    html += '<div style="flex:1;min-width:0">';
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px">';
+    html += '<span style="font-size:15.5px;font-weight:700;color:#f8fafc;letter-spacing:-0.2px">' + m.name + '</span>';
+    html += '<span style="color:#64748b;font-size:16px">→</span>';
+    html += '</div>';
+    html += '<div style="font-size:12.5px;color:#94a3b8;font-weight:400;line-height:1.55">' + m.desc + '</div>';
+    html += '</div>';
+    html += '</div>';
   });
+  html += '</div>';
   html += '</div>';
   
   container.innerHTML = html;
+  
+  // Forçar fundo escuro no hubSection
+  const hs = document.getElementById('hubSection');
+  if (hs) {
+    hs.style.background = 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)';
+    hs.style.minHeight = '100vh';
+    hs.style.overflowY = 'auto';
+  }
 }
 
 // Ao clicar num botão da sidebar (categoria), abre a página daquela categoria
