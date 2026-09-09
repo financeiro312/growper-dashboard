@@ -394,7 +394,6 @@ table td:first-child { white-space: normal; }
 }
 
 
-
 /* Sticky para tabela do Principal - 2 linhas de header */
 #mainTable thead tr:first-child th {
   position: sticky !important;
@@ -408,8 +407,6 @@ table td:first-child { white-space: normal; }
   z-index: 21 !important;
   background: #f9fafb !important;
 }
-
-
 
 
 /* Centralizar cabeçalhos de mês e valores nas tabelas dos menus Por Área e Cartão */
@@ -507,230 +504,6 @@ table td:first-child { white-space: normal; }
 }
 
 
-/* =========================================================
-   PAINEL DE CATEGORIA — Design BI Executivo
-   Estilo baseado em Metabase / Power BI / Looker
-========================================================= */
-
-#hubSection {
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%) !important;
-  min-height: 100vh !important;
-  overflow-y: auto !important;
-}
-#hubSection.hidden { display: none !important; }
-#hubSection:not(.hidden) { display: block !important; }
-
-#hubContent {
-  padding: 48px 40px !important;
-  max-width: 1280px !important;
-  margin: 0 auto !important;
-  position: relative;
-  z-index: 1;
-  min-height: 400px;
-}
-
-/* Header da categoria */
-#hubContent .hub-header {
-  margin-bottom: 36px !important;
-  padding-bottom: 24px !important;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.15) !important;
-}
-#hubContent .hub-title {
-  font-size: 28px !important;
-  font-weight: 800 !important;
-  color: #f8fafc !important;
-  letter-spacing: -0.8px !important;
-  margin-bottom: 8px !important;
-  display: flex !important;
-  align-items: center !important;
-  gap: 14px !important;
-}
-#hubContent .hub-title-icon {
-  width: 46px !important;
-  height: 46px !important;
-  border-radius: 12px !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  font-size: 22px !important;
-  background: #3b82f6 !important;
-  color: white !important;
-  box-shadow: 0 8px 20px -4px rgba(59, 130, 246, 0.6) !important;
-}
-#hubContent .hub-subtitle {
-  font-size: 14px !important;
-  color: #94a3b8 !important;
-  font-weight: 500 !important;
-  padding-left: 60px !important;
-  margin: 0 !important;
-}
-
-/* Grid de cards */
-#hubContent .hub-grid {
-  display: grid !important;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)) !important;
-  gap: 18px !important;
-}
-
-/* CARD — fundo sólido escuro (sem transparência que pode ficar invisível) */
-#hubContent .hub-card {
-  background: #1e293b !important;
-  border: 1px solid rgba(148, 163, 184, 0.2) !important;
-  border-radius: 14px !important;
-  padding: 22px 24px !important;
-  cursor: pointer !important;
-  transition: all 0.25s ease !important;
-  display: flex !important;
-  align-items: flex-start !important;
-  gap: 16px !important;
-  text-align: left !important;
-  min-height: 90px !important;
-  position: relative !important;
-  overflow: hidden !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25) !important;
-}
-#hubContent .hub-card::before {
-  content: '' !important;
-  position: absolute !important;
-  left: 0 !important; top: 0 !important; bottom: 0 !important;
-  width: 3px !important;
-  background: #3b82f6 !important;
-  border-radius: 0 3px 3px 0 !important;
-  transform: scaleY(0.3) !important;
-  transition: transform 0.25s ease !important;
-  opacity: 0.6 !important;
-}
-#hubContent .hub-card:hover {
-  border-color: #3b82f6 !important;
-  box-shadow: 0 12px 32px -8px rgba(59, 130, 246, 0.4), 0 4px 12px rgba(0, 0, 0, 0.3) !important;
-  transform: translateY(-3px) !important;
-  background: #253449 !important;
-}
-#hubContent .hub-card:hover::before {
-  transform: scaleY(1) !important;
-  opacity: 1 !important;
-}
-
-/* Chip do ícone (dentro do card) — cor da categoria via var */
-#hubContent .hub-card .hc-icon {
-  flex-shrink: 0 !important;
-  width: 44px !important;
-  height: 44px !important;
-  border-radius: 11px !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  font-size: 20px !important;
-  background: #3b82f6 !important;
-  color: white !important;
-  transition: all 0.25s ease !important;
-  line-height: 1 !important;
-  margin: 0 !important;
-  box-shadow: 0 4px 12px -4px rgba(59, 130, 246, 0.5) !important;
-}
-#hubContent .hub-card:hover .hc-icon {
-  transform: scale(1.08) !important;
-}
-
-/* Body do card */
-#hubContent .hub-card .hc-body {
-  flex: 1 !important;
-  min-width: 0 !important;
-}
-#hubContent .hub-card .hc-name {
-  font-size: 15.5px !important;
-  font-weight: 700 !important;
-  color: #f8fafc !important;
-  letter-spacing: -0.2px !important;
-  margin-bottom: 5px !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  gap: 8px !important;
-}
-#hubContent .hub-card .hc-arrow {
-  color: #64748b !important;
-  font-size: 16px !important;
-  transition: all 0.25s ease !important;
-  flex-shrink: 0 !important;
-}
-#hubContent .hub-card:hover .hc-arrow {
-  color: #3b82f6 !important;
-  transform: translateX(4px) !important;
-}
-#hubContent .hub-card .hc-desc {
-  font-size: 12.5px !important;
-  color: #94a3b8 !important;
-  font-weight: 400 !important;
-  line-height: 1.55 !important;
-  margin: 0 !important;
-}
-
-/* Cor específica por categoria — sobrescreve o azul default */
-#hubContent [style*="--hub-accent:#10b981"] .hc-icon,
-#hubContent .hub-title-icon[style*="--hub-accent:#10b981"] { background: #10b981 !important; box-shadow: 0 4px 12px -4px rgba(16, 185, 129, 0.5) !important; }
-#hubContent [style*="--hub-accent:#10b981"].hub-card::before { background: #10b981 !important; }
-#hubContent [style*="--hub-accent:#10b981"].hub-card:hover { border-color: #10b981 !important; box-shadow: 0 12px 32px -8px rgba(16, 185, 129, 0.4) !important; }
-#hubContent [style*="--hub-accent:#10b981"].hub-card:hover .hc-arrow { color: #10b981 !important; }
-
-#hubContent [style*="--hub-accent:#8b5cf6"] .hc-icon,
-#hubContent .hub-title-icon[style*="--hub-accent:#8b5cf6"] { background: #8b5cf6 !important; box-shadow: 0 4px 12px -4px rgba(139, 92, 246, 0.5) !important; }
-#hubContent [style*="--hub-accent:#8b5cf6"].hub-card::before { background: #8b5cf6 !important; }
-#hubContent [style*="--hub-accent:#8b5cf6"].hub-card:hover { border-color: #8b5cf6 !important; box-shadow: 0 12px 32px -8px rgba(139, 92, 246, 0.4) !important; }
-#hubContent [style*="--hub-accent:#8b5cf6"].hub-card:hover .hc-arrow { color: #8b5cf6 !important; }
-
-#hubContent [style*="--hub-accent:#3b82f6"] .hc-icon,
-#hubContent .hub-title-icon[style*="--hub-accent:#3b82f6"] { background: #3b82f6 !important; }
-
-#hubContent [style*="--hub-accent:#ef4444"] .hc-icon,
-#hubContent .hub-title-icon[style*="--hub-accent:#ef4444"] { background: #ef4444 !important; box-shadow: 0 4px 12px -4px rgba(239, 68, 68, 0.5) !important; }
-#hubContent [style*="--hub-accent:#ef4444"].hub-card::before { background: #ef4444 !important; }
-#hubContent [style*="--hub-accent:#ef4444"].hub-card:hover { border-color: #ef4444 !important; box-shadow: 0 12px 32px -8px rgba(239, 68, 68, 0.4) !important; }
-#hubContent [style*="--hub-accent:#ef4444"].hub-card:hover .hc-arrow { color: #ef4444 !important; }
-
-#hubContent [style*="--hub-accent:#f59e0b"] .hc-icon,
-#hubContent .hub-title-icon[style*="--hub-accent:#f59e0b"] { background: #f59e0b !important; box-shadow: 0 4px 12px -4px rgba(245, 158, 11, 0.5) !important; }
-#hubContent [style*="--hub-accent:#f59e0b"].hub-card::before { background: #f59e0b !important; }
-#hubContent [style*="--hub-accent:#f59e0b"].hub-card:hover { border-color: #f59e0b !important; box-shadow: 0 12px 32px -8px rgba(245, 158, 11, 0.4) !important; }
-#hubContent [style*="--hub-accent:#f59e0b"].hub-card:hover .hc-arrow { color: #f59e0b !important; }
-
-/* Sidebar categorias */
-.nav-cat-simple {
-  width: 100% !important;
-  padding: 12px 14px !important;
-  background: transparent !important;
-  border: 1px solid transparent !important;
-  color: #cbd5e1 !important;
-  cursor: pointer !important;
-  display: flex !important;
-  align-items: center !important;
-  gap: 12px !important;
-  font-family: Poppins, sans-serif !important;
-  font-size: 13px !important;
-  font-weight: 600 !important;
-  border-radius: 10px !important;
-  transition: all 0.15s ease !important;
-  text-align: left !important;
-  margin-bottom: 4px !important;
-}
-.nav-cat-simple .nav-icon {
-  font-size: 17px !important;
-  line-height: 1 !important;
-  flex-shrink: 0 !important;
-  width: 22px !important;
-  text-align: center !important;
-}
-.nav-cat-simple:hover {
-  background: rgba(255, 255, 255, 0.06) !important;
-  color: white !important;
-}
-.nav-cat-simple.active {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.25), rgba(59, 130, 246, 0.12)) !important;
-  color: white !important;
-  border-color: rgba(59, 130, 246, 0.4) !important;
-  box-shadow: 0 4px 12px -4px rgba(59, 130, 246, 0.4) !important;
-}
-
 /* Botão Home no header */
 .home-btn {
   padding: 8px 14px;
@@ -791,9 +564,6 @@ body.scalia-mode .company-badge {
 }
 
 
-
-
-
 /* Clique em qualquer parte dos controles do header */
 .header-controls select, 
 .header-controls button {
@@ -834,6 +604,43 @@ body.scalia-mode .company-badge {
   cursor: pointer;
   display: inline-flex;
   align-items: center;
+}
+
+/* ============ Sidebar: botões de categoria ============ */
+.nav-cat-simple {
+  width: 100% !important;
+  padding: 12px 14px !important;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  color: #cbd5e1 !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  font-family: Poppins, sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  border-radius: 10px !important;
+  transition: all 0.15s ease !important;
+  text-align: left !important;
+  margin-bottom: 4px !important;
+}
+.nav-cat-simple .nav-icon {
+  font-size: 17px !important;
+  line-height: 1 !important;
+  flex-shrink: 0 !important;
+  width: 22px !important;
+  text-align: center !important;
+}
+.nav-cat-simple:hover {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: white !important;
+}
+.nav-cat-simple.active {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.25), rgba(59, 130, 246, 0.12)) !important;
+  color: white !important;
+  border-color: rgba(59, 130, 246, 0.4) !important;
+  box-shadow: 0 4px 12px -4px rgba(59, 130, 246, 0.4) !important;
 }
 </style>
 
@@ -1041,8 +848,7 @@ body.scalia-mode .company-badge {
     </div>
   </div>
   <div class="main">
-    <div id="hubSection" class="hidden"><div id="hubContent" style="padding:40px 32px;max-width:1400px;margin:0 auto"></div></div>
-<div id="mainSection"><div class="table-container"><table id="mainTable"><thead id="tableHead"></thead><tbody id="tableBody"></tbody></table></div><div id="summaryContainer" class="summary-container"></div></div>
+    <div id="mainSection"><div class="table-container"><table id="mainTable"><thead id="tableHead"></thead><tbody id="tableBody"></tbody></table></div><div id="summaryContainer" class="summary-container"></div></div>
     <div id="areaSection" class="hidden">
   <div style="display:flex;gap:8px;margin-bottom:24px;border-bottom:1px solid var(--border)">
     <button class="area-tab-btn active" data-areatab="mensal" style="padding:10px 18px;border:none;background:transparent;color:var(--primary);font-family:Poppins;font-size:13px;font-weight:600;cursor:pointer;border-bottom:2px solid var(--primary)">📅 Mensal</button>
@@ -2033,7 +1839,6 @@ function setSaldoInicialSerie(val) {
     // Se 'all', não grava (consolidado é somente leitura)
   } catch(e) {}
 }
-
 
 
 function sumByDept(deptName, tipo) {
@@ -5336,283 +5141,18 @@ function renderRH() {
 }
 
 
-
-// ============ HUB MENU — Painel de Controle ============
-window._hubCategory = null; // null = home, 'financeiro'|'dp'|'estrategico'|'contab'|'notif' = subcategoria
-
-const HUB_CATEGORIAS = [
-  { id: 'financeiro', icon: '💼', name: 'Financeiro', desc: 'Fluxo de caixa, mensalidades, cartão e orçamentos', color: '#10b981',
-    menus: [
-      { section: 'main', icon: '📊', name: 'Principal', desc: 'Dashboard consolidado com receitas, despesas e saldo' },
-      { section: 'recebiveis', icon: '💰', name: 'Mensalidades', desc: 'Fechamento por cliente e status de pagamento' },
-      { section: 'card', icon: '💳', name: 'Cartão de Crédito', desc: 'Fatura Inter e conciliação para OMIE' },
-      
-    ]
-  },
-  { id: 'dp', icon: '👥', name: 'Departamento Pessoal', desc: 'RH, folha e estoque de camisetas', color: '#8b5cf6',
-    menus: [
-      { section: 'rh', icon: '👥', name: 'RH', desc: 'Folha de prestadores, custo mensal por área' },
-      { section: 'estoque', icon: '📦', name: 'Estoque', desc: 'Compras e entregas de camisetas do time' },
-    ]
-  },
-  { id: 'estrategico', icon: '🎯', name: 'Estratégico', desc: 'KPIs, análises gerenciais e valuation', color: '#3b82f6',
-    menus: [
-      { section: 'kpis', icon: '📊', name: "KPI's Financeiro", desc: '8 indicadores gerenciais com gráficos e drill-down' },
-      { section: 'ma', icon: '💎', name: 'M&A / Investor Ready', desc: 'Valuation e prontidão para investidores' },
-    ]
-  },
-  { id: 'contab', icon: '📋', name: 'Contabilidade', desc: 'DRE e demonstrações contábeis', color: '#f59e0b',
-    menus: [
-      { section: 'dre', icon: '📋', name: 'DRE', desc: 'Demonstração de resultado do exercício' },
-    ]
-  },
-  { id: 'notif', icon: '🔔', name: 'Notificações', desc: 'Cobranças, avisos e alertas do sistema', color: '#ef4444',
-    menus: [
-      { section: 'notif', icon: '🔔', name: 'Notificações', desc: 'Central de notificações e cobranças de clientes' },
-    ]
-  },
-];
-
-function renderHub() {
-  const container = document.getElementById('hubContent');
-  if (!container) {
-    console.error('[renderHub] hubContent não existe!');
-    return;
-  }
-  
-  const catId = window._hubCategory || 'financeiro';
-  const category = HUB_CATEGORIAS.find(c => c.id === catId);
-  if (!category) {
-    console.error('[renderHub] categoria não encontrada:', catId);
-    return;
-  }
-  
-  console.log('[renderHub] renderizando:', category.name, 'com', category.menus.length, 'menus');
-  
-  const color = category.color;
-  
-  // TUDO em inline style — sem depender de CSS externo
-  let html = '';
-  html += '<div style="padding:48px 40px;max-width:1280px;margin:0 auto;color:#f8fafc;font-family:Poppins,sans-serif">';
-  
-  // Header
-  html += '<div style="margin-bottom:36px;padding-bottom:24px;border-bottom:1px solid rgba(148,163,184,0.15)">';
-  html += '<div style="display:flex;align-items:center;gap:14px;margin-bottom:8px">';
-  html += '<span style="width:46px;height:46px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;font-size:22px;background:' + color + ';color:white;box-shadow:0 8px 20px -4px ' + color + '66">' + category.icon + '</span>';
-  html += '<span style="font-size:28px;font-weight:800;color:#f8fafc;letter-spacing:-0.8px">' + category.name + '</span>';
-  html += '</div>';
-  html += '<div style="font-size:14px;color:#94a3b8;font-weight:500;padding-left:60px">' + category.desc + '</div>';
-  html += '</div>';
-  
-  // Grid de cards
-  html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:18px">';
-  category.menus.forEach(m => {
-    const cardId = 'hubcard-' + m.section;
-    html += '<div id="' + cardId + '" onclick="showSection(\'' + m.section + '\')" style="background:#1e293b;border:1px solid rgba(148,163,184,0.2);border-radius:14px;padding:22px 24px;cursor:pointer;display:flex;align-items:flex-start;gap:16px;min-height:90px;box-shadow:0 4px 12px rgba(0,0,0,0.25);transition:all 0.25s ease;position:relative;overflow:hidden" ';
-    html += 'onmouseover="this.style.borderColor=\'' + color + '\';this.style.transform=\'translateY(-3px)\';this.style.boxShadow=\'0 12px 32px -8px ' + color + '66\';this.style.background=\'#253449\'" ';
-    html += 'onmouseout="this.style.borderColor=\'rgba(148,163,184,0.2)\';this.style.transform=\'translateY(0)\';this.style.boxShadow=\'0 4px 12px rgba(0,0,0,0.25)\';this.style.background=\'#1e293b\'"';
-    html += '>';
-    // Ícone chip
-    html += '<div style="flex-shrink:0;width:44px;height:44px;border-radius:11px;display:inline-flex;align-items:center;justify-content:center;font-size:20px;background:' + color + ';color:white;box-shadow:0 4px 12px -4px ' + color + '80">' + m.icon + '</div>';
-    // Body
-    html += '<div style="flex:1;min-width:0">';
-    html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px">';
-    html += '<span style="font-size:15.5px;font-weight:700;color:#f8fafc;letter-spacing:-0.2px">' + m.name + '</span>';
-    html += '<span style="color:#64748b;font-size:16px">→</span>';
-    html += '</div>';
-    html += '<div style="font-size:12.5px;color:#94a3b8;font-weight:400;line-height:1.55">' + m.desc + '</div>';
-    html += '</div>';
-    html += '</div>';
-  });
-  html += '</div>';
-  html += '</div>';
-  
-  container.innerHTML = html;
-  
-  // Forçar fundo escuro no hubSection
-  const hs = document.getElementById('hubSection');
-  if (hs) {
-    hs.style.background = 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)';
-    hs.style.minHeight = '100vh';
-    hs.style.overflowY = 'auto';
-  }
-}
-
-// Ao clicar num botão da sidebar (categoria), abre a página daquela categoria
-function showCategory(catId) {
-  window._hubCategory = catId;
-  // Marcar botão ativo
-  document.querySelectorAll('.sidebar-cat-btn').forEach(b => b.classList.remove('active'));
-  const btn = document.querySelector('.sidebar-cat-btn[data-cat="' + catId + '"]');
-  if (btn) btn.classList.add('active');
-  // Mostrar hubSection com a categoria
-  showSection('hub');
-}
-
-// ============ Sidebar: navegação por categoria ============
-// Abre a página de uma categoria (mostra os menus dela como cards grandes)
-function _getOrCreateHubOverlay() {
-  let ov = document.getElementById('hubOverlay');
-  if (!ov) {
-    ov = document.createElement('div');
-    ov.id = 'hubOverlay';
-    document.body.appendChild(ov);
-    console.log('[hub] overlay criado no body');
-  }
-  return ov;
-}
-
-function showCategoryPage(catId) {
-  console.log('[showCategoryPage] Abrindo categoria:', catId);
-  window._hubCategory = catId;
-  
-  // Destacar botão sidebar
-  try {
-    document.querySelectorAll('.nav-cat-simple').forEach(btn => btn.classList.remove('active'));
-    const btn = document.querySelector('.nav-cat-simple[data-cat="' + catId + '"]');
-    if (btn) btn.classList.add('active');
-  } catch(e) {}
-  
-  const category = HUB_CATEGORIAS.find(c => c.id === catId);
-  if (!category) { console.error('[showCategoryPage] cat não achada:', catId); return; }
-  
-  const color = category.color;
-  const ov = _getOrCreateHubOverlay();
-  
-  // FORÇAR estilos toda vez com setAttribute style completo
-  const sidebarWidth = window.innerWidth <= 768 ? '60px' : '210px';
-  ov.setAttribute('style', 
-    'position:fixed !important;' +
-    'top:0 !important;' +
-    'left:' + sidebarWidth + ' !important;' +
-    'right:0 !important;' +
-    'bottom:0 !important;' +
-    'width:auto !important;' +
-    'height:auto !important;' +
-    'background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#0f172a 100%) !important;' +
-    'z-index:999999 !important;' +
-    'overflow-y:auto !important;' +
-    'overflow-x:hidden !important;' +
-    'font-family:Poppins,sans-serif !important;' +
-    'display:block !important;' +
-    'visibility:visible !important;' +
-    'opacity:1 !important;' +
-    'pointer-events:auto !important'
-  );
-  
-  let html = '<div style="padding:48px 40px;max-width:1280px;margin:0 auto;color:#f8fafc">';
-  
-  // Header
-  html += '<div style="margin-bottom:36px;padding-bottom:24px;border-bottom:1px solid rgba(148,163,184,0.15)">';
-  html += '<div style="display:flex;align-items:center;gap:14px;margin-bottom:8px">';
-  html += '<span style="width:46px;height:46px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;font-size:22px;background:' + color + ';color:white">' + category.icon + '</span>';
-  html += '<span style="font-size:28px;font-weight:800;color:#f8fafc;letter-spacing:-0.8px">' + category.name + '</span>';
-  html += '</div>';
-  html += '<div style="font-size:14px;color:#94a3b8;font-weight:500;padding-left:60px">' + category.desc + '</div>';
-  html += '</div>';
-  
-  // Grid
-  html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:18px">';
-  category.menus.forEach(m => {
-    html += '<div onclick="_hubGoToSection(\'' + m.section + '\')" style="background:#1e293b;border:1px solid rgba(148,163,184,0.2);border-radius:14px;padding:22px 24px;cursor:pointer;display:flex;align-items:flex-start;gap:16px;min-height:90px;box-shadow:0 4px 12px rgba(0,0,0,0.25);transition:all 0.25s ease" ';
-    html += 'onmouseover="this.style.borderColor=\'' + color + '\';this.style.transform=\'translateY(-3px)\';this.style.background=\'#253449\'" ';
-    html += 'onmouseout="this.style.borderColor=\'rgba(148,163,184,0.2)\';this.style.transform=\'translateY(0)\';this.style.background=\'#1e293b\'">';
-    html += '<div style="flex-shrink:0;width:44px;height:44px;border-radius:11px;display:inline-flex;align-items:center;justify-content:center;font-size:20px;background:' + color + ';color:white">' + m.icon + '</div>';
-    html += '<div style="flex:1;min-width:0">';
-    html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px">';
-    html += '<span style="font-size:15.5px;font-weight:700;color:#f8fafc">' + m.name + '</span>';
-    html += '<span style="color:#64748b;font-size:16px">→</span>';
-    html += '</div>';
-    html += '<div style="font-size:12.5px;color:#94a3b8;line-height:1.55">' + m.desc + '</div>';
-    html += '</div></div>';
-  });
-  html += '</div></div>';
-  
-  ov.innerHTML = html;
-  console.log('[showCategoryPage] overlay populado, cards:', category.menus.length, 'display:', ov.style.display);
-}
-
-function _hubGoToSection(section) {
-  console.log('[_hubGoToSection] indo para:', section);
-  const ov = document.getElementById('hubOverlay');
-  if (ov) {
-    ov.style.setProperty('display', 'none', 'important');
-    ov.style.setProperty('visibility', 'hidden', 'important');
-  }
-  showSection(section);
-}
-
 // Descobrir qual categoria contém uma section específica
-const _SECTION_TO_CAT = {
-  main: 'financeiro', recebiveis: 'financeiro', card: 'financeiro', kits: 'financeiro',
-  rh: 'dp', estoque: 'dp',
-  kpis: 'estrategico', ma: 'estrategico',
-  notif: 'notif',
-  dre: 'contab',
-};
 
 // Destacar o botão da categoria ativa na sidebar
-function _highlightCatButton(section) {
-  const catId = _SECTION_TO_CAT[section];
-  document.querySelectorAll('.nav-cat-simple').forEach(btn => btn.classList.remove('active'));
-  if (catId) {
-    const btn = document.querySelector('.nav-cat-simple[data-cat="' + catId + '"]');
-    if (btn) btn.classList.add('active');
-  }
-}
 
 function showSection(section) {
-  // Esconder overlay do hub (mas mantém no DOM para reuso)
-  try { 
-    const _ov = document.getElementById('hubOverlay'); 
-    if (_ov) { 
-      _ov.style.setProperty('display', 'none', 'important');
-      _ov.style.setProperty('visibility', 'hidden', 'important');
-    } 
-  } catch(e) {}
 
   // Redirect financeiro → kpis (menu Financeiro foi integrado ao KPIs)
   if (arguments[0] === 'financeiro') { arguments[0] = 'kpis'; }
   
   // Manter categoria pai destacada na sidebar
-  try { _highlightCatButton(section); } catch(e) {}
   
-  // Marcar botão da sidebar da categoria correta
-  try {
-    const catId = _SECTION_TO_CAT[section];
-    if (catId) {
-      document.querySelectorAll('.sidebar-cat-btn').forEach(b => b.classList.remove('active'));
-      const btn = document.querySelector('.sidebar-cat-btn[data-cat="' + catId + '"]');
-      if (btn) btn.classList.add('active');
-      window._hubCategory = catId;
-    }
-  } catch(e) {}
   
-  // HUB: painel de controle central
-  if (section === 'hub') {
-    document.querySelectorAll('.nav-btn:not(.nav-cat-simple)').forEach(btn => btn.classList.remove('active'));
-    ['hubSection','mainSection','areaSection','cardSection','recebiveisSection','kpisSection','rhSection','notifSection','financeiroSection','maSection','estoqueSection','dreSection','pjsSection','margemSection','ticketSection','scaliaMainSection2','scaliaCardSection2','scaliaKitsSection2'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.classList.add('hidden');
-    });
-    const hs = document.getElementById('hubSection');
-    if (hs) hs.classList.remove('hidden');
-    currentSection = 'hub';
-    document.getElementById('sectionTitle').textContent = 'Painel de Controle';
-    // Esconder filtros que não fazem sentido no hub
-    try {
-      const viewBtns = document.getElementById('viewButtons');
-      const selContaWrap = document.getElementById('selContaWrap');
-      const selConciliado = document.getElementById('selConciliado');
-      const selYear = document.getElementById('selYear');
-      if (viewBtns) viewBtns.classList.add('hidden');
-      if (selContaWrap) selContaWrap.style.display = 'none';
-      if (selConciliado) selConciliado.style.display = 'none';
-      if (selYear) selYear.style.display = 'none';
-    } catch(e) {}
-    renderHub();
-    return;
-  }
   
   // Restaurar selYear ao sair do hub
   try {
@@ -5636,7 +5176,7 @@ function showSection(section) {
     else if (section === 'kits') section = 'scaliaKits';
   }
   
-  // Ativar botão correspondente na sidebar (excluindo nav-cat-simple que é gerenciado por _highlightCatButton)
+  // Ativar botão correspondente na sidebar (excluindo nav-cat-simple gerenciado pela categoria)
   document.querySelectorAll('.nav-btn:not(.nav-cat-simple)').forEach(btn => btn.classList.remove('active'));
   // Para Scalia, o botão clicado tem data-section=main mas representa scaliaMain
   const sourceSection = (section === 'scaliaMain') ? 'main' : (section === 'scaliaCard') ? 'card' : (section === 'scaliaKits') ? 'kits' : section;
@@ -5644,10 +5184,9 @@ function showSection(section) {
   if (btn) btn.classList.add('active');
   
   // Re-aplicar destaque da categoria pai (garantia após reset)
-  try { _highlightCatButton(section); } catch(e) {}
   
   // Esconder TODAS as seções (Growper + Scalia)
-  ['hubSection','mainSection','areaSection','cardSection','recebiveisSection','kpisSection','rhSection','notifSection','financeiroSection','maSection','estoqueSection','dreSection','pjsSection','margemSection','ticketSection','scaliaMainSection2','scaliaCardSection2','scaliaKitsSection2'].forEach(id => {
+  ['mainSection','areaSection','cardSection','recebiveisSection','kpisSection','rhSection','notifSection','financeiroSection','maSection','estoqueSection','dreSection','pjsSection','margemSection','ticketSection','scaliaMainSection2','scaliaCardSection2','scaliaKitsSection2'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add('hidden');
   });
@@ -6508,7 +6047,6 @@ function renderMain() {
   }
 
 
-
   document.getElementById('tableBody').innerHTML = html;
 
   // Summary
@@ -6835,7 +6373,6 @@ function toggleExpand(key) {
   else expandedRows.add(key);
   // Re-renderizar a tela atual (currentSection vem do menu lateral)
   const renderers = { 
-    hub: typeof renderHub === 'function' ? renderHub : null,
     main: typeof renderMain === 'function' ? renderMain : null,
     area: typeof renderArea === 'function' ? renderArea : null,
     card: typeof renderCard === 'function' ? renderCard : null,
@@ -8158,7 +7695,6 @@ function _recMostrarComentario(id, mes, tipo) {
 }
 
 
-
 function setRecTab2(tab) {
   currentRecTab2 = tab;
   renderRecebiveis();
@@ -9155,7 +8691,6 @@ document.addEventListener('keydown', (e) => {
 
 // Marcar células como selecionáveis após cada renderização
 const _origRender = {
-  hub: typeof renderHub === 'function' ? renderHub : null,
     main: typeof renderMain === 'function' ? renderMain : null,
   area: typeof renderArea === 'function' ? renderArea : null,
   card: typeof renderCard === 'function' ? renderCard : null,
@@ -9187,10 +8722,6 @@ setTimeout(() => {
 }, 500);
 
 
-
-
-
-
 // EVENT LISTENERS
 document.querySelectorAll('.nav-btn').forEach(btn => { btn.addEventListener('click', () => showSection(btn.dataset.section)); });
 document.querySelectorAll('.view-btn[data-view]').forEach(btn => {
@@ -9212,7 +8743,6 @@ document.querySelectorAll('.view-btn[data-rectab]').forEach(btn => {
 document.getElementById('selYear').addEventListener('change', e => { currentYear = e.target.value; refreshCurrent(); });
 // (event listener removido - agora usa _onContaCheckChange do multi-select)
 document.getElementById('selConciliado').addEventListener('change', e => { currentConciliado = e.target.value; refreshCurrent(); });
-
 
 
 document.addEventListener('click', e => {
@@ -9264,7 +8794,7 @@ function selectCompany(companyId) {
     document.getElementById('companyName').textContent = 'Growper Digital';
     scaliaSidebarToggle(false);
     // Mostrar categoria Financeiro (overlay com os cards)
-    showCategoryPage('financeiro');
+    abrirCategoria('financeiro');
   } else if (companyId === 'scalia') {
     document.body.classList.add('scalia-mode');
     document.getElementById('companyName').textContent = 'Scalia Performance';
@@ -10202,9 +9732,6 @@ if (document.readyState === 'loading') {
   omieBootstrap();
 }
 </script>
-
-
-
 
 
 <script>
@@ -11689,8 +11216,6 @@ if (document.readyState === 'loading') {
   };
 
 
-
-
   // =====================================================================================
   // EXPORTAR MENU PRINCIPAL PRA EXCEL
   // Gera XLSX com toda a estrutura hierárquica (Receitas + Despesas + Cartão + Ajustes)
@@ -12001,68 +11526,222 @@ window.MENSALIDADES_ELO = (function() {
 window.CLIENTES_ELO = window.MENSALIDADES_ELO["2026-09"] || [];
 // Compat: mês corrente para telas legadas
 window.CLIENTES_ELO = window.MENSALIDADES_ELO["2026-09"] || [];</script>
-<div id="hubStaticContainer" style="display:none;position:fixed;top:0;left:210px;right:0;bottom:0;background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#0f172a 100%);z-index:99999;overflow-y:auto;font-family:Poppins,sans-serif"><div id="hubPanel-financeiro" class="hubStaticPanel" style="display:none;padding:48px 40px;max-width:1280px;margin:0 auto;color:#f8fafc"><div style="margin-bottom:36px;padding-bottom:24px;border-bottom:1px solid rgba(148,163,184,0.15)"><div style="display:flex;align-items:center;gap:14px;margin-bottom:8px"><span style="width:46px;height:46px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;font-size:22px;background:#10b981;color:white">💼</span><span style="font-size:28px;font-weight:800;color:#f8fafc;letter-spacing:-0.8px">Financeiro</span></div><div style="font-size:14px;color:#94a3b8;font-weight:500;padding-left:60px">Fluxo de caixa, mensalidades e cartão</div></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:18px"><div onclick="_hubStaticGo('main')" style="background:#1e293b;border:1px solid rgba(148,163,184,0.2);border-radius:14px;padding:22px 24px;cursor:pointer;display:flex;align-items:flex-start;gap:16px;min-height:90px;box-shadow:0 4px 12px rgba(0,0,0,0.25);transition:all 0.25s ease" onmouseover="this.style.borderColor='#10b981';this.style.transform='translateY(-3px)';this.style.background='#253449'" onmouseout="this.style.borderColor='rgba(148,163,184,0.2)';this.style.transform='translateY(0)';this.style.background='#1e293b'"><div style="flex-shrink:0;width:44px;height:44px;border-radius:11px;display:inline-flex;align-items:center;justify-content:center;font-size:20px;background:#10b981;color:white">📊</div><div style="flex:1;min-width:0"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px"><span style="font-size:15.5px;font-weight:700;color:#f8fafc">Principal</span><span style="color:#64748b;font-size:16px">→</span></div><div style="font-size:12.5px;color:#94a3b8;line-height:1.55">Dashboard consolidado com receitas, despesas e saldo</div></div></div><div onclick="_hubStaticGo('recebiveis')" style="background:#1e293b;border:1px solid rgba(148,163,184,0.2);border-radius:14px;padding:22px 24px;cursor:pointer;display:flex;align-items:flex-start;gap:16px;min-height:90px;box-shadow:0 4px 12px rgba(0,0,0,0.25);transition:all 0.25s ease" onmouseover="this.style.borderColor='#10b981';this.style.transform='translateY(-3px)';this.style.background='#253449'" onmouseout="this.style.borderColor='rgba(148,163,184,0.2)';this.style.transform='translateY(0)';this.style.background='#1e293b'"><div style="flex-shrink:0;width:44px;height:44px;border-radius:11px;display:inline-flex;align-items:center;justify-content:center;font-size:20px;background:#10b981;color:white">💰</div><div style="flex:1;min-width:0"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px"><span style="font-size:15.5px;font-weight:700;color:#f8fafc">Mensalidades</span><span style="color:#64748b;font-size:16px">→</span></div><div style="font-size:12.5px;color:#94a3b8;line-height:1.55">Fechamento por cliente e status de pagamento</div></div></div><div onclick="_hubStaticGo('card')" style="background:#1e293b;border:1px solid rgba(148,163,184,0.2);border-radius:14px;padding:22px 24px;cursor:pointer;display:flex;align-items:flex-start;gap:16px;min-height:90px;box-shadow:0 4px 12px rgba(0,0,0,0.25);transition:all 0.25s ease" onmouseover="this.style.borderColor='#10b981';this.style.transform='translateY(-3px)';this.style.background='#253449'" onmouseout="this.style.borderColor='rgba(148,163,184,0.2)';this.style.transform='translateY(0)';this.style.background='#1e293b'"><div style="flex-shrink:0;width:44px;height:44px;border-radius:11px;display:inline-flex;align-items:center;justify-content:center;font-size:20px;background:#10b981;color:white">💳</div><div style="flex:1;min-width:0"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px"><span style="font-size:15.5px;font-weight:700;color:#f8fafc">Cartão de Crédito</span><span style="color:#64748b;font-size:16px">→</span></div><div style="font-size:12.5px;color:#94a3b8;line-height:1.55">Fatura Inter e conciliação para OMIE</div></div></div></div></div><div id="hubPanel-dp" class="hubStaticPanel" style="display:none;padding:48px 40px;max-width:1280px;margin:0 auto;color:#f8fafc"><div style="margin-bottom:36px;padding-bottom:24px;border-bottom:1px solid rgba(148,163,184,0.15)"><div style="display:flex;align-items:center;gap:14px;margin-bottom:8px"><span style="width:46px;height:46px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;font-size:22px;background:#8b5cf6;color:white">👥</span><span style="font-size:28px;font-weight:800;color:#f8fafc;letter-spacing:-0.8px">Departamento Pessoal</span></div><div style="font-size:14px;color:#94a3b8;font-weight:500;padding-left:60px">RH, folha e estoque de camisetas</div></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:18px"><div onclick="_hubStaticGo('rh')" style="background:#1e293b;border:1px solid rgba(148,163,184,0.2);border-radius:14px;padding:22px 24px;cursor:pointer;display:flex;align-items:flex-start;gap:16px;min-height:90px;box-shadow:0 4px 12px rgba(0,0,0,0.25);transition:all 0.25s ease" onmouseover="this.style.borderColor='#8b5cf6';this.style.transform='translateY(-3px)';this.style.background='#253449'" onmouseout="this.style.borderColor='rgba(148,163,184,0.2)';this.style.transform='translateY(0)';this.style.background='#1e293b'"><div style="flex-shrink:0;width:44px;height:44px;border-radius:11px;display:inline-flex;align-items:center;justify-content:center;font-size:20px;background:#8b5cf6;color:white">👥</div><div style="flex:1;min-width:0"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px"><span style="font-size:15.5px;font-weight:700;color:#f8fafc">RH</span><span style="color:#64748b;font-size:16px">→</span></div><div style="font-size:12.5px;color:#94a3b8;line-height:1.55">Folha de prestadores, custo mensal por área</div></div></div><div onclick="_hubStaticGo('estoque')" style="background:#1e293b;border:1px solid rgba(148,163,184,0.2);border-radius:14px;padding:22px 24px;cursor:pointer;display:flex;align-items:flex-start;gap:16px;min-height:90px;box-shadow:0 4px 12px rgba(0,0,0,0.25);transition:all 0.25s ease" onmouseover="this.style.borderColor='#8b5cf6';this.style.transform='translateY(-3px)';this.style.background='#253449'" onmouseout="this.style.borderColor='rgba(148,163,184,0.2)';this.style.transform='translateY(0)';this.style.background='#1e293b'"><div style="flex-shrink:0;width:44px;height:44px;border-radius:11px;display:inline-flex;align-items:center;justify-content:center;font-size:20px;background:#8b5cf6;color:white">📦</div><div style="flex:1;min-width:0"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px"><span style="font-size:15.5px;font-weight:700;color:#f8fafc">Estoque</span><span style="color:#64748b;font-size:16px">→</span></div><div style="font-size:12.5px;color:#94a3b8;line-height:1.55">Compras e entregas de camisetas do time</div></div></div></div></div><div id="hubPanel-estrategico" class="hubStaticPanel" style="display:none;padding:48px 40px;max-width:1280px;margin:0 auto;color:#f8fafc"><div style="margin-bottom:36px;padding-bottom:24px;border-bottom:1px solid rgba(148,163,184,0.15)"><div style="display:flex;align-items:center;gap:14px;margin-bottom:8px"><span style="width:46px;height:46px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;font-size:22px;background:#3b82f6;color:white">🎯</span><span style="font-size:28px;font-weight:800;color:#f8fafc;letter-spacing:-0.8px">Estratégico</span></div><div style="font-size:14px;color:#94a3b8;font-weight:500;padding-left:60px">KPIs, análises gerenciais e valuation</div></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:18px"><div onclick="_hubStaticGo('kpis')" style="background:#1e293b;border:1px solid rgba(148,163,184,0.2);border-radius:14px;padding:22px 24px;cursor:pointer;display:flex;align-items:flex-start;gap:16px;min-height:90px;box-shadow:0 4px 12px rgba(0,0,0,0.25);transition:all 0.25s ease" onmouseover="this.style.borderColor='#3b82f6';this.style.transform='translateY(-3px)';this.style.background='#253449'" onmouseout="this.style.borderColor='rgba(148,163,184,0.2)';this.style.transform='translateY(0)';this.style.background='#1e293b'"><div style="flex-shrink:0;width:44px;height:44px;border-radius:11px;display:inline-flex;align-items:center;justify-content:center;font-size:20px;background:#3b82f6;color:white">📊</div><div style="flex:1;min-width:0"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px"><span style="font-size:15.5px;font-weight:700;color:#f8fafc">KPI's Financeiro</span><span style="color:#64748b;font-size:16px">→</span></div><div style="font-size:12.5px;color:#94a3b8;line-height:1.55">8 indicadores gerenciais com gráficos e drill-down</div></div></div><div onclick="_hubStaticGo('ma')" style="background:#1e293b;border:1px solid rgba(148,163,184,0.2);border-radius:14px;padding:22px 24px;cursor:pointer;display:flex;align-items:flex-start;gap:16px;min-height:90px;box-shadow:0 4px 12px rgba(0,0,0,0.25);transition:all 0.25s ease" onmouseover="this.style.borderColor='#3b82f6';this.style.transform='translateY(-3px)';this.style.background='#253449'" onmouseout="this.style.borderColor='rgba(148,163,184,0.2)';this.style.transform='translateY(0)';this.style.background='#1e293b'"><div style="flex-shrink:0;width:44px;height:44px;border-radius:11px;display:inline-flex;align-items:center;justify-content:center;font-size:20px;background:#3b82f6;color:white">💎</div><div style="flex:1;min-width:0"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px"><span style="font-size:15.5px;font-weight:700;color:#f8fafc">M&amp;A / Investor Ready</span><span style="color:#64748b;font-size:16px">→</span></div><div style="font-size:12.5px;color:#94a3b8;line-height:1.55">Valuation e prontidão para investidores</div></div></div></div></div><div id="hubPanel-notif" class="hubStaticPanel" style="display:none;padding:48px 40px;max-width:1280px;margin:0 auto;color:#f8fafc"><div style="margin-bottom:36px;padding-bottom:24px;border-bottom:1px solid rgba(148,163,184,0.15)"><div style="display:flex;align-items:center;gap:14px;margin-bottom:8px"><span style="width:46px;height:46px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;font-size:22px;background:#ef4444;color:white">🔔</span><span style="font-size:28px;font-weight:800;color:#f8fafc;letter-spacing:-0.8px">Notificações</span></div><div style="font-size:14px;color:#94a3b8;font-weight:500;padding-left:60px">Cobranças, avisos e alertas do sistema</div></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:18px"><div onclick="_hubStaticGo('notif')" style="background:#1e293b;border:1px solid rgba(148,163,184,0.2);border-radius:14px;padding:22px 24px;cursor:pointer;display:flex;align-items:flex-start;gap:16px;min-height:90px;box-shadow:0 4px 12px rgba(0,0,0,0.25);transition:all 0.25s ease" onmouseover="this.style.borderColor='#ef4444';this.style.transform='translateY(-3px)';this.style.background='#253449'" onmouseout="this.style.borderColor='rgba(148,163,184,0.2)';this.style.transform='translateY(0)';this.style.background='#1e293b'"><div style="flex-shrink:0;width:44px;height:44px;border-radius:11px;display:inline-flex;align-items:center;justify-content:center;font-size:20px;background:#ef4444;color:white">🔔</div><div style="flex:1;min-width:0"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px"><span style="font-size:15.5px;font-weight:700;color:#f8fafc">Notificações</span><span style="color:#64748b;font-size:16px">→</span></div><div style="font-size:12.5px;color:#94a3b8;line-height:1.55">Central de notificações e cobranças de clientes</div></div></div></div></div><div id="hubPanel-contab" class="hubStaticPanel" style="display:none;padding:48px 40px;max-width:1280px;margin:0 auto;color:#f8fafc"><div style="margin-bottom:36px;padding-bottom:24px;border-bottom:1px solid rgba(148,163,184,0.15)"><div style="display:flex;align-items:center;gap:14px;margin-bottom:8px"><span style="width:46px;height:46px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;font-size:22px;background:#f59e0b;color:white">📋</span><span style="font-size:28px;font-weight:800;color:#f8fafc;letter-spacing:-0.8px">Contabilidade</span></div><div style="font-size:14px;color:#94a3b8;font-weight:500;padding-left:60px">DRE e demonstrações contábeis</div></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:18px"><div onclick="_hubStaticGo('dre')" style="background:#1e293b;border:1px solid rgba(148,163,184,0.2);border-radius:14px;padding:22px 24px;cursor:pointer;display:flex;align-items:flex-start;gap:16px;min-height:90px;box-shadow:0 4px 12px rgba(0,0,0,0.25);transition:all 0.25s ease" onmouseover="this.style.borderColor='#f59e0b';this.style.transform='translateY(-3px)';this.style.background='#253449'" onmouseout="this.style.borderColor='rgba(148,163,184,0.2)';this.style.transform='translateY(0)';this.style.background='#1e293b'"><div style="flex-shrink:0;width:44px;height:44px;border-radius:11px;display:inline-flex;align-items:center;justify-content:center;font-size:20px;background:#f59e0b;color:white">📋</div><div style="flex:1;min-width:0"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px"><span style="font-size:15.5px;font-weight:700;color:#f8fafc">DRE</span><span style="color:#64748b;font-size:16px">→</span></div><div style="font-size:12.5px;color:#94a3b8;line-height:1.55">Demonstração de resultado do exercício</div></div></div></div></div></div>
+
+<!-- ============ PAINEL DE CATEGORIA (nova implementação limpa) ============ -->
+<div id="painelCat" style="display:none;position:fixed;top:0;left:210px;right:0;bottom:0;background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#0f172a 100%);z-index:99999;overflow-y:auto;font-family:Poppins,sans-serif">
+  <div class="painelCat-sub" data-cat="financeiro" style="display:none;padding:48px 40px;max-width:1280px;margin:0 auto;color:#f8fafc">
+    <div style="margin-bottom:36px;padding-bottom:24px;border-bottom:1px solid rgba(148,163,184,0.15)">
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:8px">
+        <span style="width:46px;height:46px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;font-size:22px;background:#10b981;color:white">💼</span>
+        <span style="font-size:28px;font-weight:800;color:#f8fafc;letter-spacing:-0.8px">Financeiro</span>
+      </div>
+      <div style="font-size:14px;color:#94a3b8;font-weight:500;padding-left:60px">Fluxo de caixa, mensalidades e cartão</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:18px">
+      <div onclick="abrirMenu('main')" style="background:#1e293b;border:1px solid rgba(148,163,184,0.2);border-radius:14px;padding:22px 24px;cursor:pointer;display:flex;align-items:flex-start;gap:16px;min-height:90px;box-shadow:0 4px 12px rgba(0,0,0,0.25);transition:all 0.25s ease" onmouseover="this.style.borderColor='#10b981';this.style.transform='translateY(-3px)';this.style.background='#253449'" onmouseout="this.style.borderColor='rgba(148,163,184,0.2)';this.style.transform='translateY(0)';this.style.background='#1e293b'">
+        <div style="flex-shrink:0;width:44px;height:44px;border-radius:11px;display:inline-flex;align-items:center;justify-content:center;font-size:20px;background:#10b981;color:white">📊</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px">
+            <span style="font-size:15.5px;font-weight:700;color:#f8fafc">Principal</span>
+            <span style="color:#64748b;font-size:16px">→</span>
+          </div>
+          <div style="font-size:12.5px;color:#94a3b8;line-height:1.55">Dashboard consolidado com receitas, despesas e saldo</div>
+        </div>
+      </div>
+      <div onclick="abrirMenu('recebiveis')" style="background:#1e293b;border:1px solid rgba(148,163,184,0.2);border-radius:14px;padding:22px 24px;cursor:pointer;display:flex;align-items:flex-start;gap:16px;min-height:90px;box-shadow:0 4px 12px rgba(0,0,0,0.25);transition:all 0.25s ease" onmouseover="this.style.borderColor='#10b981';this.style.transform='translateY(-3px)';this.style.background='#253449'" onmouseout="this.style.borderColor='rgba(148,163,184,0.2)';this.style.transform='translateY(0)';this.style.background='#1e293b'">
+        <div style="flex-shrink:0;width:44px;height:44px;border-radius:11px;display:inline-flex;align-items:center;justify-content:center;font-size:20px;background:#10b981;color:white">💰</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px">
+            <span style="font-size:15.5px;font-weight:700;color:#f8fafc">Mensalidades</span>
+            <span style="color:#64748b;font-size:16px">→</span>
+          </div>
+          <div style="font-size:12.5px;color:#94a3b8;line-height:1.55">Fechamento por cliente e status de pagamento</div>
+        </div>
+      </div>
+      <div onclick="abrirMenu('card')" style="background:#1e293b;border:1px solid rgba(148,163,184,0.2);border-radius:14px;padding:22px 24px;cursor:pointer;display:flex;align-items:flex-start;gap:16px;min-height:90px;box-shadow:0 4px 12px rgba(0,0,0,0.25);transition:all 0.25s ease" onmouseover="this.style.borderColor='#10b981';this.style.transform='translateY(-3px)';this.style.background='#253449'" onmouseout="this.style.borderColor='rgba(148,163,184,0.2)';this.style.transform='translateY(0)';this.style.background='#1e293b'">
+        <div style="flex-shrink:0;width:44px;height:44px;border-radius:11px;display:inline-flex;align-items:center;justify-content:center;font-size:20px;background:#10b981;color:white">💳</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px">
+            <span style="font-size:15.5px;font-weight:700;color:#f8fafc">Cartão de Crédito</span>
+            <span style="color:#64748b;font-size:16px">→</span>
+          </div>
+          <div style="font-size:12.5px;color:#94a3b8;line-height:1.55">Fatura Inter e conciliação para OMIE</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="painelCat-sub" data-cat="dp" style="display:none;padding:48px 40px;max-width:1280px;margin:0 auto;color:#f8fafc">
+    <div style="margin-bottom:36px;padding-bottom:24px;border-bottom:1px solid rgba(148,163,184,0.15)">
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:8px">
+        <span style="width:46px;height:46px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;font-size:22px;background:#8b5cf6;color:white">👥</span>
+        <span style="font-size:28px;font-weight:800;color:#f8fafc;letter-spacing:-0.8px">Departamento Pessoal</span>
+      </div>
+      <div style="font-size:14px;color:#94a3b8;font-weight:500;padding-left:60px">RH, folha e estoque</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:18px">
+      <div onclick="abrirMenu('rh')" style="background:#1e293b;border:1px solid rgba(148,163,184,0.2);border-radius:14px;padding:22px 24px;cursor:pointer;display:flex;align-items:flex-start;gap:16px;min-height:90px;box-shadow:0 4px 12px rgba(0,0,0,0.25);transition:all 0.25s ease" onmouseover="this.style.borderColor='#8b5cf6';this.style.transform='translateY(-3px)';this.style.background='#253449'" onmouseout="this.style.borderColor='rgba(148,163,184,0.2)';this.style.transform='translateY(0)';this.style.background='#1e293b'">
+        <div style="flex-shrink:0;width:44px;height:44px;border-radius:11px;display:inline-flex;align-items:center;justify-content:center;font-size:20px;background:#8b5cf6;color:white">👥</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px">
+            <span style="font-size:15.5px;font-weight:700;color:#f8fafc">RH</span>
+            <span style="color:#64748b;font-size:16px">→</span>
+          </div>
+          <div style="font-size:12.5px;color:#94a3b8;line-height:1.55">Folha de prestadores, custo mensal por área</div>
+        </div>
+      </div>
+      <div onclick="abrirMenu('estoque')" style="background:#1e293b;border:1px solid rgba(148,163,184,0.2);border-radius:14px;padding:22px 24px;cursor:pointer;display:flex;align-items:flex-start;gap:16px;min-height:90px;box-shadow:0 4px 12px rgba(0,0,0,0.25);transition:all 0.25s ease" onmouseover="this.style.borderColor='#8b5cf6';this.style.transform='translateY(-3px)';this.style.background='#253449'" onmouseout="this.style.borderColor='rgba(148,163,184,0.2)';this.style.transform='translateY(0)';this.style.background='#1e293b'">
+        <div style="flex-shrink:0;width:44px;height:44px;border-radius:11px;display:inline-flex;align-items:center;justify-content:center;font-size:20px;background:#8b5cf6;color:white">📦</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px">
+            <span style="font-size:15.5px;font-weight:700;color:#f8fafc">Estoque</span>
+            <span style="color:#64748b;font-size:16px">→</span>
+          </div>
+          <div style="font-size:12.5px;color:#94a3b8;line-height:1.55">Compras e entregas de camisetas do time</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="painelCat-sub" data-cat="estrategico" style="display:none;padding:48px 40px;max-width:1280px;margin:0 auto;color:#f8fafc">
+    <div style="margin-bottom:36px;padding-bottom:24px;border-bottom:1px solid rgba(148,163,184,0.15)">
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:8px">
+        <span style="width:46px;height:46px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;font-size:22px;background:#3b82f6;color:white">🎯</span>
+        <span style="font-size:28px;font-weight:800;color:#f8fafc;letter-spacing:-0.8px">Estratégico</span>
+      </div>
+      <div style="font-size:14px;color:#94a3b8;font-weight:500;padding-left:60px">KPIs e valuation</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:18px">
+      <div onclick="abrirMenu('kpis')" style="background:#1e293b;border:1px solid rgba(148,163,184,0.2);border-radius:14px;padding:22px 24px;cursor:pointer;display:flex;align-items:flex-start;gap:16px;min-height:90px;box-shadow:0 4px 12px rgba(0,0,0,0.25);transition:all 0.25s ease" onmouseover="this.style.borderColor='#3b82f6';this.style.transform='translateY(-3px)';this.style.background='#253449'" onmouseout="this.style.borderColor='rgba(148,163,184,0.2)';this.style.transform='translateY(0)';this.style.background='#1e293b'">
+        <div style="flex-shrink:0;width:44px;height:44px;border-radius:11px;display:inline-flex;align-items:center;justify-content:center;font-size:20px;background:#3b82f6;color:white">📊</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px">
+            <span style="font-size:15.5px;font-weight:700;color:#f8fafc">KPI's Financeiro</span>
+            <span style="color:#64748b;font-size:16px">→</span>
+          </div>
+          <div style="font-size:12.5px;color:#94a3b8;line-height:1.55">8 indicadores gerenciais com gráficos</div>
+        </div>
+      </div>
+      <div onclick="abrirMenu('ma')" style="background:#1e293b;border:1px solid rgba(148,163,184,0.2);border-radius:14px;padding:22px 24px;cursor:pointer;display:flex;align-items:flex-start;gap:16px;min-height:90px;box-shadow:0 4px 12px rgba(0,0,0,0.25);transition:all 0.25s ease" onmouseover="this.style.borderColor='#3b82f6';this.style.transform='translateY(-3px)';this.style.background='#253449'" onmouseout="this.style.borderColor='rgba(148,163,184,0.2)';this.style.transform='translateY(0)';this.style.background='#1e293b'">
+        <div style="flex-shrink:0;width:44px;height:44px;border-radius:11px;display:inline-flex;align-items:center;justify-content:center;font-size:20px;background:#3b82f6;color:white">💎</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px">
+            <span style="font-size:15.5px;font-weight:700;color:#f8fafc">M&amp;A / Investor Ready</span>
+            <span style="color:#64748b;font-size:16px">→</span>
+          </div>
+          <div style="font-size:12.5px;color:#94a3b8;line-height:1.55">Valuation e prontidão para investidores</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="painelCat-sub" data-cat="notif" style="display:none;padding:48px 40px;max-width:1280px;margin:0 auto;color:#f8fafc">
+    <div style="margin-bottom:36px;padding-bottom:24px;border-bottom:1px solid rgba(148,163,184,0.15)">
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:8px">
+        <span style="width:46px;height:46px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;font-size:22px;background:#ef4444;color:white">🔔</span>
+        <span style="font-size:28px;font-weight:800;color:#f8fafc;letter-spacing:-0.8px">Notificações</span>
+      </div>
+      <div style="font-size:14px;color:#94a3b8;font-weight:500;padding-left:60px">Cobranças e avisos</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:18px">
+      <div onclick="abrirMenu('notif')" style="background:#1e293b;border:1px solid rgba(148,163,184,0.2);border-radius:14px;padding:22px 24px;cursor:pointer;display:flex;align-items:flex-start;gap:16px;min-height:90px;box-shadow:0 4px 12px rgba(0,0,0,0.25);transition:all 0.25s ease" onmouseover="this.style.borderColor='#ef4444';this.style.transform='translateY(-3px)';this.style.background='#253449'" onmouseout="this.style.borderColor='rgba(148,163,184,0.2)';this.style.transform='translateY(0)';this.style.background='#1e293b'">
+        <div style="flex-shrink:0;width:44px;height:44px;border-radius:11px;display:inline-flex;align-items:center;justify-content:center;font-size:20px;background:#ef4444;color:white">🔔</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px">
+            <span style="font-size:15.5px;font-weight:700;color:#f8fafc">Notificações</span>
+            <span style="color:#64748b;font-size:16px">→</span>
+          </div>
+          <div style="font-size:12.5px;color:#94a3b8;line-height:1.55">Central de notificações e cobranças</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="painelCat-sub" data-cat="contab" style="display:none;padding:48px 40px;max-width:1280px;margin:0 auto;color:#f8fafc">
+    <div style="margin-bottom:36px;padding-bottom:24px;border-bottom:1px solid rgba(148,163,184,0.15)">
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:8px">
+        <span style="width:46px;height:46px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;font-size:22px;background:#f59e0b;color:white">📋</span>
+        <span style="font-size:28px;font-weight:800;color:#f8fafc;letter-spacing:-0.8px">Contabilidade</span>
+      </div>
+      <div style="font-size:14px;color:#94a3b8;font-weight:500;padding-left:60px">DRE e demonstrações</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:18px">
+      <div onclick="abrirMenu('dre')" style="background:#1e293b;border:1px solid rgba(148,163,184,0.2);border-radius:14px;padding:22px 24px;cursor:pointer;display:flex;align-items:flex-start;gap:16px;min-height:90px;box-shadow:0 4px 12px rgba(0,0,0,0.25);transition:all 0.25s ease" onmouseover="this.style.borderColor='#f59e0b';this.style.transform='translateY(-3px)';this.style.background='#253449'" onmouseout="this.style.borderColor='rgba(148,163,184,0.2)';this.style.transform='translateY(0)';this.style.background='#1e293b'">
+        <div style="flex-shrink:0;width:44px;height:44px;border-radius:11px;display:inline-flex;align-items:center;justify-content:center;font-size:20px;background:#f59e0b;color:white">📋</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px">
+            <span style="font-size:15.5px;font-weight:700;color:#f8fafc">DRE</span>
+            <span style="color:#64748b;font-size:16px">→</span>
+          </div>
+          <div style="font-size:12.5px;color:#94a3b8;line-height:1.55">Demonstração de resultado do exercício</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 <script>
-// Sistema de painel estático — HTML já pronto no DOM
-function showCategoryPage(catId) {
-  console.log('[hubStatic] mostrando categoria:', catId);
+// ============ Sistema de navegação por categoria (implementação do zero) ============
+// abrirCategoria('financeiro') — mostra o painel com os menus dessa categoria
+// abrirMenu('main') — esconde o painel e abre a section específica
+
+function abrirCategoria(catId) {
+  console.log('[abrirCategoria] categoria:', catId);
   
-  // Marcar botão sidebar ativo
-  try {
-    document.querySelectorAll('.nav-cat-simple').forEach(b => b.classList.remove('active'));
-    const btn = document.querySelector('.nav-cat-simple[data-cat="' + catId + '"]');
-    if (btn) btn.classList.add('active');
-  } catch(e) { console.error(e); }
+  // 1) Marcar botão da sidebar como ativo
+  var todosBtns = document.querySelectorAll('.nav-cat-simple');
+  for (var i = 0; i < todosBtns.length; i++) {
+    todosBtns[i].classList.remove('active');
+  }
+  var btnAtivo = document.querySelector('.nav-cat-simple[data-cat="' + catId + '"]');
+  if (btnAtivo) btnAtivo.classList.add('active');
   
-  // Esconder TODOS os painéis
-  document.querySelectorAll('.hubStaticPanel').forEach(p => {
-    p.style.setProperty('display', 'none', 'important');
-  });
+  // 2) Esconder todos os sub-painéis (RH, DP, etc)
+  var todosSubs = document.querySelectorAll('.painelCat-sub');
+  for (var j = 0; j < todosSubs.length; j++) {
+    todosSubs[j].style.setProperty('display', 'none', 'important');
+  }
   
-  // Mostrar apenas o painel da categoria
-  const panel = document.getElementById('hubPanel-' + catId);
-  if (panel) {
-    panel.style.setProperty('display', 'block', 'important');
-    console.log('[hubStatic] painel encontrado e mostrado:', catId);
+  // 3) Mostrar o sub-painel da categoria clicada
+  var subAtivo = document.querySelector('.painelCat-sub[data-cat="' + catId + '"]');
+  if (subAtivo) {
+    subAtivo.style.setProperty('display', 'block', 'important');
+    console.log('[abrirCategoria] sub-painel mostrado:', catId);
   } else {
-    console.error('[hubStatic] painel NÃO encontrado:', 'hubPanel-' + catId);
+    console.error('[abrirCategoria] sub-painel NÃO encontrado para:', catId);
   }
   
-  // Mostrar container
-  const container = document.getElementById('hubStaticContainer');
-  if (container) {
-    container.style.setProperty('display', 'block', 'important');
-    container.style.setProperty('visibility', 'visible', 'important');
-    container.style.setProperty('z-index', '99999', 'important');
+  // 4) Mostrar o container principal
+  var painel = document.getElementById('painelCat');
+  if (painel) {
+    painel.style.setProperty('display', 'block', 'important');
+  } else {
+    console.error('[abrirCategoria] #painelCat não existe no DOM!');
   }
-  
-  window._hubCategory = catId;
 }
 
-function _hubStaticGo(section) {
-  console.log('[hubStatic] indo para section:', section);
-  const c = document.getElementById('hubStaticContainer');
-  if (c) c.style.setProperty('display', 'none', 'important');
-  showSection(section);
+function abrirMenu(section) {
+  console.log('[abrirMenu] section:', section);
+  // Esconder painel de categoria
+  var painel = document.getElementById('painelCat');
+  if (painel) painel.style.setProperty('display', 'none', 'important');
+  // Chamar showSection existente (funcionamento normal das seções)
+  if (typeof showSection === 'function') {
+    showSection(section);
+  } else {
+    console.error('[abrirMenu] showSection não é função');
+  }
 }
 
-// Sobrescrever _hubGoToSection legado (se existir)
-window._hubGoToSection = _hubStaticGo;
+// Alias para compatibilidade (a sidebar chama showCategoryPage)
+window.showCategoryPage = abrirCategoria;
 
-// Sempre esconder o container ao entrar em qualquer section normal
+// Garantir que ao entrar em qualquer section específica, o painel de categoria some
 (function() {
-  const _originalShowSection = window.showSection;
-  if (typeof _originalShowSection === 'function') {
+  var orig = window.showSection;
+  if (typeof orig === 'function') {
     window.showSection = function(s) {
-      if (s !== 'hub') {
-        const c = document.getElementById('hubStaticContainer');
-        if (c) c.style.setProperty('display', 'none', 'important');
-      }
-      return _originalShowSection.apply(this, arguments);
+      var painel = document.getElementById('painelCat');
+      if (painel && s !== undefined) painel.style.setProperty('display', 'none', 'important');
+      return orig.apply(this, arguments);
     };
   }
 })();
 </script>
-
 </body>
 </html>
