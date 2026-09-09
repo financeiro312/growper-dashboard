@@ -805,12 +805,12 @@ body.scalia-mode .company-badge {
 <div class="main-content">
   <div class="header">
     <div class="header-content">
-      <div class="header-title" id="headerTitle" style="display:flex;align-items:center;gap:12px"><button id="btnVoltarCat"
+      <div class="header-title" id="headerTitle" style="display:flex;align-items:center;gap:12px"><button id="btnVoltarCat" type="button"
         onclick="_voltarParaCategoria()"
         onmouseover="this.style.background='#f1f5f9';this.style.borderColor='#64748b';this.style.color='#0f172a'"
         onmouseout="this.style.background='white';this.style.borderColor='#cbd5e1';this.style.color='#475569'"
         title="Voltar aos menus da categoria"
-        style="display:none;background:white;color:#475569;border:1px solid #cbd5e1;padding:6px 14px;border-radius:8px;font-family:Poppins,sans-serif;font-weight:600;font-size:12.5px;cursor:pointer;align-items:center;gap:6px;transition:all 0.15s;user-select:none;flex-shrink:0">← Voltar</button><span id="sectionTitle">Dashboard Principal</span></div>
+        style="display:none;background:white;color:#475569;border:1px solid #cbd5e1;padding:4px 10px;border-radius:6px;font-family:Poppins,sans-serif;font-weight:600;font-size:11px;line-height:1.2;cursor:pointer;transition:all 0.15s;user-select:none;flex-shrink:0;white-space:nowrap;height:26px;box-sizing:border-box">← Voltar</button><span id="sectionTitle">Dashboard Principal</span></div>
       <div class="header-controls">
 
 <select id="selYear" onchange="if(typeof _onYearChange==='function')_onYearChange(this.value)"><option value="2026">2026</option><option value="2025">2025</option></select>
@@ -5700,7 +5700,7 @@ function renderReembolso() {
     html += '<div style="padding:60px 20px;text-align:center;color:#94a3b8"><div style="font-size:40px;margin-bottom:8px">✈️</div><div style="font-size:14px;font-weight:600">Nenhum colaborador cadastrado ainda</div><div style="font-size:12px;margin-top:4px">Clique em "+ Adicionar Colaborador" para começar</div></div>';
   } else {
     // Wrapper com altura fixa e scroll → habilita sticky header
-    html += '<div id="_reembolsoTableWrap" style="max-height:60vh;overflow:auto;position:relative"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:1200px">';
+    html += '<div id="_reembolsoTableWrap" style="max-height:65vh;overflow:auto;position:relative"><table style="width:100%;border-collapse:collapse;font-size:12.5px">';
     
     // Header (sticky com position:sticky top:0)
     const _ordC = window._reembolsoState.ordemColab || 'inserido';
@@ -5711,17 +5711,17 @@ function renderReembolso() {
     const _titS = _ordS === 'vai_primeiro' ? 'Agrupado: vai com reembolso, vai sem reembolso, não vai.' : (_ordS === 'nao_vai_primeiro' ? 'Agrupado: não vai primeiro.' : 'Sem agrupamento. Clique para agrupar por status.');
     
     // Estilo comum do TH — inclui sticky
-    const _thBase = 'position:sticky;top:0;z-index:5;background:#f1f5f9;padding:14px 12px;font-weight:700;color:#334155;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;border-bottom:2px solid #cbd5e1;box-shadow:0 2px 4px rgba(0,0,0,0.03)';
+    const _thBase = 'position:sticky;top:0;z-index:100;background:#e2e8f0;padding:10px 8px;font-weight:700;color:#334155;font-size:10.5px;text-transform:uppercase;letter-spacing:0.4px;border-bottom:2px solid #94a3b8;box-shadow:0 2px 6px rgba(0,0,0,0.08)';
     
     html += '<thead><tr>';
     html += `<th onclick="_reembolsoToggleOrdemColab()" title="${_titC}" style="${_thBase};text-align:left;cursor:pointer;user-select:none">Colaborador <span style="color:${_ordC==='inserido'?'#94a3b8':'#8b5cf6'};font-size:10px;margin-left:4px">${_setaC}</span></th>`;
-    html += `<th onclick="_reembolsoToggleOrdemStatus()" title="${_titS}" style="${_thBase};text-align:center;cursor:pointer;user-select:none;min-width:170px">Status <span style="color:${_ordS==='nenhum'?'#94a3b8':'#8b5cf6'};font-size:10px;margin-left:4px">${_setaS}</span></th>`;
+    html += `<th onclick="_reembolsoToggleOrdemStatus()" title="${_titS}" style="${_thBase};text-align:center;cursor:pointer;user-select:none;min-width:145px">Status <span style="color:${_ordS==='nenhum'?'#94a3b8':'#8b5cf6'};font-size:10px;margin-left:4px">${_setaS}</span></th>`;
     html += `<th style="${_thBase};text-align:center" title="Km só ida — sistema calcula ida+volta">Km ida</th>`;
-    html += `<th style="${_thBase};text-align:center;min-width:170px">🎫 Passagem</th>`;
-    html += `<th style="${_thBase};text-align:center;min-width:180px">🛢️ Combustível</th>`;
-    html += `<th style="${_thBase};text-align:center;min-width:170px">🏨 Hospedagem</th>`;
-    html += `<th style="${_thBase};text-align:center;min-width:170px" title="Excepcional — geralmente sócios">🚗 Aluguel</th>`;
-    html += `<th style="${_thBase};text-align:right;min-width:110px">Total</th>`;
+    html += `<th style="${_thBase};text-align:center;min-width:130px">🎫 Passagem</th>`;
+    html += `<th style="${_thBase};text-align:center;min-width:150px">🛢️ Combustível</th>`;
+    html += `<th style="${_thBase};text-align:center;min-width:130px">🏨 Hospedagem</th>`;
+    html += `<th style="${_thBase};text-align:center;min-width:130px" title="Excepcional — geralmente sócios">🚗 Aluguel</th>`;
+    html += `<th style="${_thBase};text-align:right;min-width:90px">Total</th>`;
     if (!isFechado) html += `<th style="${_thBase};text-align:center;width:40px"></th>`;
     html += '</tr></thead><tbody>';
     
@@ -5745,15 +5745,15 @@ function renderReembolso() {
       const valor = (col[tipo] && col[tipo].valor) || 0;
       const chk = `<input type="checkbox" ${marcado?'checked':''} ${disabledAttr} onchange="_reembolsoUpdColabSub(${idx},'${tipo}','precisa',this.checked)" style="width:16px;height:16px;accent-color:${cor};cursor:${isFechado?'default':'pointer'};margin:0;flex-shrink:0" title="Marcar se precisa reembolso de ${tipo}">`;
       if (!marcado) {
-        return `<div style="display:flex;justify-content:center;align-items:center;height:32px">${chk}</div>`;
+        return `<div style="display:flex;justify-content:center;align-items:center;height:26px">${chk}</div>`;
       }
       // Combustível é calculado
       if (tipo === 'combustivel') {
         const calc = _reembolsoCalcColab(col, taxaKm);
-        return `<div style="display:flex;align-items:center;justify-content:center;gap:8px;height:32px">${chk}<div style="text-align:left"><div style="font-size:13px;font-weight:700;color:#0f172a;line-height:1.1">${_reembolsoFmt(calc.combustivel)}</div><div style="font-size:9.5px;color:#94a3b8;line-height:1.1">${calc.combKm}km × R$${taxaKm.toFixed(2)}</div></div></div>`;
+        return `<div style="display:flex;align-items:center;justify-content:center;gap:5px;height:26px">${chk}<div style="text-align:left"><div style="font-size:13px;font-weight:700;color:#0f172a;line-height:1.1">${_reembolsoFmt(calc.combustivel)}</div><div style="font-size:9.5px;color:#94a3b8;line-height:1.1">${calc.combKm}km × R$${taxaKm.toFixed(2)}</div></div></div>`;
       }
       // Passagem/hospedagem/aluguel — input inline
-      return `<div style="display:flex;align-items:center;justify-content:center;gap:6px;height:32px">${chk}<div style="display:flex;align-items:center;gap:3px"><span style="font-size:11px;color:#64748b;font-weight:600">R$</span><input type="number" min="0" step="0.01" ${disabledAttr} value="${valor}" onchange="_reembolsoUpdColabSub(${idx},'${tipo}','valor',this.value)" style="width:80px;padding:5px 7px;border:1px solid #e2e8f0;border-radius:5px;font-family:Poppins;font-size:12.5px;text-align:right${isFechado?';background:#f1f5f9;color:#94a3b8':''}" placeholder="0,00"></div></div>`;
+      return `<div style="display:flex;align-items:center;justify-content:center;gap:4px;height:26px">${chk}<div style="display:flex;align-items:center;gap:3px"><span style="font-size:11px;color:#64748b;font-weight:600">R$</span><input type="number" min="0" step="0.01" ${disabledAttr} value="${valor}" onchange="_reembolsoUpdColabSub(${idx},'${tipo}','valor',this.value)" style="width:60px;padding:4px 6px;border:1px solid #e2e8f0;border-radius:5px;font-family:Poppins;font-size:11.5px;text-align:right${isFechado?';background:#f1f5f9;color:#94a3b8':''}" placeholder="0,00"></div></div>`;
     };
     
     colaboradoresOrdenados.forEach(({col, idx}) => {
@@ -5762,28 +5762,28 @@ function renderReembolso() {
       const inputBgDis = 'background:#f1f5f9;color:#94a3b8';
       
       // Estilo da linha por status (mesma altura em todas)
-      let rowStyle = 'border-bottom:1px solid #f1f5f9;height:52px';
+      let rowStyle = 'border-bottom:1px solid #f1f5f9;height:42px';
       if (st === 'sem_reembolso') rowStyle += ';background:#fffbeb';
       else if (st === 'nao_vai') rowStyle += ';background:#fafafa;color:#94a3b8';
       
       html += `<tr style="${rowStyle}">`;
       
       const corNome = st === 'nao_vai' ? '#64748b' : '#0f172a';
-      html += `<td style="padding:8px 14px"><input type="text" value="${(col.nome||'').replace(/"/g,'&quot;')}" ${disabledAttr} onchange="_reembolsoUpdColab(${idx},'nome',this.value)" placeholder="Nome" style="width:100%;padding:6px 8px;border:1px solid transparent;border-radius:6px;font-family:Poppins;font-size:13px;background:transparent;font-weight:500;color:${corNome}" ${isFechado?'':`onfocus="this.style.border='1px solid #cbd5e1';this.style.background='white'" onblur="this.style.border='1px solid transparent';this.style.background='transparent'"`}></td>`;
+      html += `<td style="padding:6px 10px"><input type="text" value="${(col.nome||'').replace(/"/g,'&quot;')}" ${disabledAttr} onchange="_reembolsoUpdColab(${idx},'nome',this.value)" placeholder="Nome" style="width:100%;padding:6px 8px;border:1px solid transparent;border-radius:6px;font-family:Poppins;font-size:13px;background:transparent;font-weight:500;color:${corNome}" ${isFechado?'':`onfocus="this.style.border='1px solid #cbd5e1';this.style.background='white'" onblur="this.style.border='1px solid transparent';this.style.background='transparent'"`}></td>`;
       
-      html += `<td style="padding:8px;text-align:center"><select ${disabledAttr} onchange="_reembolsoUpdColab(${idx},'status',this.value)" style="padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px;font-family:Poppins;font-size:12px;background:white;cursor:${isFechado?'default':'pointer'};color:${st==='nao_vai'?'#64748b':(st==='sem_reembolso'?'#92400e':'#065f46')};font-weight:600${isFechado?';'+inputBgDis:''}">`;
+      html += `<td style="padding:5px 6px;text-align:center"><select ${disabledAttr} onchange="_reembolsoUpdColab(${idx},'status',this.value)" style="padding:3px 6px;border:1px solid #e2e8f0;border-radius:5px;font-family:Poppins;font-size:11px;background:white;cursor:${isFechado?'default':'pointer'};color:${st==='nao_vai'?'#64748b':(st==='sem_reembolso'?'#92400e':'#065f46')};font-weight:600${isFechado?';'+inputBgDis:''}">`;
       html += `<option value="reembolso" ${st==='reembolso'?'selected':''}>✓ Vai — c/ reembolso</option>`;
       html += `<option value="sem_reembolso" ${st==='sem_reembolso'?'selected':''}>👍 Vai — s/ reembolso</option>`;
       html += `<option value="nao_vai" ${st==='nao_vai'?'selected':''}>✗ Não vai</option>`;
       html += `</select></td>`;
       
       if (st === 'reembolso') {
-        html += `<td style="padding:8px;text-align:center"><input type="number" min="0" ${disabledAttr} value="${col.kmDistancia||0}" onchange="_reembolsoUpdColab(${idx},'kmDistancia',this.value)" style="width:70px;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-family:Poppins;font-size:13px;text-align:center${isFechado?';'+inputBgDis:''}"></td>`;
-        html += `<td style="padding:8px">${_renderCampo(col, idx, 'passagem', '#3b82f6')}</td>`;
-        html += `<td style="padding:8px">${_renderCampo(col, idx, 'combustivel', '#d97706')}</td>`;
-        html += `<td style="padding:8px">${_renderCampo(col, idx, 'hospedagem', '#059669')}</td>`;
-        html += `<td style="padding:8px">${_renderCampo(col, idx, 'aluguel', '#dc2626')}</td>`;
-        html += `<td style="padding:8px 14px;text-align:right;font-weight:700;font-size:14px;color:#0f172a">${_reembolsoFmt(calc.total)}</td>`;
+        html += `<td style="padding:5px 6px;text-align:center"><input type="number" min="0" ${disabledAttr} value="${col.kmDistancia||0}" onchange="_reembolsoUpdColab(${idx},'kmDistancia',this.value)" style="width:50px;padding:4px 6px;border:1px solid #e2e8f0;border-radius:5px;font-family:Poppins;font-size:11.5px;text-align:center${isFechado?';'+inputBgDis:''}"></td>`;
+        html += `<td style="padding:5px 6px">${_renderCampo(col, idx, 'passagem', '#3b82f6')}</td>`;
+        html += `<td style="padding:5px 6px">${_renderCampo(col, idx, 'combustivel', '#d97706')}</td>`;
+        html += `<td style="padding:5px 6px">${_renderCampo(col, idx, 'hospedagem', '#059669')}</td>`;
+        html += `<td style="padding:5px 6px">${_renderCampo(col, idx, 'aluguel', '#dc2626')}</td>`;
+        html += `<td style="padding:6px 10px;text-align:right;font-weight:700;font-size:13px;color:#0f172a">${_reembolsoFmt(calc.total)}</td>`;
       } else {
         const obsAtual = col.observacao || col.justificativa || '';
         const label = st === 'nao_vai' ? 'Justificativa' : 'Observação';
@@ -5794,7 +5794,7 @@ function renderReembolso() {
       }
       
       if (!isFechado) {
-        html += `<td style="padding:8px;text-align:center"><button onclick="_reembolsoRmColab(${idx})" style="background:transparent;border:none;color:#ef4444;cursor:pointer;font-size:16px;padding:4px 8px;border-radius:6px" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='transparent'" title="Remover">🗑️</button></td>`;
+        html += `<td style="padding:5px 6px;text-align:center"><button onclick="_reembolsoRmColab(${idx})" style="background:transparent;border:none;color:#ef4444;cursor:pointer;font-size:16px;padding:4px 8px;border-radius:6px" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='transparent'" title="Remover">🗑️</button></td>`;
       }
       html += `</tr>`;
     });
