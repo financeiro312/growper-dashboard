@@ -12402,6 +12402,13 @@ function renderTributario() {
     return true;
   };
   const tarefasFiltradas = data.tarefas.filter(filtrar);
+  // Ordenar por campo 'ordem' (crescente); tarefas sem ordem ficam ao final
+  tarefasFiltradas.sort((a, b) => {
+    const oa = (typeof a.ordem === 'number') ? a.ordem : 999999;
+    const ob = (typeof b.ordem === 'number') ? b.ordem : 999999;
+    if (oa !== ob) return oa - ob;
+    return (a.dataCriacao || '').localeCompare(b.dataCriacao || '');
+  });
 
   // ============ KPIs ============
   const kTotal = tarefasFiltradas.length;
@@ -12498,12 +12505,18 @@ function renderTributario() {
       const numCheck = (t.checklist || []).length;
       const numCheckFeito = (t.checklist || []).filter(c => c.feito).length;
       const numAnex = (t.evidencias || []).length;
-      html += `<div draggable="true" ondragstart="_tribDragStart(event, '${t.id}')" ondragend="_tribDragEnd(event)" onclick="_tribAbrirModal('${t.id}')" style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;cursor:grab;transition:all 0.15s;box-shadow:0 1px 2px rgba(0,0,0,0.04);border-left:3px solid ${prio.cor}${atrasada?';border:1px solid #ef4444;background:#fef2f2':''}" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 1px 2px rgba(0,0,0,0.04)'">
+      const prioBg = { alta: '#fee2e2', media: '#fef3c7', baixa: '#dcfce7' }[t.prioridade || 'media'] || '#f1f5f9';
+      const prioBorda = { alta: '#dc2626', media: '#d97706', baixa: '#059669' }[t.prioridade || 'media'] || '#94a3b8';
+      const prioTxt = { alta: 'ALTA', media: 'MÉDIA', baixa: 'BAIXA' }[t.prioridade || 'media'] || 'MÉDIA';
+      html += `<div draggable="true" ondragstart="_tribDragStart(event, '${t.id}')" ondragend="_tribDragEnd(event)" ondragover="_tribCardDragOver(event, '${t.id}')" ondragleave="_tribCardDragLeave(event)" onclick="_tribAbrirModal('${t.id}')" style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;cursor:grab;transition:all 0.15s;box-shadow:0 1px 2px rgba(0,0,0,0.04);border-left:4px solid ${prio.cor}${atrasada?';border:1px solid #ef4444;background:#fef2f2':''}" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 1px 2px rgba(0,0,0,0.04)'">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:6px;flex-wrap:wrap">
+          <span style="background:${prioBg};color:${prioBorda};padding:2px 8px;border-radius:10px;font-size:9.5px;font-weight:800;letter-spacing:0.5px;border:1px solid ${prioBorda}">${prioTxt}</span>
+          ${t.prazo?`<span style="background:${atrasada?'#fee2e2':'#f1f5f9'};color:${atrasada?'#991b1b':'#334155'};padding:2px 8px;border-radius:10px;font-size:10px;font-weight:${atrasada?'800':'600'};border:1px solid ${atrasada?'#dc2626':'#cbd5e1'}">${atrasada?'⚠️':'📅'} ${_fmtDataBR(t.prazo)}</span>`:''}
+        </div>
         <div style="font-size:12.5px;font-weight:700;color:#0f172a;line-height:1.3;margin-bottom:6px">${_esc(t.titulo)}</div>
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:10.5px">
           <span style="background:#f1f5f9;color:#475569;padding:2px 7px;border-radius:4px;font-weight:600">${_esc(t.responsavel)}</span>
           ${t.area?`<span style="background:#fef3c7;color:#78350f;padding:2px 7px;border-radius:4px;font-weight:600">${_esc(t.area)}</span>`:''}
-          ${t.prazo?`<span style="color:${atrasada?'#dc2626':'#64748b'};font-weight:${atrasada?'800':'500'}">${atrasada?'⚠️ ':'📅 '}${_fmtDataBR(t.prazo)}</span>`:''}
         </div>
         ${(numCheck+numComent+numAnex)>0?`<div style="margin-top:6px;display:flex;gap:8px;font-size:10.5px;color:#64748b">${numCheck>0?`<span>☑️ ${numCheckFeito}/${numCheck}</span>`:''}${numAnex>0?`<span>📎 ${numAnex}</span>`:''}${numComent>0?`<span>💬 ${numComent}</span>`:''}</div>`:''}
       </div>`;
@@ -12544,20 +12557,33 @@ window._tribAbrirModal = function(id) {
     { id:'pendencia', txt:'Pendência / Problema' }
   ];
   
-  // Anexos (só links, nunca upload — não sobrecarrega storage)
+  // Anexos — arquivos reais armazenados no IndexedDB do navegador
+  const _tribFmtTam = b => {
+    if (!b) return '';
+    if (b < 1024) return b + ' B';
+    if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
+    return (b/1048576).toFixed(2) + ' MB';
+  };
+  const _tribIcArq = (nome, mime) => {
+    const n = String(nome || '').toLowerCase();
+    if (n.endsWith('.pdf')) return '📕';
+    if (n.endsWith('.doc') || n.endsWith('.docx')) return '📘';
+    if (n.endsWith('.xls') || n.endsWith('.xlsx') || n.endsWith('.csv')) return '📗';
+    if (n.endsWith('.ppt') || n.endsWith('.pptx')) return '📙';
+    if (n.match(/\.(png|jpg|jpeg|gif|webp|bmp)$/)) return '🖼️';
+    if (n.match(/\.(zip|rar|7z)$/)) return '🗜️';
+    if (n.endsWith('.txt')) return '📄';
+    return '📎';
+  };
   const anexosHtml = (t.evidencias || []).map((e,i) => {
-    const icone = e.link.includes('drive.google') ? '🔗 Drive' :
-                  e.link.includes('docs.google') ? '📄 Google Docs' :
-                  e.link.includes('sheets.google') ? '📊 Google Sheets' :
-                  e.link.includes('onedrive') || e.link.includes('sharepoint') ? '☁️ OneDrive' :
-                  e.link.includes('dropbox') ? '📦 Dropbox' :
-                  e.link.match(/\.(pdf)($|\?)/i) ? '📕 PDF' :
-                  e.link.match(/\.(doc|docx)($|\?)/i) ? '📘 Word' :
-                  e.link.match(/\.(xls|xlsx)($|\?)/i) ? '📗 Excel' :
-                  e.link.match(/\.(png|jpg|jpeg|gif|webp)($|\?)/i) ? '🖼️ Imagem' :
-                  '🔗 Link';
-    return `<div style="background:white;border:1px solid #e2e8f0;border-radius:6px;padding:8px 10px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:700;color:#0f172a;margin-bottom:2px">${icone} — ${esc(e.descricao)}</div><a href="${esc(e.link)}" target="_blank" rel="noopener" style="font-size:11px;color:#2563eb;text-decoration:none;word-break:break-all">🔗 Abrir link</a><div style="font-size:10.5px;color:#64748b;margin-top:2px">Adicionado por ${esc(e.por || '—')} em ${e.dataAdd || ''}</div></div><button onclick="_tribRemAnexo('${t.id}',${i})" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:16px;padding:4px 8px" title="Remover anexo">✕</button></div>`;
-  }).join('') || '<div style="color:#94a3b8;font-size:12px;font-style:italic;padding:6px">Nenhum anexo. Cole um link do Google Drive, OneDrive, Dropbox ou qualquer URL.</div>';
+    // Compatibilidade com anexos antigos (link)
+    if (e.link && !e.idbKey) {
+      return `<div style="background:white;border:1px solid #e2e8f0;border-radius:6px;padding:8px 10px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:700;color:#0f172a;margin-bottom:2px">🔗 ${esc(e.descricao)}</div><a href="${esc(e.link)}" target="_blank" rel="noopener" style="font-size:11px;color:#2563eb;text-decoration:none;word-break:break-all">Abrir link</a></div><button onclick="_tribRemAnexo('${t.id}',${i})" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:16px;padding:4px 8px" title="Remover">✕</button></div>`;
+    }
+    // Arquivo real (IndexedDB)
+    const ic = _tribIcArq(e.nome, e.mimeType);
+    return `<div style="background:white;border:1px solid #e2e8f0;border-radius:6px;padding:8px 10px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:700;color:#0f172a;margin-bottom:2px;display:flex;align-items:center;gap:6px"><span style="font-size:16px">${ic}</span><span style="word-break:break-all">${esc(e.nome)}</span></div><div style="font-size:10.5px;color:#64748b">${_tribFmtTam(e.tamanho)} · adicionado por ${esc(e.por || '—')} em ${e.dataAdd || ''}</div></div><button onclick="_tribBaixarAnexo('${e.idbKey}','${esc(e.nome).replace(/'/g,"\\'")}')" style="background:#2563eb;color:white;border:none;border-radius:6px;font-family:Poppins;font-weight:700;font-size:11px;cursor:pointer;padding:6px 10px" title="Baixar arquivo">⬇️ Baixar</button><button onclick="_tribRemAnexo('${t.id}',${i})" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:16px;padding:4px 8px" title="Remover">✕</button></div>`;
+  }).join('') || '<div style="color:#94a3b8;font-size:12px;font-style:italic;padding:6px">Nenhum arquivo anexado.</div>';
   
   // Checklist da tarefa
   const checklistHtml = (t.checklist || []).map((item, i) => `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:${item.feito?'#f0fdf4':'#f8fafc'};border:1px solid ${item.feito?'#86efac':'#e2e8f0'};border-radius:6px;margin-bottom:4px"><input type="checkbox" ${item.feito?'checked':''} onchange="_tribToggleCheck('${t.id}',${i},this.checked)" style="width:16px;height:16px;accent-color:#059669;cursor:pointer;flex-shrink:0"><input type="text" value="${esc(item.texto)}" onchange="_tribUpdCheck('${t.id}',${i},this.value)" style="flex:1;padding:4px 6px;border:1px solid transparent;background:transparent;font-family:Poppins;font-size:12px;color:${item.feito?'#065f46':'#0f172a'};text-decoration:${item.feito?'line-through':'none'};border-radius:4px" onfocus="this.style.border='1px solid #cbd5e1';this.style.background='white'" onblur="this.style.border='1px solid transparent';this.style.background='transparent'"><button onclick="_tribRemCheck('${t.id}',${i})" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:14px;padding:2px 6px" title="Remover">✕</button></div>`).join('') || '<div style="color:#94a3b8;font-size:12px;font-style:italic;padding:6px">Nenhum item no checklist.</div>';
@@ -12611,13 +12637,13 @@ window._tribAbrirModal = function(id) {
       <textarea onchange="_tribUpd('${t.id}','descricao',this.value)" style="width:100%;min-height:60px;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-family:Poppins;font-size:12.5px;margin-top:4px;resize:vertical;background:white">${esc(t.descricao || '')}</textarea>
     </div>
     
-    <div style="margin-bottom:12px;padding:12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px">
-        <div style="font-size:11.5px;font-weight:800;color:#1e40af;text-transform:uppercase;letter-spacing:0.5px">📎 Anexos (links)</div>
-        <button onclick="_tribAddAnexo('${t.id}')" style="padding:5px 10px;background:#2563eb;color:white;border:none;border-radius:6px;font-family:Poppins;font-weight:700;font-size:11px;cursor:pointer">+ Adicionar link</button>
+    <div style="margin-bottom:16px">
+      <div style="font-size:11.5px;font-weight:800;color:#334155;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">💬 Comentários</div>
+      ${coments}
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <input type="text" id="tribNovoComent" placeholder="Adicionar comentário..." style="flex:1;padding:7px 10px;border:1px solid #cbd5e1;border-radius:6px;font-family:Poppins;font-size:12px;background:white">
+        <button onclick="_tribAddComent('${t.id}')" style="padding:7px 14px;background:#334155;color:white;border:none;border-radius:6px;font-family:Poppins;font-weight:700;font-size:11.5px;cursor:pointer">Enviar</button>
       </div>
-      <div style="font-size:10.5px;color:#1e40af;margin-bottom:8px;background:white;padding:6px 8px;border-radius:4px">💡 Cole aqui o link do arquivo hospedado no Google Drive, OneDrive ou similar. Apenas o link é salvo — o arquivo mora onde já está.</div>
-      ${anexosHtml}
     </div>
     
     <div style="margin-bottom:16px;padding:12px;background:#f0fdf4;border:1px solid #86efac;border-radius:8px">
@@ -12628,13 +12654,13 @@ window._tribAbrirModal = function(id) {
       ${checklistHtml}
     </div>
     
-    <div style="margin-bottom:16px">
-      <div style="font-size:11.5px;font-weight:800;color:#334155;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">💬 Comentários</div>
-      ${coments}
-      <div style="display:flex;gap:6px;margin-top:8px">
-        <input type="text" id="tribNovoComent" placeholder="Adicionar comentário..." style="flex:1;padding:7px 10px;border:1px solid #cbd5e1;border-radius:6px;font-family:Poppins;font-size:12px;background:white">
-        <button onclick="_tribAddComent('${t.id}')" style="padding:7px 14px;background:#334155;color:white;border:none;border-radius:6px;font-family:Poppins;font-weight:700;font-size:11.5px;cursor:pointer">Enviar</button>
+    <div style="margin-bottom:12px;padding:12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px">
+        <div style="font-size:11.5px;font-weight:800;color:#1e40af;text-transform:uppercase;letter-spacing:0.5px">📎 Anexos</div>
+        <button onclick="_tribUploadArquivo('${t.id}')" style="padding:5px 10px;background:#2563eb;color:white;border:none;border-radius:6px;font-family:Poppins;font-weight:700;font-size:11px;cursor:pointer">+ Anexar arquivo</button>
       </div>
+      <div style="font-size:10.5px;color:#1e40af;margin-bottom:8px;background:white;padding:6px 8px;border-radius:4px">💡 PDF, Word, Excel, imagens. Arquivos salvos no seu navegador (limite ~25MB por arquivo, ~500MB total). Não sobrecarrega nenhum servidor.</div>
+      ${anexosHtml}
     </div>
     
     <details style="margin-bottom:16px">
@@ -12741,52 +12767,134 @@ window._tribRemover = function(id) {
   renderTributario();
 };
 
-// ============ ANEXOS (só links — não sobrecarrega storage) ============
-window._tribAddAnexo = function(id) {
-  const link = prompt('Cole o LINK do arquivo (Google Drive, OneDrive, Dropbox, ou qualquer URL):');
-  if (!link || !link.trim()) return;
-  const url = link.trim();
-  // Validação básica: precisa começar com http/https
-  if (!/^https?:\/\//i.test(url)) {
-    alert('⚠️ O link precisa começar com http:// ou https://\n\nExemplo: https://drive.google.com/file/d/...');
-    return;
-  }
-  const descricao = prompt('Descrição curta do que é este anexo (ex: "Parecer Granville PDF", "NFS-e maio", "Print homologação"):');
-  if (!descricao || !descricao.trim()) return;
-  const por = prompt('Adicionado por (seu nome):', 'Leandro') || 'Leandro';
-  const data = JSON.parse(localStorage.getItem('tributario_v1') || '{"tarefas":[],"historico":[]}');
-  const t = data.tarefas.find(x => x.id === id);
-  if (!t) return;
-  t.evidencias = t.evidencias || [];
-  t.evidencias.push({ 
-    tipo: 'link', 
-    descricao: descricao.trim(), 
-    link: url, 
-    por: por.trim(), 
-    dataAdd: new Date().toISOString().slice(0,10) 
+// ============ ANEXOS — arquivos reais no IndexedDB (~500MB no navegador, zero servidor) ============
+window._tribAbrirDB = function() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('tributario_files', 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains('anexos')) db.createObjectStore('anexos');
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
   });
-  data.historico = data.historico || [];
-  data.historico.push({ 
-    tarefaId: id, 
-    data: new Date().toISOString().slice(0,16).replace('T',' '), 
-    acao: `Anexo +: ${descricao.slice(0,40)}` 
-  });
-  localStorage.setItem('tributario_v1', JSON.stringify(data));
-  _tribAbrirModal(id);
-  renderTributario();
 };
 
-window._tribRemAnexo = function(id, idx) {
-  if (!confirm('Remover este anexo? (o arquivo original no Drive/OneDrive NÃO é apagado, só o link daqui.)')) return;
+window._tribSalvarArquivoIDB = async function(key, blob) {
+  const db = await _tribAbrirDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(['anexos'], 'readwrite');
+    const req = tx.objectStore('anexos').put(blob, key);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+};
+
+window._tribBuscarArquivoIDB = async function(key) {
+  const db = await _tribAbrirDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(['anexos'], 'readonly');
+    const req = tx.objectStore('anexos').get(key);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+};
+
+window._tribDeletarArquivoIDB = async function(key) {
+  const db = await _tribAbrirDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(['anexos'], 'readwrite');
+    const req = tx.objectStore('anexos').delete(key);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+};
+
+// Abre file picker e anexa arquivo
+window._tribUploadArquivo = function(id) {
+  const inp = document.createElement('input');
+  inp.type = 'file';
+  inp.accept = '.pdf,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.png,.jpg,.jpeg,.gif,.webp,.txt,.zip';
+  inp.style.display = 'none';
+  document.body.appendChild(inp);
+  inp.onchange = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    document.body.removeChild(inp);
+    if (!file) return;
+    // Limite: 25 MB por arquivo (evita travar UI e limite prático)
+    if (file.size > 25 * 1024 * 1024) {
+      alert('⚠️ Arquivo grande demais.\n\nTamanho: ' + (file.size/1048576).toFixed(1) + ' MB\nLimite: 25 MB por arquivo.\n\nSe precisar anexar algo maior, converta para link do Google Drive.');
+      return;
+    }
+    const key = id + '-' + Date.now() + '-' + file.name.replace(/[^a-z0-9._-]/gi, '_');
+    try {
+      await _tribSalvarArquivoIDB(key, file);
+      const data = JSON.parse(localStorage.getItem('tributario_v1') || '{"tarefas":[],"historico":[]}');
+      const t = data.tarefas.find(x => x.id === id);
+      if (!t) return;
+      t.evidencias = t.evidencias || [];
+      t.evidencias.push({
+        tipo: 'arquivo',
+        nome: file.name,
+        tamanho: file.size,
+        mimeType: file.type || '',
+        idbKey: key,
+        por: 'Leandro',
+        dataAdd: new Date().toISOString().slice(0,10)
+      });
+      data.historico = data.historico || [];
+      data.historico.push({ 
+        tarefaId: id, 
+        data: new Date().toISOString().slice(0,16).replace('T',' '), 
+        acao: 'Arquivo anexado: ' + file.name 
+      });
+      localStorage.setItem('tributario_v1', JSON.stringify(data));
+      _tribAbrirModal(id);
+      renderTributario();
+    } catch(err) {
+      alert('Erro ao salvar arquivo:\n' + (err.message || err));
+    }
+  };
+  inp.click();
+};
+
+// Baixa arquivo do IndexedDB
+window._tribBaixarAnexo = async function(key, nome) {
+  try {
+    const blob = await _tribBuscarArquivoIDB(key);
+    if (!blob) {
+      alert('Arquivo não encontrado no navegador. Talvez tenha sido removido.');
+      return;
+    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = nome;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } catch(err) {
+    alert('Erro ao baixar arquivo: ' + (err.message || err));
+  }
+};
+
+// Remove anexo (do IndexedDB e da tarefa)
+window._tribRemAnexo = async function(id, idx) {
+  if (!confirm('Remover este anexo?')) return;
   const data = JSON.parse(localStorage.getItem('tributario_v1') || '{"tarefas":[],"historico":[]}');
   const t = data.tarefas.find(x => x.id === id);
   if (!t || !t.evidencias) return;
   const removido = t.evidencias.splice(idx, 1)[0];
+  // Se é arquivo no IndexedDB, deletar de lá também
+  if (removido.idbKey) {
+    try { await _tribDeletarArquivoIDB(removido.idbKey); } catch(e) {}
+  }
   data.historico = data.historico || [];
   data.historico.push({ 
     tarefaId: id, 
     data: new Date().toISOString().slice(0,16).replace('T',' '), 
-    acao: `Anexo removido: ${removido.descricao}` 
+    acao: 'Anexo removido: ' + (removido.nome || removido.descricao || 'arquivo') 
   });
   localStorage.setItem('tributario_v1', JSON.stringify(data));
   _tribAbrirModal(id);
@@ -12829,15 +12937,52 @@ window._tribDrop = function(e, colId) {
   if (col) { col.style.background = ''; col.style.borderColor = ''; col.style.borderWidth = ''; }
   const data = JSON.parse(localStorage.getItem('tributario_v1') || '{"tarefas":[],"historico":[]}');
   const t = data.tarefas.find(x => x.id === id);
-  if (!t || t.status === colId) return;
+  if (!t) return;
   const antes = t.status;
+  const mudouColuna = antes !== colId;
   t.status = colId;
-  if (colId === 'concluido') t.dataConclusao = new Date().toISOString().slice(0,10);
-  else if (antes === 'concluido') t.dataConclusao = '';
-  data.historico = data.historico || [];
-  data.historico.push({ tarefaId: id, data: new Date().toISOString().slice(0,16).replace('T',' '), acao: `Arrastada: ${antes} → ${colId}` });
+  if (colId === 'concluido' && antes !== 'concluido') t.dataConclusao = new Date().toISOString().slice(0,10);
+  else if (antes === 'concluido' && colId !== 'concluido') t.dataConclusao = '';
+  // Recalcular ordem: se soltou sobre outro card, vira antes/depois dele; senão vai pro final da coluna
+  const targetId = window._tribDropOnCardId;
+  const outrasDaCol = data.tarefas.filter(x => x.status === colId && x.id !== id).sort((a,b) => ((a.ordem||999999) - (b.ordem||999999)) || (a.dataCriacao||'').localeCompare(b.dataCriacao||''));
+  if (targetId && targetId !== id) {
+    const idxTgt = outrasDaCol.findIndex(x => x.id === targetId);
+    if (idxTgt >= 0) {
+      const before = window._tribDropBefore;
+      outrasDaCol.splice(before ? idxTgt : idxTgt + 1, 0, t);
+    } else {
+      outrasDaCol.push(t);
+    }
+  } else {
+    outrasDaCol.push(t);
+  }
+  outrasDaCol.forEach((x, i) => { x.ordem = i; });
+  window._tribDropOnCardId = null;
+  window._tribDropBefore = false;
+  if (mudouColuna) {
+    data.historico = data.historico || [];
+    data.historico.push({ tarefaId: id, data: new Date().toISOString().slice(0,16).replace('T',' '), acao: `Arrastada: ${antes} → ${colId}` });
+  }
   localStorage.setItem('tributario_v1', JSON.stringify(data));
   renderTributario();
+};
+
+// Card virou drop target também (para reordenar antes/depois)
+window._tribCardDragOver = function(e, cardId) {
+  e.preventDefault();
+  e.stopPropagation();
+  const rect = e.currentTarget.getBoundingClientRect();
+  const meio = rect.top + rect.height / 2;
+  window._tribDropOnCardId = cardId;
+  window._tribDropBefore = e.clientY < meio;
+  // Feedback visual: linha em cima ou embaixo
+  e.currentTarget.style.boxShadow = window._tribDropBefore 
+    ? 'inset 0 3px 0 0 #f59e0b' 
+    : 'inset 0 -3px 0 0 #f59e0b';
+};
+window._tribCardDragLeave = function(e) {
+  e.currentTarget.style.boxShadow = '';
 };
 
 // ============ CHECKLIST ============
