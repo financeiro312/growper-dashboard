@@ -12585,18 +12585,12 @@ window._tribAbrirModal = function(id) {
     return `<div style="background:white;border:1px solid #e2e8f0;border-radius:6px;padding:8px 10px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:700;color:#0f172a;margin-bottom:2px;display:flex;align-items:center;gap:6px"><span style="font-size:16px">${ic}</span><span style="word-break:break-all">${esc(e.nome)}</span></div><div style="font-size:10.5px;color:#64748b">${_tribFmtTam(e.tamanho)} · adicionado por ${esc(e.por || '—')} em ${e.dataAdd || ''}</div></div><button onclick="_tribBaixarAnexo('${e.idbKey}','${esc(e.nome).replace(/'/g,"\\'")}')" style="background:#2563eb;color:white;border:none;border-radius:6px;font-family:Poppins;font-weight:700;font-size:11px;cursor:pointer;padding:6px 10px" title="Baixar arquivo">⬇️ Baixar</button><button onclick="_tribRemAnexo('${t.id}',${i})" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:16px;padding:4px 8px" title="Remover">✕</button></div>`;
   }).join('') || '<div style="color:#94a3b8;font-size:12px;font-style:italic;padding:6px">Nenhum arquivo anexado.</div>';
   
-  // Checklist da tarefa (com botões ▲▼ para reordenar)
-  const checklistTotal = (t.checklist || []).length;
+  // Checklist da tarefa (drag & drop para reordenar via handle ⋮⋮)
   const checklistHtml = (t.checklist || []).map((item, i) => {
-    const canUp = i > 0;
-    const canDown = i < checklistTotal - 1;
-    return `<div style="display:flex;align-items:center;gap:6px;padding:6px 8px;background:${item.feito?'#f0fdf4':'#f8fafc'};border:1px solid ${item.feito?'#86efac':'#e2e8f0'};border-radius:6px;margin-bottom:4px">
-      <div style="display:flex;flex-direction:column;gap:1px;flex-shrink:0">
-        <button onclick="_tribMoveCheck('${t.id}',${i},-1)" ${canUp?'':'disabled'} title="Mover para cima" style="background:${canUp?'white':'#f1f5f9'};border:1px solid ${canUp?'#cbd5e1':'#e2e8f0'};color:${canUp?'#334155':'#cbd5e1'};cursor:${canUp?'pointer':'not-allowed'};font-size:9px;padding:0;width:18px;height:14px;line-height:1;border-radius:3px;font-family:Poppins">▲</button>
-        <button onclick="_tribMoveCheck('${t.id}',${i},1)" ${canDown?'':'disabled'} title="Mover para baixo" style="background:${canDown?'white':'#f1f5f9'};border:1px solid ${canDown?'#cbd5e1':'#e2e8f0'};color:${canDown?'#334155':'#cbd5e1'};cursor:${canDown?'pointer':'not-allowed'};font-size:9px;padding:0;width:18px;height:14px;line-height:1;border-radius:3px;font-family:Poppins">▼</button>
-      </div>
+    return `<div draggable="true" ondragstart="_tribCheckDragStart(event,'${t.id}',${i})" ondragend="_tribCheckDragEnd(event)" ondragover="_tribCheckDragOver(event,${i})" ondragleave="_tribCheckDragLeave(event)" ondrop="_tribCheckDrop(event,'${t.id}',${i})" data-check-idx="${i}" style="display:flex;align-items:center;gap:6px;padding:6px 8px;background:${item.feito?'#f0fdf4':'#f8fafc'};border:1px solid ${item.feito?'#86efac':'#e2e8f0'};border-radius:6px;margin-bottom:4px;transition:box-shadow 0.15s">
+      <span title="Arraste para reordenar" style="cursor:grab;color:#94a3b8;font-size:14px;line-height:1;padding:2px 4px;user-select:none;flex-shrink:0;font-family:monospace;letter-spacing:-2px">⋮⋮</span>
       <input type="checkbox" ${item.feito?'checked':''} onchange="_tribToggleCheck('${t.id}',${i},this.checked)" style="width:16px;height:16px;accent-color:#059669;cursor:pointer;flex-shrink:0">
-      <input type="text" value="${esc(item.texto)}" onchange="_tribUpdCheck('${t.id}',${i},this.value)" style="flex:1;padding:4px 6px;border:1px solid transparent;background:transparent;font-family:Poppins;font-size:12px;color:${item.feito?'#065f46':'#0f172a'};text-decoration:${item.feito?'line-through':'none'};border-radius:4px" onfocus="this.style.border='1px solid #cbd5e1';this.style.background='white'" onblur="this.style.border='1px solid transparent';this.style.background='transparent'">
+      <input type="text" value="${esc(item.texto)}" onchange="_tribUpdCheck('${t.id}',${i},this.value)" ondragstart="event.stopPropagation()" style="flex:1;padding:4px 6px;border:1px solid transparent;background:transparent;font-family:Poppins;font-size:12px;color:${item.feito?'#065f46':'#0f172a'};text-decoration:${item.feito?'line-through':'none'};border-radius:4px" onfocus="this.style.border='1px solid #cbd5e1';this.style.background='white'" onblur="this.style.border='1px solid transparent';this.style.background='transparent'">
       <button onclick="_tribRemCheck('${t.id}',${i})" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:14px;padding:2px 6px;flex-shrink:0" title="Remover">✕</button>
     </div>`;
   }).join('') || '<div style="color:#94a3b8;font-size:12px;font-style:italic;padding:6px">Nenhum item no checklist.</div>';
@@ -12688,6 +12682,10 @@ window._tribAbrirModal = function(id) {
     </div>
   </div>`;
   modal.style.display = 'flex';
+  // Clicar no backdrop (fundo escuro) fecha o modal — só se clicar FORA do card branco
+  modal.onclick = function(e) {
+    if (e.target === modal) _tribFecharModal();
+  };
   // Auto-resize inicial de todos os textareas do modal
   setTimeout(() => {
     modal.querySelectorAll('.tribAutoResize').forEach(el => _tribAjustarAltura(el));
@@ -13059,14 +13057,55 @@ window._tribCardDragLeave = function(e) {
 };
 
 // ============ CHECKLIST ============
-window._tribMoveCheck = function(id, idx, direcao) {
+// Drag & drop de itens do checklist
+window._tribCheckDragIdx = null;
+window._tribCheckDragStart = function(e, id, idx) {
+  window._tribCheckDragIdx = idx;
+  window._tribCheckDragTaskId = id;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', String(idx));
+  e.currentTarget.style.opacity = '0.4';
+};
+window._tribCheckDragEnd = function(e) {
+  e.currentTarget.style.opacity = '1';
+  // limpar destaques
+  document.querySelectorAll('[data-check-idx]').forEach(el => { el.style.boxShadow = ''; });
+};
+window._tribCheckDragOver = function(e, idxAlvo) {
+  e.preventDefault();
+  e.stopPropagation();
+  e.dataTransfer.dropEffect = 'move';
+  const rect = e.currentTarget.getBoundingClientRect();
+  const meio = rect.top + rect.height / 2;
+  const before = e.clientY < meio;
+  e.currentTarget.style.boxShadow = before 
+    ? 'inset 0 3px 0 0 #f59e0b' 
+    : 'inset 0 -3px 0 0 #f59e0b';
+  window._tribCheckDropBefore = before;
+};
+window._tribCheckDragLeave = function(e) {
+  e.currentTarget.style.boxShadow = '';
+};
+window._tribCheckDrop = function(e, id, idxAlvo) {
+  e.preventDefault();
+  e.stopPropagation();
+  e.currentTarget.style.boxShadow = '';
+  const idxOrig = window._tribCheckDragIdx;
+  if (idxOrig === null || idxOrig === undefined) return;
+  if (id !== window._tribCheckDragTaskId) return;  // só reordena dentro da mesma tarefa
   const data = JSON.parse(localStorage.getItem('tributario_v1') || '{"tarefas":[],"historico":[]}');
   const t = data.tarefas.find(x => x.id === id);
   if (!t || !t.checklist) return;
-  const novoIdx = idx + direcao;
-  if (novoIdx < 0 || novoIdx >= t.checklist.length) return;
-  const [item] = t.checklist.splice(idx, 1);
+  if (idxOrig === idxAlvo) { window._tribCheckDragIdx = null; return; }
+  const before = window._tribCheckDropBefore;
+  const [item] = t.checklist.splice(idxOrig, 1);
+  // Ajustar índice alvo se estava depois do original (que foi removido)
+  let novoIdx = idxAlvo;
+  if (idxOrig < idxAlvo) novoIdx = idxAlvo - 1;
+  if (!before) novoIdx++;
+  novoIdx = Math.max(0, Math.min(t.checklist.length, novoIdx));
   t.checklist.splice(novoIdx, 0, item);
+  window._tribCheckDragIdx = null;
   localStorage.setItem('tributario_v1', JSON.stringify(data));
   _tribAbrirModal(id);
 };
