@@ -12680,6 +12680,8 @@ window._tribAbrirModal = function(id) {
 window._tribFecharModal = function() {
   const m = document.getElementById('tribModal');
   if (m) m.style.display = 'none';
+  // Ao fechar, sincroniza o kanban (contadores, ordem, prioridade)
+  if (typeof renderTributario === 'function') renderTributario();
 };
 
 // Atualizar campo simples da tarefa
@@ -12814,45 +12816,61 @@ window._tribDeletarArquivoIDB = async function(key) {
 window._tribUploadArquivo = function(id) {
   const inp = document.createElement('input');
   inp.type = 'file';
+  inp.multiple = true;  // permite selecionar VÁRIOS arquivos de uma vez
   inp.accept = '.pdf,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.png,.jpg,.jpeg,.gif,.webp,.txt,.zip';
   inp.style.display = 'none';
   document.body.appendChild(inp);
   inp.onchange = async (e) => {
-    const file = e.target.files && e.target.files[0];
+    const files = Array.from(e.target.files || []);
     document.body.removeChild(inp);
-    if (!file) return;
-    // Limite: 25 MB por arquivo (evita travar UI e limite prático)
-    if (file.size > 25 * 1024 * 1024) {
-      alert('⚠️ Arquivo grande demais.\n\nTamanho: ' + (file.size/1048576).toFixed(1) + ' MB\nLimite: 25 MB por arquivo.\n\nSe precisar anexar algo maior, converta para link do Google Drive.');
-      return;
+    if (!files.length) return;
+    
+    const data = JSON.parse(localStorage.getItem('tributario_v1') || '{"tarefas":[],"historico":[]}');
+    const t = data.tarefas.find(x => x.id === id);
+    if (!t) return;
+    t.evidencias = t.evidencias || [];
+    data.historico = data.historico || [];
+    
+    const rejeitados = [];
+    const anexados = [];
+    
+    // Processa TODOS os arquivos selecionados
+    for (const file of files) {
+      // Limite 25 MB por arquivo
+      if (file.size > 25 * 1024 * 1024) {
+        rejeitados.push(file.name + ' (' + (file.size/1048576).toFixed(1) + ' MB)');
+        continue;
+      }
+      const key = id + '-' + Date.now() + '-' + Math.random().toString(36).slice(2,8) + '-' + file.name.replace(/[^a-z0-9._-]/gi, '_');
+      try {
+        await _tribSalvarArquivoIDB(key, file);
+        t.evidencias.push({
+          tipo: 'arquivo',
+          nome: file.name,
+          tamanho: file.size,
+          mimeType: file.type || '',
+          idbKey: key,
+          por: 'Leandro',
+          dataAdd: new Date().toISOString().slice(0,10)
+        });
+        data.historico.push({ 
+          tarefaId: id, 
+          data: new Date().toISOString().slice(0,16).replace('T',' '), 
+          acao: 'Arquivo anexado: ' + file.name 
+        });
+        anexados.push(file.name);
+      } catch(err) {
+        rejeitados.push(file.name + ' (erro: ' + (err.message || 'falha') + ')');
+      }
     }
-    const key = id + '-' + Date.now() + '-' + file.name.replace(/[^a-z0-9._-]/gi, '_');
-    try {
-      await _tribSalvarArquivoIDB(key, file);
-      const data = JSON.parse(localStorage.getItem('tributario_v1') || '{"tarefas":[],"historico":[]}');
-      const t = data.tarefas.find(x => x.id === id);
-      if (!t) return;
-      t.evidencias = t.evidencias || [];
-      t.evidencias.push({
-        tipo: 'arquivo',
-        nome: file.name,
-        tamanho: file.size,
-        mimeType: file.type || '',
-        idbKey: key,
-        por: 'Leandro',
-        dataAdd: new Date().toISOString().slice(0,10)
-      });
-      data.historico = data.historico || [];
-      data.historico.push({ 
-        tarefaId: id, 
-        data: new Date().toISOString().slice(0,16).replace('T',' '), 
-        acao: 'Arquivo anexado: ' + file.name 
-      });
-      localStorage.setItem('tributario_v1', JSON.stringify(data));
-      _tribAbrirModal(id);
-      renderTributario();
-    } catch(err) {
-      alert('Erro ao salvar arquivo:\n' + (err.message || err));
+    
+    localStorage.setItem('tributario_v1', JSON.stringify(data));
+    
+    // Re-renderizar SÓ o modal (não fecha, não re-renderiza kanban por baixo)
+    _tribAbrirModal(id);
+    
+    if (rejeitados.length > 0) {
+      alert('✅ ' + anexados.length + ' arquivo(s) anexado(s).\n\n⚠️ ' + rejeitados.length + ' rejeitado(s) por passar de 25 MB:\n\n• ' + rejeitados.join('\n• '));
     }
   };
   inp.click();
@@ -12879,7 +12897,7 @@ window._tribBaixarAnexo = async function(key, nome) {
   }
 };
 
-// Remove anexo (do IndexedDB e da tarefa)
+// Remove anexo (do IndexedDB e da tarefa) — mantém modal aberto
 window._tribRemAnexo = async function(id, idx) {
   if (!confirm('Remover este anexo?')) return;
   const data = JSON.parse(localStorage.getItem('tributario_v1') || '{"tarefas":[],"historico":[]}');
@@ -12898,7 +12916,7 @@ window._tribRemAnexo = async function(id, idx) {
   });
   localStorage.setItem('tributario_v1', JSON.stringify(data));
   _tribAbrirModal(id);
-  renderTributario();
+  // NÃO chama renderTributario aqui — kanban atualiza ao fechar o modal
 };
 
 // ============ DRAG & DROP ============
@@ -12998,7 +13016,7 @@ window._tribAddCheck = function(id) {
   data.historico.push({ tarefaId: id, data: new Date().toISOString().slice(0,16).replace('T',' '), acao: `Checklist +: ${texto.slice(0,40)}` });
   localStorage.setItem('tributario_v1', JSON.stringify(data));
   _tribAbrirModal(id);
-  renderTributario();
+  // kanban atualiza ao fechar modal
 };
 window._tribToggleCheck = function(id, idx, feito) {
   const data = JSON.parse(localStorage.getItem('tributario_v1') || '{"tarefas":[],"historico":[]}');
@@ -13009,7 +13027,6 @@ window._tribToggleCheck = function(id, idx, feito) {
   data.historico.push({ tarefaId: id, data: new Date().toISOString().slice(0,16).replace('T',' '), acao: `Checklist ${feito?'✓':'✗'}: ${t.checklist[idx].texto.slice(0,40)}` });
   localStorage.setItem('tributario_v1', JSON.stringify(data));
   _tribAbrirModal(id);
-  renderTributario();
 };
 window._tribUpdCheck = function(id, idx, texto) {
   const data = JSON.parse(localStorage.getItem('tributario_v1') || '{"tarefas":[],"historico":[]}');
