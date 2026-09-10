@@ -12588,7 +12588,7 @@ window._tribAbrirModal = function(id) {
   // Checklist da tarefa
   const checklistHtml = (t.checklist || []).map((item, i) => `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:${item.feito?'#f0fdf4':'#f8fafc'};border:1px solid ${item.feito?'#86efac':'#e2e8f0'};border-radius:6px;margin-bottom:4px"><input type="checkbox" ${item.feito?'checked':''} onchange="_tribToggleCheck('${t.id}',${i},this.checked)" style="width:16px;height:16px;accent-color:#059669;cursor:pointer;flex-shrink:0"><input type="text" value="${esc(item.texto)}" onchange="_tribUpdCheck('${t.id}',${i},this.value)" style="flex:1;padding:4px 6px;border:1px solid transparent;background:transparent;font-family:Poppins;font-size:12px;color:${item.feito?'#065f46':'#0f172a'};text-decoration:${item.feito?'line-through':'none'};border-radius:4px" onfocus="this.style.border='1px solid #cbd5e1';this.style.background='white'" onblur="this.style.border='1px solid transparent';this.style.background='transparent'"><button onclick="_tribRemCheck('${t.id}',${i})" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:14px;padding:2px 6px" title="Remover">✕</button></div>`).join('') || '<div style="color:#94a3b8;font-size:12px;font-style:italic;padding:6px">Nenhum item no checklist.</div>';
   
-  const coments = (t.comentarios || []).map(c => `<div style="background:#f8fafc;border-left:3px solid #94a3b8;padding:8px 12px;margin-bottom:6px;border-radius:0 6px 6px 0"><div style="font-size:12px;color:#0f172a;line-height:1.4">${esc(c.texto)}</div><div style="font-size:10.5px;color:#64748b;margin-top:4px">${c.data || ''} · ${esc(c.autor || 'Sistema')}</div></div>`).join('') || '<div style="color:#94a3b8;font-size:12px;font-style:italic;padding:8px">Sem comentários.</div>';
+  const coments = (t.comentarios || []).map((c, ci) => `<div style="background:#f8fafc;border-left:3px solid #94a3b8;padding:8px 12px;margin-bottom:6px;border-radius:0 6px 6px 0;position:relative"><button onclick="_tribRemComent('${t.id}',${ci})" title="Remover comentário" style="position:absolute;top:6px;right:6px;background:none;border:none;color:#dc2626;cursor:pointer;font-size:14px;padding:2px 6px;line-height:1;border-radius:4px" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='none'">✕</button><textarea class="tribAutoResize" oninput="_tribAjustarAltura(this)" onchange="_tribEditComent('${t.id}',${ci},this.value)" style="width:100%;padding:4px 22px 4px 0;border:1px solid transparent;background:transparent;font-family:Poppins;font-size:12px;color:#0f172a;line-height:1.5;resize:none;overflow:hidden;box-sizing:border-box" onfocus="this.style.border='1px solid #cbd5e1';this.style.background='white';this.style.padding='6px 22px 6px 8px';this.style.borderRadius='4px'" onblur="this.style.border='1px solid transparent';this.style.background='transparent';this.style.padding='4px 22px 4px 0'">${esc(c.texto)}</textarea><div style="font-size:10.5px;color:#64748b;margin-top:2px">${c.data || ''} · ${esc(c.autor || 'Sistema')}</div></div>`).join('') || '<div style="color:#94a3b8;font-size:12px;font-style:italic;padding:8px">Sem comentários.</div>';
   
   const historicoT = (data.historico || []).filter(h => h.tarefaId === t.id).slice(-10).reverse().map(h => `<div style="font-size:11px;color:#475569;padding:4px 0;border-bottom:1px solid #f1f5f9">${h.data || ''} · ${esc(h.acao)}</div>`).join('') || '<div style="color:#94a3b8;font-size:11px;font-style:italic">Sem histórico.</div>';
   
@@ -12767,6 +12767,39 @@ window._tribAddComent = function(id) {
   t.comentarios.push({ texto, autor: 'Leandro', data: new Date().toISOString().slice(0,16).replace('T',' ') });
   data.historico = data.historico || [];
   data.historico.push({ tarefaId: id, data: new Date().toISOString().slice(0,16).replace('T',' '), acao: `Comentário: ${texto.slice(0,40)}` });
+  localStorage.setItem('tributario_v1', JSON.stringify(data));
+  _tribAbrirModal(id);
+};
+
+window._tribEditComent = function(id, idx, novoTexto) {
+  const data = JSON.parse(localStorage.getItem('tributario_v1') || '{"tarefas":[],"historico":[]}');
+  const t = data.tarefas.find(x => x.id === id);
+  if (!t || !t.comentarios || !t.comentarios[idx]) return;
+  const antes = t.comentarios[idx].texto;
+  if (antes === novoTexto) return;
+  t.comentarios[idx].texto = novoTexto;
+  data.historico = data.historico || [];
+  data.historico.push({ 
+    tarefaId: id, 
+    data: new Date().toISOString().slice(0,16).replace('T',' '), 
+    acao: 'Comentário editado: ' + String(novoTexto).slice(0,40) 
+  });
+  localStorage.setItem('tributario_v1', JSON.stringify(data));
+  // Modal permanece aberto — não re-renderiza (perderia foco)
+};
+
+window._tribRemComent = function(id, idx) {
+  if (!confirm('Remover este comentário?')) return;
+  const data = JSON.parse(localStorage.getItem('tributario_v1') || '{"tarefas":[],"historico":[]}');
+  const t = data.tarefas.find(x => x.id === id);
+  if (!t || !t.comentarios || !t.comentarios[idx]) return;
+  const removido = t.comentarios.splice(idx, 1)[0];
+  data.historico = data.historico || [];
+  data.historico.push({ 
+    tarefaId: id, 
+    data: new Date().toISOString().slice(0,16).replace('T',' '), 
+    acao: 'Comentário removido: ' + String(removido.texto || '').slice(0,40) 
+  });
   localStorage.setItem('tributario_v1', JSON.stringify(data));
   _tribAbrirModal(id);
 };
