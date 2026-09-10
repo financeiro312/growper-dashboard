@@ -3979,7 +3979,7 @@ function renderMA() {
     
     <div style="background:white;border:1px solid #e2e8f0;border-radius:14px;padding:22px;margin-bottom:18px">
       <div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:16px">💼 VALUATION POR EBITDA</div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px">
         <div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border-radius:12px;padding:18px">
           <div style="font-size:10.5px;color:#92400e;font-weight:800;letter-spacing:0.5px">CONSERVADOR</div>
           <div style="font-size:22px;font-weight:800;color:#0f172a;margin-top:6px;letter-spacing:-0.4px">${_fmtCompact(valEbitdaConserv)}</div>
@@ -12245,11 +12245,42 @@ function renderTributario() {
   const _hojeISO = () => new Date().toISOString().slice(0, 10);
   const _esc = s => String(s || '').replace(/[<>&"']/g, ch => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[ch]));
 
-  // ============ Persistência ============
+  // ============ Persistência + migração ============
   const _tribLoad = () => {
     try { return JSON.parse(localStorage.getItem('tributario_v1') || 'null') || null; } catch(e) { return null; }
   };
   const _tribSave = (d) => { try { localStorage.setItem('tributario_v1', JSON.stringify(d)); } catch(e) {} };
+  
+  // Mapeamento V1 → V2 (novos responsáveis/áreas)
+  const _tribMigrar = (d) => {
+    if (!d || d.dataVersion === 2) return d;
+    const mapResp = {
+      'Growper': 'Leandro', 'Financeiro': 'Leandro',
+      'Contabilidade / Contase': 'Fornecedor Terceiros',
+      'Granville': 'Fornecedor Terceiros',
+      'Tecnologia / Will': 'William',
+      'Criação / Breno': 'Breno',
+      'Comercial': 'Leandro', 'Amazon': 'Leandro',
+      'Gráfica': 'Fornecedor Terceiros', 'Outros terceiros': 'Fornecedor Terceiros'
+    };
+    const mapArea = {
+      'Jurídico': 'Administrativo', 'Cadastro': 'Administrativo',
+      'Editorial': 'Criação', 'Produção': 'Administrativo',
+      'Comercial': 'Comercial', 'Amazon': 'Comercial',
+      'Tecnologia': 'Tecnologia', 'Precificação': 'Financeiro',
+      'Faturamento': 'Financeiro', 'Compliance': 'Contabilidade'
+    };
+    const mapStatus = { 'aguardando_terceiro': 'andamento', 'aguardando_growper': 'andamento' };
+    (d.tarefas || []).forEach(t => {
+      if (mapResp[t.responsavel]) t.responsavel = mapResp[t.responsavel];
+      if (mapArea[t.area]) t.area = mapArea[t.area];
+      if (mapStatus[t.status]) t.status = mapStatus[t.status];
+      if (!t.checklist) t.checklist = [];
+    });
+    d.dataVersion = 2;
+    _tribSave(d);
+    return d;
+  };
   
   // ============ Cards iniciais (semente) ============
   const _seedInicial = () => {
@@ -12387,24 +12418,24 @@ function renderTributario() {
   let data = _tribLoad();
   if (!data || !data.seedApplied) {
     data = _seedInicial();
+    // seed criado com nomes antigos; migração vai remapear e setar dataVersion=2
     _tribSave(data);
   }
+  data = _tribMigrar(data);
 
   if (!window._tribFiltros) window._tribFiltros = { responsavel: 'todos', area: 'todos', prioridade: 'todos', busca: '' };
   const F = window._tribFiltros;
 
-  // ============ COLUNAS DO KANBAN ============
+  // ============ COLUNAS DO KANBAN (4 lado a lado) ============
   const COLUNAS = [
-    { id: 'backlog',       titulo: 'Backlog / A Fazer',   cor: '#64748b', bg: '#f1f5f9', icone: '📋' },
-    { id: 'andamento',     titulo: 'Em Andamento',        cor: '#2563eb', bg: '#dbeafe', icone: '⚙️' },
-    { id: 'aguardando_terceiro', titulo: 'Aguardando Terceiro', cor: '#a855f7', bg: '#f3e8ff', icone: '⏳' },
-    { id: 'aguardando_growper',  titulo: 'Aguardando Growper',  cor: '#d97706', bg: '#fef3c7', icone: '🏢' },
-    { id: 'concluido',     titulo: 'Concluído',           cor: '#059669', bg: '#d1fae5', icone: '✅' },
-    { id: 'pendencia',     titulo: 'Pendência / Problema', cor: '#dc2626', bg: '#fee2e2', icone: '⚠️' }
+    { id: 'backlog',   titulo: 'Backlog / A Fazer',    cor: '#64748b', bg: '#f1f5f9', icone: '📋' },
+    { id: 'andamento', titulo: 'Em Andamento',          cor: '#2563eb', bg: '#dbeafe', icone: '⚙️' },
+    { id: 'concluido', titulo: 'Concluído',             cor: '#059669', bg: '#d1fae5', icone: '✅' },
+    { id: 'pendencia', titulo: 'Pendência / Problema',  cor: '#dc2626', bg: '#fee2e2', icone: '⚠️' }
   ];
 
-  const RESPONSAVEIS = ['Growper', 'Financeiro', 'Contabilidade / Contase', 'Granville', 'Tecnologia / Will', 'Criação / Breno', 'Comercial', 'Amazon', 'Gráfica', 'Outros terceiros'];
-  const AREAS = ['Jurídico', 'Cadastro', 'Editorial', 'Produção', 'Comercial', 'Amazon', 'Tecnologia', 'Precificação', 'Faturamento', 'Compliance'];
+  const RESPONSAVEIS = ['Leandro', 'João', 'William', 'Vinícius', 'Breno', 'Daniel Pereira', 'Daniel Guimarães', 'Fornecedor Terceiros'];
+  const AREAS = ['Financeiro', 'Contabilidade', 'Granville', 'Tecnologia', 'Criação', 'Comercial', 'Administrativo', 'Performance'];
   const PRIORIDADES = { alta: { txt: '🔴 Alta', cor: '#dc2626' }, media: { txt: '🟡 Média', cor: '#d97706' }, baixa: { txt: '🟢 Baixa', cor: '#059669' } };
 
   // ============ Filtrar tarefas ============
@@ -12421,8 +12452,7 @@ function renderTributario() {
   const kTotal = tarefasFiltradas.length;
   const kConcluido = tarefasFiltradas.filter(t => t.status === 'concluido').length;
   const kAndamento = tarefasFiltradas.filter(t => t.status === 'andamento').length;
-  const kAgTerc = tarefasFiltradas.filter(t => t.status === 'aguardando_terceiro').length;
-  const kAgGrow = tarefasFiltradas.filter(t => t.status === 'aguardando_growper').length;
+  const kBacklog = tarefasFiltradas.filter(t => t.status === 'backlog').length;
   const kPend = tarefasFiltradas.filter(t => t.status === 'pendencia').length;
   const hj = _hojeISO();
   const kAtras = tarefasFiltradas.filter(t => t.status !== 'concluido' && t.prazo && t.prazo < hj).length;
@@ -12459,9 +12489,8 @@ function renderTributario() {
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:16px;margin-top:20px">
           <div><div style="font-size:9.5px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.8px;font-weight:600">Total</div><div style="font-size:22px;font-weight:800;color:#f8fafc">${kTotal}</div></div>
           <div><div style="font-size:9.5px;color:#86efac;text-transform:uppercase;letter-spacing:0.8px;font-weight:600">Concluídas</div><div style="font-size:22px;font-weight:800;color:#10b981">${kConcluido}</div></div>
+          <div><div style="font-size:9.5px;color:#cbd5e1;text-transform:uppercase;letter-spacing:0.8px;font-weight:600">Backlog</div><div style="font-size:22px;font-weight:800;color:#e2e8f0">${kBacklog}</div></div>
           <div><div style="font-size:9.5px;color:#93c5fd;text-transform:uppercase;letter-spacing:0.8px;font-weight:600">Em Andamento</div><div style="font-size:22px;font-weight:800;color:#3b82f6">${kAndamento}</div></div>
-          <div><div style="font-size:9.5px;color:#c4b5fd;text-transform:uppercase;letter-spacing:0.8px;font-weight:600">Ag. Terceiros</div><div style="font-size:22px;font-weight:800;color:#a855f7">${kAgTerc}</div></div>
-          <div><div style="font-size:9.5px;color:#fde047;text-transform:uppercase;letter-spacing:0.8px;font-weight:600">Ag. Growper</div><div style="font-size:22px;font-weight:800;color:#eab308">${kAgGrow}</div></div>
           <div><div style="font-size:9.5px;color:#fca5a5;text-transform:uppercase;letter-spacing:0.8px;font-weight:600">Pendências</div><div style="font-size:22px;font-weight:800;color:#ef4444">${kPend}</div></div>
           <div><div style="font-size:9.5px;color:#fca5a5;text-transform:uppercase;letter-spacing:0.8px;font-weight:600">Atrasadas</div><div style="font-size:22px;font-weight:800;color:#ef4444">${kAtras}</div></div>
         </div>
@@ -12490,11 +12519,11 @@ function renderTributario() {
     </div>
     
     <!-- KANBAN -->
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">`;
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px">`;
 
   COLUNAS.forEach(col => {
     const tarefasCol = tarefasFiltradas.filter(t => t.status === col.id);
-    html += `<div style="background:${col.bg};border:1px solid ${col.cor};border-radius:12px;padding:12px;min-height:200px;display:flex;flex-direction:column">
+    html += `<div ondragover="_tribDragOver(event, '${col.id}')" ondragleave="_tribDragLeave(event, '${col.id}')" ondrop="_tribDrop(event, '${col.id}')" data-col-id="${col.id}" style="background:${col.bg};border:1px solid ${col.cor};border-radius:12px;padding:12px;min-height:200px;display:flex;flex-direction:column;transition:all 0.15s">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 8px 12px;border-bottom:2px solid ${col.cor};margin-bottom:10px">
         <div style="display:flex;align-items:center;gap:8px">
           <span style="font-size:16px">${col.icone}</span>
@@ -12511,14 +12540,16 @@ function renderTributario() {
       const atrasada = t.prazo && t.status !== 'concluido' && t.prazo < hj;
       const numEvid = (t.evidencias || []).length;
       const numComent = (t.comentarios || []).length;
-      html += `<div onclick="_tribAbrirModal('${t.id}')" style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;cursor:pointer;transition:all 0.15s;box-shadow:0 1px 2px rgba(0,0,0,0.04);border-left:3px solid ${prio.cor}${atrasada?';border:1px solid #ef4444;background:#fef2f2':''}" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 1px 2px rgba(0,0,0,0.04)'">
+      const numCheck = (t.checklist || []).length;
+      const numCheckFeito = (t.checklist || []).filter(c => c.feito).length;
+      html += `<div draggable="true" ondragstart="_tribDragStart(event, '${t.id}')" ondragend="_tribDragEnd(event)" onclick="_tribAbrirModal('${t.id}')" style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;cursor:grab;transition:all 0.15s;box-shadow:0 1px 2px rgba(0,0,0,0.04);border-left:3px solid ${prio.cor}${atrasada?';border:1px solid #ef4444;background:#fef2f2':''}" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 1px 2px rgba(0,0,0,0.04)'">
         <div style="font-size:12.5px;font-weight:700;color:#0f172a;line-height:1.3;margin-bottom:6px">${_esc(t.titulo)}</div>
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:10.5px">
           <span style="background:#f1f5f9;color:#475569;padding:2px 7px;border-radius:4px;font-weight:600">${_esc(t.responsavel)}</span>
           ${t.area?`<span style="background:#fef3c7;color:#78350f;padding:2px 7px;border-radius:4px;font-weight:600">${_esc(t.area)}</span>`:''}
           ${t.prazo?`<span style="color:${atrasada?'#dc2626':'#64748b'};font-weight:${atrasada?'800':'500'}">${atrasada?'⚠️ ':'📅 '}${_fmtDataBR(t.prazo)}</span>`:''}
         </div>
-        ${(numEvid+numComent)>0?`<div style="margin-top:6px;display:flex;gap:8px;font-size:10.5px;color:#64748b">${numEvid>0?`<span>📎 ${numEvid}</span>`:''}${numComent>0?`<span>💬 ${numComent}</span>`:''}</div>`:''}
+        ${(numCheck+numComent)>0?`<div style="margin-top:6px;display:flex;gap:8px;font-size:10.5px;color:#64748b">${numCheck>0?`<span>☑️ ${numCheckFeito}/${numCheck}</span>`:''}${numComent>0?`<span>💬 ${numComent}</span>`:''}</div>`:''}
       </div>`;
     });
     html += `</div></div>`;
@@ -12548,18 +12579,17 @@ window._tribAbrirModal = function(id) {
   if (!modal) return;
   
   const esc = s => String(s || '').replace(/[<>&"']/g, ch => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[ch]));
-  const RESPS = ['Growper','Financeiro','Contabilidade / Contase','Granville','Tecnologia / Will','Criação / Breno','Comercial','Amazon','Gráfica','Outros terceiros'];
-  const AREAS = ['Jurídico','Cadastro','Editorial','Produção','Comercial','Amazon','Tecnologia','Precificação','Faturamento','Compliance'];
+  const RESPS = ['Leandro','João','William','Vinícius','Breno','Daniel Pereira','Daniel Guimarães','Fornecedor Terceiros'];
+  const AREAS = ['Financeiro','Contabilidade','Granville','Tecnologia','Criação','Comercial','Administrativo','Performance'];
   const STATUS = [
     { id:'backlog', txt:'Backlog / A Fazer' },
     { id:'andamento', txt:'Em Andamento' },
-    { id:'aguardando_terceiro', txt:'Aguardando Terceiro' },
-    { id:'aguardando_growper', txt:'Aguardando Growper' },
     { id:'concluido', txt:'Concluído' },
     { id:'pendencia', txt:'Pendência / Problema' }
   ];
   
-  const evids = (t.evidencias || []).map((e,i) => `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px 10px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:700;color:#0f172a">${esc(e.tipo)}: ${esc(e.descricao)}</div>${e.link?`<a href="${esc(e.link)}" target="_blank" style="font-size:11px;color:#2563eb;text-decoration:none">🔗 ${esc(e.link)}</a>`:''}<div style="font-size:10.5px;color:#64748b;margin-top:2px">${e.dataAdd || ''} por ${esc(e.por || '—')}</div></div><button onclick="_tribRemEvid('${t.id}',${i})" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:16px" title="Remover">✕</button></div>`).join('') || '<div style="color:#94a3b8;font-size:12px;font-style:italic;padding:8px">Nenhuma evidência anexada.</div>';
+  // Checklist da tarefa
+  const checklistHtml = (t.checklist || []).map((item, i) => `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:${item.feito?'#f0fdf4':'#f8fafc'};border:1px solid ${item.feito?'#86efac':'#e2e8f0'};border-radius:6px;margin-bottom:4px"><input type="checkbox" ${item.feito?'checked':''} onchange="_tribToggleCheck('${t.id}',${i},this.checked)" style="width:16px;height:16px;accent-color:#059669;cursor:pointer;flex-shrink:0"><input type="text" value="${esc(item.texto)}" onchange="_tribUpdCheck('${t.id}',${i},this.value)" style="flex:1;padding:4px 6px;border:1px solid transparent;background:transparent;font-family:Poppins;font-size:12px;color:${item.feito?'#065f46':'#0f172a'};text-decoration:${item.feito?'line-through':'none'};border-radius:4px" onfocus="this.style.border='1px solid #cbd5e1';this.style.background='white'" onblur="this.style.border='1px solid transparent';this.style.background='transparent'"><button onclick="_tribRemCheck('${t.id}',${i})" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:14px;padding:2px 6px" title="Remover">✕</button></div>`).join('') || '<div style="color:#94a3b8;font-size:12px;font-style:italic;padding:6px">Nenhum item no checklist.</div>';
   
   const coments = (t.comentarios || []).map(c => `<div style="background:#f8fafc;border-left:3px solid #94a3b8;padding:8px 12px;margin-bottom:6px;border-radius:0 6px 6px 0"><div style="font-size:12px;color:#0f172a;line-height:1.4">${esc(c.texto)}</div><div style="font-size:10.5px;color:#64748b;margin-top:4px">${c.data || ''} · ${esc(c.autor || 'Sistema')}</div></div>`).join('') || '<div style="color:#94a3b8;font-size:12px;font-style:italic;padding:8px">Sem comentários.</div>';
   
@@ -12602,10 +12632,7 @@ window._tribAbrirModal = function(id) {
         <label style="font-size:10.5px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Prazo</label>
         <input type="date" value="${esc(t.prazo || '')}" onchange="_tribUpd('${t.id}','prazo',this.value)" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-family:Poppins;font-size:12.5px;margin-top:4px;background:white">
       </div>
-      <div>
-        <label style="font-size:10.5px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Dependência</label>
-        <input type="text" value="${esc(t.dependencia || '')}" onchange="_tribUpd('${t.id}','dependencia',this.value)" placeholder="ID de outra tarefa ou texto livre" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-family:Poppins;font-size:12.5px;margin-top:4px;background:white">
-      </div>
+
     </div>
     
     <div style="margin-bottom:16px">
@@ -12613,10 +12640,12 @@ window._tribAbrirModal = function(id) {
       <textarea onchange="_tribUpd('${t.id}','descricao',this.value)" style="width:100%;min-height:60px;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-family:Poppins;font-size:12.5px;margin-top:4px;resize:vertical;background:white">${esc(t.descricao || '')}</textarea>
     </div>
     
-    <div style="margin-bottom:16px;padding:12px;background:#fef3c7;border:1px solid #fbbf24;border-radius:8px">
-      <div style="font-size:11.5px;font-weight:800;color:#78350f;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">📎 Evidências (obrigatório para concluir)</div>
-      ${evids}
-      <button onclick="_tribAddEvid('${t.id}')" style="margin-top:8px;padding:6px 12px;background:#f59e0b;color:white;border:none;border-radius:6px;font-family:Poppins;font-weight:700;font-size:11.5px;cursor:pointer">+ Adicionar evidência</button>
+    <div style="margin-bottom:16px;padding:12px;background:#f0fdf4;border:1px solid #86efac;border-radius:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="font-size:11.5px;font-weight:800;color:#065f46;text-transform:uppercase;letter-spacing:0.5px">☑️ Checklist da tarefa</div>
+        <button onclick="_tribAddCheck('${t.id}')" style="padding:5px 10px;background:#10b981;color:white;border:none;border-radius:6px;font-family:Poppins;font-weight:700;font-size:11px;cursor:pointer">+ Adicionar item</button>
+      </div>
+      ${checklistHtml}
     </div>
     
     <div style="margin-bottom:16px">
@@ -12666,11 +12695,6 @@ window._tribMudarStatus = function(id, novoStatus) {
   const data = JSON.parse(localStorage.getItem('tributario_v1') || '{"tarefas":[],"historico":[]}');
   const t = data.tarefas.find(x => x.id === id);
   if (!t) return;
-  if (novoStatus === 'concluido' && (!t.evidencias || t.evidencias.length === 0)) {
-    alert('⚠️ Para marcar como CONCLUÍDO você precisa anexar pelo menos uma evidência (documento, protocolo, NF, comprovante, print, link, etc). Clique em "+ Adicionar evidência" antes.');
-    _tribAbrirModal(id);
-    return;
-  }
   const antes = t.status;
   t.status = novoStatus;
   if (novoStatus === 'concluido') t.dataConclusao = new Date().toISOString().slice(0,10);
@@ -12734,6 +12758,97 @@ window._tribRemover = function(id) {
   data.tarefas = data.tarefas.filter(x => x.id !== id);
   localStorage.setItem('tributario_v1', JSON.stringify(data));
   _tribFecharModal();
+  renderTributario();
+};
+
+// ============ DRAG & DROP ============
+window._tribDragStart = function(e, id) {
+  e.dataTransfer.setData('text/plain', id);
+  e.dataTransfer.effectAllowed = 'move';
+  e.target.style.opacity = '0.4';
+};
+window._tribDragEnd = function(e) {
+  e.target.style.opacity = '1';
+};
+window._tribDragOver = function(e, colId) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const col = e.currentTarget;
+  if (col && col.dataset.colId === colId) {
+    col.style.background = '#fef3c7';
+    col.style.borderColor = '#f59e0b';
+    col.style.borderWidth = '2px';
+  }
+};
+window._tribDragLeave = function(e, colId) {
+  const col = e.currentTarget;
+  if (col && !col.contains(e.relatedTarget)) {
+    // restaurar estilo original recolorindo pela cor default
+    col.style.background = '';
+    col.style.borderColor = '';
+    col.style.borderWidth = '';
+  }
+};
+window._tribDrop = function(e, colId) {
+  e.preventDefault();
+  const id = e.dataTransfer.getData('text/plain');
+  if (!id) return;
+  const col = e.currentTarget;
+  if (col) { col.style.background = ''; col.style.borderColor = ''; col.style.borderWidth = ''; }
+  const data = JSON.parse(localStorage.getItem('tributario_v1') || '{"tarefas":[],"historico":[]}');
+  const t = data.tarefas.find(x => x.id === id);
+  if (!t || t.status === colId) return;
+  const antes = t.status;
+  t.status = colId;
+  if (colId === 'concluido') t.dataConclusao = new Date().toISOString().slice(0,10);
+  else if (antes === 'concluido') t.dataConclusao = '';
+  data.historico = data.historico || [];
+  data.historico.push({ tarefaId: id, data: new Date().toISOString().slice(0,16).replace('T',' '), acao: `Arrastada: ${antes} → ${colId}` });
+  localStorage.setItem('tributario_v1', JSON.stringify(data));
+  renderTributario();
+};
+
+// ============ CHECKLIST ============
+window._tribAddCheck = function(id) {
+  const texto = prompt('Item do checklist:');
+  if (!texto || !texto.trim()) return;
+  const data = JSON.parse(localStorage.getItem('tributario_v1') || '{"tarefas":[],"historico":[]}');
+  const t = data.tarefas.find(x => x.id === id);
+  if (!t) return;
+  t.checklist = t.checklist || [];
+  t.checklist.push({ texto: texto.trim(), feito: false });
+  data.historico = data.historico || [];
+  data.historico.push({ tarefaId: id, data: new Date().toISOString().slice(0,16).replace('T',' '), acao: `Checklist +: ${texto.slice(0,40)}` });
+  localStorage.setItem('tributario_v1', JSON.stringify(data));
+  _tribAbrirModal(id);
+  renderTributario();
+};
+window._tribToggleCheck = function(id, idx, feito) {
+  const data = JSON.parse(localStorage.getItem('tributario_v1') || '{"tarefas":[],"historico":[]}');
+  const t = data.tarefas.find(x => x.id === id);
+  if (!t || !t.checklist || !t.checklist[idx]) return;
+  t.checklist[idx].feito = feito;
+  data.historico = data.historico || [];
+  data.historico.push({ tarefaId: id, data: new Date().toISOString().slice(0,16).replace('T',' '), acao: `Checklist ${feito?'✓':'✗'}: ${t.checklist[idx].texto.slice(0,40)}` });
+  localStorage.setItem('tributario_v1', JSON.stringify(data));
+  _tribAbrirModal(id);
+  renderTributario();
+};
+window._tribUpdCheck = function(id, idx, texto) {
+  const data = JSON.parse(localStorage.getItem('tributario_v1') || '{"tarefas":[],"historico":[]}');
+  const t = data.tarefas.find(x => x.id === id);
+  if (!t || !t.checklist || !t.checklist[idx]) return;
+  t.checklist[idx].texto = texto;
+  localStorage.setItem('tributario_v1', JSON.stringify(data));
+};
+window._tribRemCheck = function(id, idx) {
+  if (!confirm('Remover este item?')) return;
+  const data = JSON.parse(localStorage.getItem('tributario_v1') || '{"tarefas":[],"historico":[]}');
+  const t = data.tarefas.find(x => x.id === id);
+  if (!t || !t.checklist) return;
+  t.checklist.splice(idx, 1);
+  localStorage.setItem('tributario_v1', JSON.stringify(data));
+  _tribAbrirModal(id);
   renderTributario();
 };
 
