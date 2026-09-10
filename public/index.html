@@ -973,6 +973,7 @@ body.scalia-mode .company-badge {
     <div id="kpisSection" class="hidden"><div id="kpisContent"></div></div>
     <div id="reembolsoSection" class="hidden"><div id="reembolsoContainer" style="padding:24px 32px;font-family:Poppins,sans-serif"></div></div>
 <div id="dreSection" class="hidden"><div id="dreContent"></div></div>
+<div id="tributarioSection" class="hidden"><div id="tributarioContent"></div></div>
     <div id="pjsSection" class="hidden">
   <div style="display:flex;gap:8px;margin-bottom:24px;border-bottom:1px solid var(--border)">
     <button class="pj-tab-btn active" data-pjtab="custo" style="padding:10px 18px;border:none;background:transparent;color:var(--primary);font-family:Poppins;font-size:13px;font-weight:600;cursor:pointer;border-bottom:2px solid var(--primary)">💰 Custo</button>
@@ -4947,7 +4948,7 @@ function showSection(section) {
   // Re-aplicar destaque da categoria pai (garantia após reset)
   
   // Esconder TODAS as seções (Growper + Scalia)
-  ['mainSection','areaSection','cardSection','recebiveisSection','kpisSection','rhSection','notifSection','financeiroSection','maSection','estoqueSection','reembolsoSection','dreSection','pjsSection','margemSection','ticketSection','scaliaMainSection2','scaliaCardSection2','scaliaKitsSection2'].forEach(id => {
+  ['mainSection','areaSection','cardSection','recebiveisSection','kpisSection','rhSection','notifSection','financeiroSection','maSection','estoqueSection','reembolsoSection','dreSection','tributarioSection','pjsSection','margemSection','ticketSection','scaliaMainSection2','scaliaCardSection2','scaliaKitsSection2'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add('hidden');
   });
@@ -4957,7 +4958,7 @@ function showSection(section) {
     hub: 'Painel de Controle',
     main: 'Dashboard Principal', area: 'Análise por Área',
     card: 'Cartão de Crédito', recebiveis: 'Mensalidades', kpis: "KPI's Financeiros",
-    dre: 'DRE - Demonstração de Resultado', pjs: 'Análise de PJs',
+    dre: 'DRE - Demonstração de Resultado', tributario: 'Tributário — Implantação', pjs: 'Análise de PJs',
     margem: 'Margem de Lucro', ticket: 'Ticket Médio', rh: 'RH — Departamento Pessoal', estoque: 'Estoque',
     notif: 'Notificações', ma: 'M&A / Investor Ready', reembolso: 'Reembolso — Encontros Presenciais',
     scaliaMain: 'Dashboard Principal', scaliaCard: 'Cartão de Crédito', scaliaKits: 'Orçamento de Kits', kits: 'Orçamento de Kits'
@@ -4972,7 +4973,7 @@ function showSection(section) {
   const selContaWrap = document.getElementById('selContaWrap');
   
   // CARTÃO DE CRÉDITO, KITS ou RH: filtros minimalistas
-  if (section === 'card' || section === 'scaliaKits' || section === 'kits' || section === 'rh' || section === 'kpis' || section === 'recebiveis' || section === 'notif' || section === 'financeiro' || section === 'ma' || section === 'estoque' || section === 'reembolso') {
+  if (section === 'card' || section === 'scaliaKits' || section === 'kits' || section === 'rh' || section === 'kpis' || section === 'recebiveis' || section === 'notif' || section === 'financeiro' || section === 'ma' || section === 'estoque' || section === 'reembolso' || section === 'tributario') {
     viewBtns.classList.add('hidden');
     if (selConta) selConta.style.display = 'none';
     if (selConciliado) selConciliado.style.display = 'none';
@@ -5743,6 +5744,7 @@ function refreshCurrent() {
   else if (currentSection === 'card') renderCard();
   else if (currentSection === 'recebiveis') renderRecebiveis();
   else if (currentSection === 'dre') renderDRE();
+  else if (currentSection === 'tributario') renderTributario();
   else if (currentSection === 'pjs') renderPJs();
   else if (currentSection === 'margem') renderMargem();
   else if (currentSection === 'ticket') renderTicket();
@@ -12112,6 +12114,16 @@ window.CLIENTES_ELO = window.MENSALIDADES_ELO["2026-09"] || [];</script>
           <div style="font-size:12.5px;color:#94a3b8;line-height:1.55">Demonstração de resultado do exercício</div>
         </div>
       </div>
+      <div onclick="abrirMenu('tributario')" style="background:#1e293b;border:1px solid rgba(148,163,184,0.2);border-radius:14px;padding:22px 24px;cursor:pointer;display:flex;align-items:flex-start;gap:16px;min-height:90px;box-shadow:0 4px 12px rgba(0,0,0,0.25);transition:all 0.25s ease" onmouseover="this.style.borderColor='#f59e0b';this.style.transform='translateY(-3px)';this.style.background='#253449'" onmouseout="this.style.borderColor='rgba(148,163,184,0.2)';this.style.transform='translateY(0)';this.style.background='#1e293b'">
+        <div style="flex-shrink:0;width:44px;height:44px;border-radius:11px;display:inline-flex;align-items:center;justify-content:center;font-size:20px;background:#f59e0b;color:white">⚖️</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px">
+            <span style="font-size:15.5px;font-weight:700;color:#f8fafc">Tributário</span>
+            <span style="color:#64748b;font-size:16px">→</span>
+          </div>
+          <div style="font-size:12.5px;color:#94a3b8;line-height:1.55">Implantação e compliance tributário/editorial</div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -12168,7 +12180,8 @@ window._MENU_TO_CAT = {
   kpis: 'estrategico',
   ma: 'estrategico',
   notif: 'notif',
-  dre: 'contab'
+  dre: 'contab',
+  tributario: 'contab'
 };
 
 // Voltar para o painel da categoria do menu atual
@@ -12219,6 +12232,530 @@ window.showCategoryPage = abrirCategoria;
     };
   }
 })();
+
+
+// ============================================================================
+// TRIBUTÁRIO — Kanban de Implantação Tributária
+// ============================================================================
+function renderTributario() {
+  const container = document.getElementById('tributarioContent');
+  if (!container) return;
+
+  const _fmtDataBR = d => { if (!d) return '—'; try { const dt = new Date(d + (d.length===10?'T12:00:00':'')); return dt.toLocaleDateString('pt-BR'); } catch(e) { return d; } };
+  const _hojeISO = () => new Date().toISOString().slice(0, 10);
+  const _esc = s => String(s || '').replace(/[<>&"']/g, ch => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[ch]));
+
+  // ============ Persistência ============
+  const _tribLoad = () => {
+    try { return JSON.parse(localStorage.getItem('tributario_v1') || 'null') || null; } catch(e) { return null; }
+  };
+  const _tribSave = (d) => { try { localStorage.setItem('tributario_v1', JSON.stringify(d)); } catch(e) {} };
+  
+  // ============ Cards iniciais (semente) ============
+  const _seedInicial = () => {
+    const seed = { tarefas: [], historico: [], seedApplied: true };
+    let nextId = 1;
+    const add = (titulo, descricao, responsavel, area, status, prioridade, prazo) => {
+      seed.tarefas.push({
+        id: 't' + (nextId++),
+        titulo, descricao, responsavel, area, status,
+        prioridade: prioridade || 'media',
+        prazo: prazo || '',
+        dataCriacao: _hojeISO(),
+        dataConclusao: status === 'concluido' ? _hojeISO() : '',
+        dependencia: '',
+        evidencias: [],
+        comentarios: [],
+        origem: 'Semente inicial'
+      });
+    };
+
+    // JURÍDICO / GRANVILLE — CONCLUÍDO
+    add('Parecer Técnico-Tributário entregue', 'Documento formal com análise tributária/editorial.', 'Granville', 'Jurídico', 'concluido', 'alta');
+    add('Manual de Aplicação entregue', 'Manual prático de aplicação das regras.', 'Granville', 'Jurídico', 'concluido', 'alta');
+    add('Contratos da equipe revisados', '', 'Granville', 'Jurídico', 'concluido', 'media');
+    add('Contratos de autor revisados', '', 'Granville', 'Jurídico', 'concluido', 'media');
+    add('Contrato B2B revisado', '', 'Granville', 'Jurídico', 'concluido', 'media');
+    add('Contrato B2C/PF revisado', '', 'Granville', 'Jurídico', 'concluido', 'media');
+    add('Contrato de assinatura de periódico/publicações criado', '', 'Granville', 'Jurídico', 'concluido', 'alta');
+    add('Rodada final de ajustes dos contratos de clientes', '', 'Granville', 'Jurídico', 'concluido', 'media');
+    add('Orientação de uso dos contratos entregue', '', 'Granville', 'Jurídico', 'concluido', 'media');
+    add('Trabalhos contratados da Granville encerrados', '', 'Granville', 'Jurídico', 'concluido', 'alta');
+
+    // CADASTRO / CONTASE — CONCLUÍDO
+    add('Informações cadastrais enviadas à Contase', '', 'Contabilidade / Contase', 'Cadastro', 'concluido', 'alta');
+    add('Inscrição estadual recebida', '', 'Contabilidade / Contase', 'Cadastro', 'concluido', 'alta');
+    add('Cartão CNPJ atualizado recebido', '', 'Contabilidade / Contase', 'Cadastro', 'concluido', 'media');
+    add('Segunda alteração contratual deferida recebida', '', 'Contabilidade / Contase', 'Cadastro', 'concluido', 'media');
+
+    // CADASTRO / CONTASE — A FAZER
+    add('Confirmar dados cadastrais nos sistemas', 'Validar que todos os dados cadastrais estão corretamente refletidos em todos os sistemas utilizados.', 'Contabilidade / Contase', 'Cadastro', 'backlog', 'alta');
+    add('Confirmar credenciamento/emissão de NF-e de produto', '', 'Contabilidade / Contase', 'Cadastro', 'backlog', 'alta');
+    add('Confirmar parametrização dos CNAEs editoriais', '', 'Contabilidade / Contase', 'Cadastro', 'backlog', 'alta');
+    add('Confirmar manutenção dos CNAEs de serviço', '', 'Contabilidade / Contase', 'Cadastro', 'backlog', 'alta');
+    add('Pagar R$ 210,00 de renovação/regularização do CNPJ', 'Efetuar pagamento e anexar comprovante.', 'Financeiro', 'Cadastro', 'backlog', 'alta');
+    add('Anexar comprovante do pagamento do CNPJ', '', 'Financeiro', 'Cadastro', 'backlog', 'media');
+    add('Confirmar conclusão da renovação do CNPJ', '', 'Contabilidade / Contase', 'Cadastro', 'backlog', 'media');
+
+    // REGISTROS EDITORIAIS
+    add('Confirmar ISBN', '', 'Contabilidade / Contase', 'Editorial', 'backlog', 'alta');
+    add('Confirmar ficha catalográfica', '', 'Contabilidade / Contase', 'Editorial', 'backlog', 'alta');
+    add('Confirmar ISSN', '', 'Contabilidade / Contase', 'Editorial', 'backlog', 'alta');
+    add('Confirmar cadastro do periódico', '', 'Contabilidade / Contase', 'Editorial', 'backlog', 'alta');
+    add('Confirmar título definitivo do periódico', '', 'Growper', 'Editorial', 'backlog', 'alta');
+    add('Confirmar periodicidade', '', 'Growper', 'Editorial', 'backlog', 'alta');
+    add('Garantir ISSN nas edições', '', 'Criação / Breno', 'Editorial', 'backlog', 'alta');
+    add('Criar calendário editorial', '', 'Growper', 'Editorial', 'backlog', 'media');
+    add('Garantir edições datadas e regulares', '', 'Criação / Breno', 'Editorial', 'backlog', 'alta');
+    add('Confirmar expediente/editor/conselho/ano/número da edição', '', 'Criação / Breno', 'Editorial', 'backlog', 'alta');
+    add('Arquivar comprovantes dos registros', '', 'Financeiro', 'Editorial', 'backlog', 'media');
+
+    // PRODUÇÃO FÍSICA
+    add('Definir quantidade total da produção', '', 'Growper', 'Produção', 'backlog', 'alta');
+    add('Calcular tiragem mínima de 10%', '', 'Growper', 'Produção', 'backlog', 'alta');
+    add('Contratar gráfica', '', 'Growper', 'Produção', 'backlog', 'alta');
+    add('Produzir tiragem física', '', 'Gráfica', 'Produção', 'backlog', 'alta');
+    add('Guardar NF da gráfica', '', 'Financeiro', 'Produção', 'backlog', 'media');
+    add('Registrar quantidade produzida', '', 'Financeiro', 'Produção', 'backlog', 'media');
+    add('Organizar controle dos exemplares', '', 'Financeiro', 'Produção', 'backlog', 'media');
+    add('Organizar logística de remessa', '', 'Growper', 'Produção', 'backlog', 'media');
+    add('Organizar notas de remessa', '', 'Financeiro', 'Produção', 'backlog', 'media');
+    add('Efetuar depósito legal', '', 'Growper', 'Produção', 'backlog', 'alta');
+    add('Arquivar protocolos do depósito legal', '', 'Financeiro', 'Produção', 'backlog', 'media');
+
+    // SITE / COMERCIAL — Breno
+    add('Finalizar estrutura comercial do site', '', 'Criação / Breno', 'Comercial', 'backlog', 'alta');
+    add('Disponibilizar as publicações para venda no site', '', 'Criação / Breno', 'Comercial', 'backlog', 'alta');
+    add('Definir/exibir preço público', '', 'Criação / Breno', 'Comercial', 'backlog', 'alta');
+    add('Configurar fluxo de compra', '', 'Criação / Breno', 'Comercial', 'backlog', 'alta');
+    add('Realizar teste de compra', '', 'Criação / Breno', 'Comercial', 'backlog', 'alta');
+    add('Validar funcionamento da operação comercial', '', 'Criação / Breno', 'Comercial', 'backlog', 'alta');
+
+    // AMAZON — Leandro
+    add('Confirmar situação do cadastro da Growper na Amazon', '', 'Financeiro', 'Amazon', 'backlog', 'alta');
+    add('Identificar eventual pendência cadastral (Amazon)', '', 'Financeiro', 'Amazon', 'backlog', 'media');
+    add('Regularizar cadastro Amazon, se necessário', '', 'Financeiro', 'Amazon', 'backlog', 'media');
+    add('Publicar o e-book na Amazon', '', 'Financeiro', 'Amazon', 'backlog', 'alta');
+    add('Configurar preço público Amazon', '', 'Financeiro', 'Amazon', 'backlog', 'media');
+    add('Confirmar disponibilidade para venda na Amazon', '', 'Financeiro', 'Amazon', 'backlog', 'media');
+    add('Fazer validação final da publicação Amazon', '', 'Financeiro', 'Amazon', 'backlog', 'alta');
+
+    // TECNOLOGIA / DISPARO — Will
+    add('Levantar e-mails dos clientes', '', 'Tecnologia / Will', 'Tecnologia', 'backlog', 'alta');
+    add('Consolidar base de e-mails', '', 'Tecnologia / Will', 'Tecnologia', 'backlog', 'alta');
+    add('Validar clientes que receberão o periódico', '', 'Tecnologia / Will', 'Tecnologia', 'backlog', 'alta');
+    add('Configurar disparo dos periódicos', '', 'Tecnologia / Will', 'Tecnologia', 'backlog', 'alta');
+    add('Fazer teste de disparo', '', 'Tecnologia / Will', 'Tecnologia', 'backlog', 'alta');
+    add('Realizar primeiro disparo', '', 'Tecnologia / Will', 'Tecnologia', 'backlog', 'alta');
+    add('Confirmar entrega do disparo', '', 'Tecnologia / Will', 'Tecnologia', 'backlog', 'media');
+    add('Arquivar evidência do disparo', '', 'Financeiro', 'Tecnologia', 'backlog', 'media');
+
+    // PRECIFICAÇÃO / PVP
+    add('Elaborar memória de cálculo do rateio PVP', '', 'Contabilidade / Contase', 'Precificação', 'backlog', 'alta');
+    add('Definir tabela de preços públicos', '', 'Growper', 'Precificação', 'backlog', 'alta');
+    add('Validar preços das publicações', '', 'Growper', 'Precificação', 'backlog', 'alta');
+    add('Parametrizar faturamento segregado', '', 'Contabilidade / Contase', 'Precificação', 'backlog', 'alta');
+    add('Arquivar memória de cálculo do PVP', '', 'Financeiro', 'Precificação', 'backlog', 'media');
+    add('Definir rotina de revisão periódica de preços', '', 'Growper', 'Precificação', 'backlog', 'media');
+
+    // FATURAMENTO / CONTABILIDADE
+    add('Configurar NFS-e de serviço', '', 'Contabilidade / Contase', 'Faturamento', 'backlog', 'alta');
+    add('Configurar NF-e de produto', '', 'Contabilidade / Contase', 'Faturamento', 'backlog', 'alta');
+    add('Separar faturamento de serviço e produto', '', 'Financeiro', 'Faturamento', 'backlog', 'alta');
+    add('Definir classificação das receitas', '', 'Financeiro', 'Faturamento', 'backlog', 'alta');
+    add('Realizar primeiro faturamento segregado', '', 'Financeiro', 'Faturamento', 'backlog', 'alta');
+    add('Conferir primeira NFS-e', '', 'Contabilidade / Contase', 'Faturamento', 'backlog', 'alta');
+    add('Conferir primeira NF-e', '', 'Contabilidade / Contase', 'Faturamento', 'backlog', 'alta');
+    add('Conferir classificação contábil', '', 'Contabilidade / Contase', 'Faturamento', 'backlog', 'alta');
+    add('Conferir primeira apuração tributária', '', 'Contabilidade / Contase', 'Faturamento', 'backlog', 'alta');
+    add('Registrar eventuais ajustes de faturamento', '', 'Financeiro', 'Faturamento', 'backlog', 'media');
+
+    // COMPLIANCE TRIBUTÁRIO
+    add('Criar calendário tributário', '', 'Contabilidade / Contase', 'Compliance', 'backlog', 'alta');
+    add('Controlar obrigações acessórias', '', 'Contabilidade / Contase', 'Compliance', 'backlog', 'alta');
+    add('Controlar IBS/CBS', '', 'Contabilidade / Contase', 'Compliance', 'backlog', 'alta');
+    add('Preparar sistemas para 2027 (IBS/CBS)', '', 'Contabilidade / Contase', 'Compliance', 'backlog', 'alta');
+    add('Criar rotina mensal de conferência', '', 'Financeiro', 'Compliance', 'backlog', 'alta');
+    add('Criar rotina de arquivamento das evidências', '', 'Financeiro', 'Compliance', 'backlog', 'media');
+    add('Constituir reserva de contingência', '', 'Growper', 'Compliance', 'backlog', 'alta');
+    add('Agendar revisão anual do estudo tributário', '', 'Growper', 'Compliance', 'backlog', 'media');
+
+    return seed;
+  };
+
+  // ============ Estado ============
+  let data = _tribLoad();
+  if (!data || !data.seedApplied) {
+    data = _seedInicial();
+    _tribSave(data);
+  }
+
+  if (!window._tribFiltros) window._tribFiltros = { responsavel: 'todos', area: 'todos', prioridade: 'todos', busca: '' };
+  const F = window._tribFiltros;
+
+  // ============ COLUNAS DO KANBAN ============
+  const COLUNAS = [
+    { id: 'backlog',       titulo: 'Backlog / A Fazer',   cor: '#64748b', bg: '#f1f5f9', icone: '📋' },
+    { id: 'andamento',     titulo: 'Em Andamento',        cor: '#2563eb', bg: '#dbeafe', icone: '⚙️' },
+    { id: 'aguardando_terceiro', titulo: 'Aguardando Terceiro', cor: '#a855f7', bg: '#f3e8ff', icone: '⏳' },
+    { id: 'aguardando_growper',  titulo: 'Aguardando Growper',  cor: '#d97706', bg: '#fef3c7', icone: '🏢' },
+    { id: 'concluido',     titulo: 'Concluído',           cor: '#059669', bg: '#d1fae5', icone: '✅' },
+    { id: 'pendencia',     titulo: 'Pendência / Problema', cor: '#dc2626', bg: '#fee2e2', icone: '⚠️' }
+  ];
+
+  const RESPONSAVEIS = ['Growper', 'Financeiro', 'Contabilidade / Contase', 'Granville', 'Tecnologia / Will', 'Criação / Breno', 'Comercial', 'Amazon', 'Gráfica', 'Outros terceiros'];
+  const AREAS = ['Jurídico', 'Cadastro', 'Editorial', 'Produção', 'Comercial', 'Amazon', 'Tecnologia', 'Precificação', 'Faturamento', 'Compliance'];
+  const PRIORIDADES = { alta: { txt: '🔴 Alta', cor: '#dc2626' }, media: { txt: '🟡 Média', cor: '#d97706' }, baixa: { txt: '🟢 Baixa', cor: '#059669' } };
+
+  // ============ Filtrar tarefas ============
+  const filtrar = t => {
+    if (F.responsavel !== 'todos' && t.responsavel !== F.responsavel) return false;
+    if (F.area !== 'todos' && t.area !== F.area) return false;
+    if (F.prioridade !== 'todos' && t.prioridade !== F.prioridade) return false;
+    if (F.busca && !t.titulo.toLowerCase().includes(F.busca.toLowerCase())) return false;
+    return true;
+  };
+  const tarefasFiltradas = data.tarefas.filter(filtrar);
+
+  // ============ KPIs ============
+  const kTotal = tarefasFiltradas.length;
+  const kConcluido = tarefasFiltradas.filter(t => t.status === 'concluido').length;
+  const kAndamento = tarefasFiltradas.filter(t => t.status === 'andamento').length;
+  const kAgTerc = tarefasFiltradas.filter(t => t.status === 'aguardando_terceiro').length;
+  const kAgGrow = tarefasFiltradas.filter(t => t.status === 'aguardando_growper').length;
+  const kPend = tarefasFiltradas.filter(t => t.status === 'pendencia').length;
+  const hj = _hojeISO();
+  const kAtras = tarefasFiltradas.filter(t => t.status !== 'concluido' && t.prazo && t.prazo < hj).length;
+  const pct = kTotal > 0 ? ((kConcluido / kTotal) * 100) : 0;
+
+  // ============ HTML ============
+  let html = `<div style="padding:20px 24px;max-width:1900px;margin:0 auto;background:#f5f5f7;min-height:100vh">
+    <!-- HERO EXECUTIVO -->
+    <div style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#78350f 100%);border-radius:20px;padding:32px 36px;margin-bottom:20px;color:white;position:relative;overflow:hidden">
+      <div style="position:absolute;top:0;right:0;width:400px;height:400px;background:radial-gradient(circle,rgba(245,158,11,0.15) 0%,transparent 70%);pointer-events:none;border-radius:20px"></div>
+      <div style="position:relative;z-index:1">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap">
+          <div>
+            <div style="font-size:11px;color:#fcd34d;text-transform:uppercase;letter-spacing:2px;font-weight:700;margin-bottom:8px">⚖️ Contabilidade</div>
+            <h1 style="margin:0;font-size:28px;font-weight:800;letter-spacing:-1px;line-height:1.1">Tributário</h1>
+            <p style="margin:8px 0 0;color:#cbd5e1;font-size:13px">Implantação e compliance tributário/editorial · Kanban de tarefas</p>
+          </div>
+          <button onclick="_tribNovaTarefa()" style="padding:11px 20px;background:#f59e0b;color:white;border:none;border-radius:10px;font-family:Poppins;font-weight:700;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px">+ Nova tarefa</button>
+        </div>
+        
+        <!-- Progress bar geral -->
+        <div style="margin-top:24px;padding-top:22px;border-top:1px solid rgba(255,255,255,0.1)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <span style="font-size:12px;color:#fcd34d;font-weight:700;text-transform:uppercase;letter-spacing:1px">Progresso da Implantação</span>
+            <span style="font-size:20px;font-weight:800;color:#fcd34d">${pct.toFixed(1)}%</span>
+          </div>
+          <div style="height:10px;background:rgba(255,255,255,0.1);border-radius:6px;overflow:hidden">
+            <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#f59e0b,#fcd34d);border-radius:6px;transition:width 0.4s"></div>
+          </div>
+          <div style="margin-top:6px;font-size:11px;color:#94a3b8">${kConcluido} de ${kTotal} tarefas concluídas</div>
+        </div>
+        
+        <!-- KPI cards -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:16px;margin-top:20px">
+          <div><div style="font-size:9.5px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.8px;font-weight:600">Total</div><div style="font-size:22px;font-weight:800;color:#f8fafc">${kTotal}</div></div>
+          <div><div style="font-size:9.5px;color:#86efac;text-transform:uppercase;letter-spacing:0.8px;font-weight:600">Concluídas</div><div style="font-size:22px;font-weight:800;color:#10b981">${kConcluido}</div></div>
+          <div><div style="font-size:9.5px;color:#93c5fd;text-transform:uppercase;letter-spacing:0.8px;font-weight:600">Em Andamento</div><div style="font-size:22px;font-weight:800;color:#3b82f6">${kAndamento}</div></div>
+          <div><div style="font-size:9.5px;color:#c4b5fd;text-transform:uppercase;letter-spacing:0.8px;font-weight:600">Ag. Terceiros</div><div style="font-size:22px;font-weight:800;color:#a855f7">${kAgTerc}</div></div>
+          <div><div style="font-size:9.5px;color:#fde047;text-transform:uppercase;letter-spacing:0.8px;font-weight:600">Ag. Growper</div><div style="font-size:22px;font-weight:800;color:#eab308">${kAgGrow}</div></div>
+          <div><div style="font-size:9.5px;color:#fca5a5;text-transform:uppercase;letter-spacing:0.8px;font-weight:600">Pendências</div><div style="font-size:22px;font-weight:800;color:#ef4444">${kPend}</div></div>
+          <div><div style="font-size:9.5px;color:#fca5a5;text-transform:uppercase;letter-spacing:0.8px;font-weight:600">Atrasadas</div><div style="font-size:22px;font-weight:800;color:#ef4444">${kAtras}</div></div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- FILTROS -->
+    <div style="background:white;border-radius:12px;padding:14px 18px;margin-bottom:16px;border:1px solid #e2e8f0;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <span style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Filtros:</span>
+      <input type="text" placeholder="🔎 Buscar por título..." value="${_esc(F.busca)}" oninput="_tribSetFiltro('busca', this.value)" style="padding:7px 12px;border:1px solid #cbd5e1;border-radius:8px;font-family:Poppins;font-size:12.5px;flex:1;min-width:180px">
+      <select onchange="_tribSetFiltro('responsavel', this.value)" style="padding:7px 12px;border:1px solid #cbd5e1;border-radius:8px;font-family:Poppins;font-size:12.5px;background:white">
+        <option value="todos" ${F.responsavel==='todos'?'selected':''}>Todos responsáveis</option>
+        ${RESPONSAVEIS.map(r => `<option value="${_esc(r)}" ${F.responsavel===r?'selected':''}>${_esc(r)}</option>`).join('')}
+      </select>
+      <select onchange="_tribSetFiltro('area', this.value)" style="padding:7px 12px;border:1px solid #cbd5e1;border-radius:8px;font-family:Poppins;font-size:12.5px;background:white">
+        <option value="todos" ${F.area==='todos'?'selected':''}>Todas áreas</option>
+        ${AREAS.map(a => `<option value="${_esc(a)}" ${F.area===a?'selected':''}>${_esc(a)}</option>`).join('')}
+      </select>
+      <select onchange="_tribSetFiltro('prioridade', this.value)" style="padding:7px 12px;border:1px solid #cbd5e1;border-radius:8px;font-family:Poppins;font-size:12.5px;background:white">
+        <option value="todos" ${F.prioridade==='todos'?'selected':''}>Todas prioridades</option>
+        <option value="alta" ${F.prioridade==='alta'?'selected':''}>🔴 Alta</option>
+        <option value="media" ${F.prioridade==='media'?'selected':''}>🟡 Média</option>
+        <option value="baixa" ${F.prioridade==='baixa'?'selected':''}>🟢 Baixa</option>
+      </select>
+      <button onclick="window._tribFiltros={responsavel:'todos',area:'todos',prioridade:'todos',busca:''};renderTributario()" style="padding:7px 12px;background:#f1f5f9;color:#334155;border:1px solid #cbd5e1;border-radius:8px;font-family:Poppins;font-weight:600;font-size:11.5px;cursor:pointer">✕ Limpar</button>
+    </div>
+    
+    <!-- KANBAN -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">`;
+
+  COLUNAS.forEach(col => {
+    const tarefasCol = tarefasFiltradas.filter(t => t.status === col.id);
+    html += `<div style="background:${col.bg};border:1px solid ${col.cor};border-radius:12px;padding:12px;min-height:200px;display:flex;flex-direction:column">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 8px 12px;border-bottom:2px solid ${col.cor};margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:16px">${col.icone}</span>
+          <span style="font-size:12px;font-weight:800;color:${col.cor};text-transform:uppercase;letter-spacing:0.5px">${col.titulo}</span>
+        </div>
+        <span style="background:${col.cor};color:white;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:800">${tarefasCol.length}</span>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;gap:8px;max-height:520px;overflow-y:auto;padding:2px">`;
+    if (tarefasCol.length === 0) {
+      html += `<div style="text-align:center;padding:30px 10px;color:#94a3b8;font-size:12px;font-style:italic">— sem tarefas —</div>`;
+    }
+    tarefasCol.forEach(t => {
+      const prio = PRIORIDADES[t.prioridade] || PRIORIDADES.media;
+      const atrasada = t.prazo && t.status !== 'concluido' && t.prazo < hj;
+      const numEvid = (t.evidencias || []).length;
+      const numComent = (t.comentarios || []).length;
+      html += `<div onclick="_tribAbrirModal('${t.id}')" style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;cursor:pointer;transition:all 0.15s;box-shadow:0 1px 2px rgba(0,0,0,0.04);border-left:3px solid ${prio.cor}${atrasada?';border:1px solid #ef4444;background:#fef2f2':''}" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 1px 2px rgba(0,0,0,0.04)'">
+        <div style="font-size:12.5px;font-weight:700;color:#0f172a;line-height:1.3;margin-bottom:6px">${_esc(t.titulo)}</div>
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:10.5px">
+          <span style="background:#f1f5f9;color:#475569;padding:2px 7px;border-radius:4px;font-weight:600">${_esc(t.responsavel)}</span>
+          ${t.area?`<span style="background:#fef3c7;color:#78350f;padding:2px 7px;border-radius:4px;font-weight:600">${_esc(t.area)}</span>`:''}
+          ${t.prazo?`<span style="color:${atrasada?'#dc2626':'#64748b'};font-weight:${atrasada?'800':'500'}">${atrasada?'⚠️ ':'📅 '}${_fmtDataBR(t.prazo)}</span>`:''}
+        </div>
+        ${(numEvid+numComent)>0?`<div style="margin-top:6px;display:flex;gap:8px;font-size:10.5px;color:#64748b">${numEvid>0?`<span>📎 ${numEvid}</span>`:''}${numComent>0?`<span>💬 ${numComent}</span>`:''}</div>`:''}
+      </div>`;
+    });
+    html += `</div></div>`;
+  });
+
+  html += `</div></div>`;
+  
+  // Modal placeholder
+  html += `<div id="tribModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,0.7);z-index:9999;align-items:flex-start;justify-content:center;padding:40px 20px;overflow-y:auto"></div>`;
+  
+  container.innerHTML = html;
+}
+
+// ============ Filtros helper ============
+window._tribSetFiltro = function(campo, valor) {
+  if (!window._tribFiltros) window._tribFiltros = { responsavel: 'todos', area: 'todos', prioridade: 'todos', busca: '' };
+  window._tribFiltros[campo] = valor;
+  renderTributario();
+};
+
+// ============ Modal — abrir edição da tarefa ============
+window._tribAbrirModal = function(id) {
+  const data = JSON.parse(localStorage.getItem('tributario_v1') || '{"tarefas":[]}');
+  const t = data.tarefas.find(x => x.id === id);
+  if (!t) return;
+  const modal = document.getElementById('tribModal');
+  if (!modal) return;
+  
+  const esc = s => String(s || '').replace(/[<>&"']/g, ch => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[ch]));
+  const RESPS = ['Growper','Financeiro','Contabilidade / Contase','Granville','Tecnologia / Will','Criação / Breno','Comercial','Amazon','Gráfica','Outros terceiros'];
+  const AREAS = ['Jurídico','Cadastro','Editorial','Produção','Comercial','Amazon','Tecnologia','Precificação','Faturamento','Compliance'];
+  const STATUS = [
+    { id:'backlog', txt:'Backlog / A Fazer' },
+    { id:'andamento', txt:'Em Andamento' },
+    { id:'aguardando_terceiro', txt:'Aguardando Terceiro' },
+    { id:'aguardando_growper', txt:'Aguardando Growper' },
+    { id:'concluido', txt:'Concluído' },
+    { id:'pendencia', txt:'Pendência / Problema' }
+  ];
+  
+  const evids = (t.evidencias || []).map((e,i) => `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px 10px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:700;color:#0f172a">${esc(e.tipo)}: ${esc(e.descricao)}</div>${e.link?`<a href="${esc(e.link)}" target="_blank" style="font-size:11px;color:#2563eb;text-decoration:none">🔗 ${esc(e.link)}</a>`:''}<div style="font-size:10.5px;color:#64748b;margin-top:2px">${e.dataAdd || ''} por ${esc(e.por || '—')}</div></div><button onclick="_tribRemEvid('${t.id}',${i})" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:16px" title="Remover">✕</button></div>`).join('') || '<div style="color:#94a3b8;font-size:12px;font-style:italic;padding:8px">Nenhuma evidência anexada.</div>';
+  
+  const coments = (t.comentarios || []).map(c => `<div style="background:#f8fafc;border-left:3px solid #94a3b8;padding:8px 12px;margin-bottom:6px;border-radius:0 6px 6px 0"><div style="font-size:12px;color:#0f172a;line-height:1.4">${esc(c.texto)}</div><div style="font-size:10.5px;color:#64748b;margin-top:4px">${c.data || ''} · ${esc(c.autor || 'Sistema')}</div></div>`).join('') || '<div style="color:#94a3b8;font-size:12px;font-style:italic;padding:8px">Sem comentários.</div>';
+  
+  const historicoT = (data.historico || []).filter(h => h.tarefaId === t.id).slice(-10).reverse().map(h => `<div style="font-size:11px;color:#475569;padding:4px 0;border-bottom:1px solid #f1f5f9">${h.data || ''} · ${esc(h.acao)}</div>`).join('') || '<div style="color:#94a3b8;font-size:11px;font-style:italic">Sem histórico.</div>';
+  
+  modal.innerHTML = `<div style="background:white;border-radius:16px;max-width:720px;width:100%;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,0.3);position:relative">
+    <button onclick="_tribFecharModal()" style="position:absolute;top:14px;right:14px;background:none;border:none;font-size:22px;cursor:pointer;color:#64748b;padding:4px 8px">✕</button>
+    <div style="font-size:11px;color:#f59e0b;font-weight:800;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Tarefa #${t.id}</div>
+    <input type="text" value="${esc(t.titulo)}" onchange="_tribUpd('${t.id}','titulo',this.value)" style="width:100%;font-size:20px;font-weight:800;color:#0f172a;border:1px solid transparent;border-radius:6px;padding:6px 8px;margin-bottom:16px;background:transparent" onfocus="this.style.border='1px solid #cbd5e1';this.style.background='#f8fafc'" onblur="this.style.border='1px solid transparent';this.style.background='transparent'">
+    
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+      <div>
+        <label style="font-size:10.5px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Status</label>
+        <select onchange="_tribMudarStatus('${t.id}',this.value)" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-family:Poppins;font-size:12.5px;margin-top:4px;background:white">
+          ${STATUS.map(s => `<option value="${s.id}" ${t.status===s.id?'selected':''}>${s.txt}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <label style="font-size:10.5px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Responsável</label>
+        <select onchange="_tribUpd('${t.id}','responsavel',this.value)" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-family:Poppins;font-size:12.5px;margin-top:4px;background:white">
+          ${RESPS.map(r => `<option value="${esc(r)}" ${t.responsavel===r?'selected':''}>${esc(r)}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <label style="font-size:10.5px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Área</label>
+        <select onchange="_tribUpd('${t.id}','area',this.value)" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-family:Poppins;font-size:12.5px;margin-top:4px;background:white">
+          <option value="">—</option>
+          ${AREAS.map(a => `<option value="${esc(a)}" ${t.area===a?'selected':''}>${esc(a)}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <label style="font-size:10.5px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Prioridade</label>
+        <select onchange="_tribUpd('${t.id}','prioridade',this.value)" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-family:Poppins;font-size:12.5px;margin-top:4px;background:white">
+          <option value="alta" ${t.prioridade==='alta'?'selected':''}>🔴 Alta</option>
+          <option value="media" ${t.prioridade==='media'?'selected':''}>🟡 Média</option>
+          <option value="baixa" ${t.prioridade==='baixa'?'selected':''}>🟢 Baixa</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:10.5px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Prazo</label>
+        <input type="date" value="${esc(t.prazo || '')}" onchange="_tribUpd('${t.id}','prazo',this.value)" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-family:Poppins;font-size:12.5px;margin-top:4px;background:white">
+      </div>
+      <div>
+        <label style="font-size:10.5px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Dependência</label>
+        <input type="text" value="${esc(t.dependencia || '')}" onchange="_tribUpd('${t.id}','dependencia',this.value)" placeholder="ID de outra tarefa ou texto livre" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-family:Poppins;font-size:12.5px;margin-top:4px;background:white">
+      </div>
+    </div>
+    
+    <div style="margin-bottom:16px">
+      <label style="font-size:10.5px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Descrição</label>
+      <textarea onchange="_tribUpd('${t.id}','descricao',this.value)" style="width:100%;min-height:60px;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-family:Poppins;font-size:12.5px;margin-top:4px;resize:vertical;background:white">${esc(t.descricao || '')}</textarea>
+    </div>
+    
+    <div style="margin-bottom:16px;padding:12px;background:#fef3c7;border:1px solid #fbbf24;border-radius:8px">
+      <div style="font-size:11.5px;font-weight:800;color:#78350f;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">📎 Evidências (obrigatório para concluir)</div>
+      ${evids}
+      <button onclick="_tribAddEvid('${t.id}')" style="margin-top:8px;padding:6px 12px;background:#f59e0b;color:white;border:none;border-radius:6px;font-family:Poppins;font-weight:700;font-size:11.5px;cursor:pointer">+ Adicionar evidência</button>
+    </div>
+    
+    <div style="margin-bottom:16px">
+      <div style="font-size:11.5px;font-weight:800;color:#334155;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">💬 Comentários</div>
+      ${coments}
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <input type="text" id="tribNovoComent" placeholder="Adicionar comentário..." style="flex:1;padding:7px 10px;border:1px solid #cbd5e1;border-radius:6px;font-family:Poppins;font-size:12px;background:white">
+        <button onclick="_tribAddComent('${t.id}')" style="padding:7px 14px;background:#334155;color:white;border:none;border-radius:6px;font-family:Poppins;font-weight:700;font-size:11.5px;cursor:pointer">Enviar</button>
+      </div>
+    </div>
+    
+    <details style="margin-bottom:16px">
+      <summary style="cursor:pointer;font-size:11.5px;font-weight:800;color:#334155;text-transform:uppercase;letter-spacing:0.5px">📋 Histórico (últimas 10 alterações)</summary>
+      <div style="margin-top:8px;padding:10px;background:#f8fafc;border-radius:6px">${historicoT}</div>
+    </details>
+    
+    <div style="display:flex;gap:10px;padding-top:14px;border-top:1px solid #e2e8f0">
+      <button onclick="_tribRemover('${t.id}')" style="padding:9px 14px;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;border-radius:8px;font-family:Poppins;font-weight:700;font-size:12px;cursor:pointer">🗑️ Remover</button>
+      <div style="flex:1"></div>
+      <button onclick="_tribFecharModal()" style="padding:9px 16px;background:#f1f5f9;color:#334155;border:1px solid #cbd5e1;border-radius:8px;font-family:Poppins;font-weight:600;font-size:12px;cursor:pointer">Fechar</button>
+    </div>
+  </div>`;
+  modal.style.display = 'flex';
+};
+
+window._tribFecharModal = function() {
+  const m = document.getElementById('tribModal');
+  if (m) m.style.display = 'none';
+};
+
+// Atualizar campo simples da tarefa
+window._tribUpd = function(id, campo, valor) {
+  const data = JSON.parse(localStorage.getItem('tributario_v1') || '{"tarefas":[],"historico":[]}');
+  const t = data.tarefas.find(x => x.id === id);
+  if (!t) return;
+  const antes = t[campo];
+  t[campo] = valor;
+  data.historico = data.historico || [];
+  data.historico.push({ tarefaId: id, data: new Date().toISOString().slice(0,16).replace('T',' '), acao: `${campo}: "${String(antes).slice(0,30)}" → "${String(valor).slice(0,30)}"` });
+  localStorage.setItem('tributario_v1', JSON.stringify(data));
+  // Não re-render modal (evita perda de foco). Só re-render kanban se status/prazo/prioridade mudar visualmente
+  if (['status','prioridade','prazo','titulo','responsavel','area'].includes(campo)) renderTributario();
+};
+
+// Mudar status — se for concluído, exige evidência
+window._tribMudarStatus = function(id, novoStatus) {
+  const data = JSON.parse(localStorage.getItem('tributario_v1') || '{"tarefas":[],"historico":[]}');
+  const t = data.tarefas.find(x => x.id === id);
+  if (!t) return;
+  if (novoStatus === 'concluido' && (!t.evidencias || t.evidencias.length === 0)) {
+    alert('⚠️ Para marcar como CONCLUÍDO você precisa anexar pelo menos uma evidência (documento, protocolo, NF, comprovante, print, link, etc). Clique em "+ Adicionar evidência" antes.');
+    _tribAbrirModal(id);
+    return;
+  }
+  const antes = t.status;
+  t.status = novoStatus;
+  if (novoStatus === 'concluido') t.dataConclusao = new Date().toISOString().slice(0,10);
+  else if (antes === 'concluido') t.dataConclusao = '';
+  data.historico = data.historico || [];
+  data.historico.push({ tarefaId: id, data: new Date().toISOString().slice(0,16).replace('T',' '), acao: `Status: ${antes} → ${novoStatus}` });
+  localStorage.setItem('tributario_v1', JSON.stringify(data));
+  renderTributario();
+  _tribAbrirModal(id);
+};
+
+// Adicionar evidência
+window._tribAddEvid = function(id) {
+  const tipo = prompt('Tipo da evidência (documento / protocolo / NF / comprovante / contrato / print / link / cadastro / relatório / e-mail / outro):');
+  if (!tipo) return;
+  const descricao = prompt('Descrição da evidência:');
+  if (!descricao) return;
+  const link = prompt('Link ou referência (opcional):');
+  const por = prompt('Adicionada por (seu nome):') || 'Leandro';
+  const data = JSON.parse(localStorage.getItem('tributario_v1') || '{"tarefas":[],"historico":[]}');
+  const t = data.tarefas.find(x => x.id === id);
+  if (!t) return;
+  t.evidencias = t.evidencias || [];
+  t.evidencias.push({ tipo, descricao, link: link || '', por, dataAdd: new Date().toISOString().slice(0,10) });
+  data.historico = data.historico || [];
+  data.historico.push({ tarefaId: id, data: new Date().toISOString().slice(0,16).replace('T',' '), acao: `Evidência adicionada: ${tipo} — ${descricao}` });
+  localStorage.setItem('tributario_v1', JSON.stringify(data));
+  _tribAbrirModal(id);
+};
+
+window._tribRemEvid = function(id, idx) {
+  if (!confirm('Remover esta evidência?')) return;
+  const data = JSON.parse(localStorage.getItem('tributario_v1') || '{"tarefas":[],"historico":[]}');
+  const t = data.tarefas.find(x => x.id === id);
+  if (!t) return;
+  const removida = t.evidencias.splice(idx, 1)[0];
+  data.historico = data.historico || [];
+  data.historico.push({ tarefaId: id, data: new Date().toISOString().slice(0,16).replace('T',' '), acao: `Evidência removida: ${removida.tipo} — ${removida.descricao}` });
+  localStorage.setItem('tributario_v1', JSON.stringify(data));
+  _tribAbrirModal(id);
+};
+
+window._tribAddComent = function(id) {
+  const inp = document.getElementById('tribNovoComent');
+  if (!inp || !inp.value.trim()) return;
+  const texto = inp.value.trim();
+  const data = JSON.parse(localStorage.getItem('tributario_v1') || '{"tarefas":[],"historico":[]}');
+  const t = data.tarefas.find(x => x.id === id);
+  if (!t) return;
+  t.comentarios = t.comentarios || [];
+  t.comentarios.push({ texto, autor: 'Leandro', data: new Date().toISOString().slice(0,16).replace('T',' ') });
+  data.historico = data.historico || [];
+  data.historico.push({ tarefaId: id, data: new Date().toISOString().slice(0,16).replace('T',' '), acao: `Comentário: ${texto.slice(0,40)}` });
+  localStorage.setItem('tributario_v1', JSON.stringify(data));
+  _tribAbrirModal(id);
+};
+
+window._tribRemover = function(id) {
+  if (!confirm('Remover esta tarefa permanentemente?')) return;
+  const data = JSON.parse(localStorage.getItem('tributario_v1') || '{"tarefas":[],"historico":[]}');
+  data.tarefas = data.tarefas.filter(x => x.id !== id);
+  localStorage.setItem('tributario_v1', JSON.stringify(data));
+  _tribFecharModal();
+  renderTributario();
+};
+
+window._tribNovaTarefa = function() {
+  const titulo = prompt('Título da tarefa:');
+  if (!titulo) return;
+  const data = JSON.parse(localStorage.getItem('tributario_v1') || '{"tarefas":[],"historico":[]}');
+  const id = 't' + Date.now();
+  data.tarefas.push({
+    id, titulo, descricao: '', responsavel: 'Growper', area: '', status: 'backlog',
+    prioridade: 'media', prazo: '', dataCriacao: new Date().toISOString().slice(0,10),
+    dataConclusao: '', dependencia: '', evidencias: [], comentarios: [],
+    origem: 'Criada manualmente'
+  });
+  data.historico = data.historico || [];
+  data.historico.push({ tarefaId: id, data: new Date().toISOString().slice(0,16).replace('T',' '), acao: `Criada: ${titulo}` });
+  localStorage.setItem('tributario_v1', JSON.stringify(data));
+  renderTributario();
+  _tribAbrirModal(id);
+};
+
+
 </script>
 
 </body>
