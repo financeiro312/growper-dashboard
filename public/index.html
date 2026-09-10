@@ -12497,6 +12497,7 @@ function renderTributario() {
       const numComent = (t.comentarios || []).length;
       const numCheck = (t.checklist || []).length;
       const numCheckFeito = (t.checklist || []).filter(c => c.feito).length;
+      const numAnex = (t.evidencias || []).length;
       html += `<div draggable="true" ondragstart="_tribDragStart(event, '${t.id}')" ondragend="_tribDragEnd(event)" onclick="_tribAbrirModal('${t.id}')" style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;cursor:grab;transition:all 0.15s;box-shadow:0 1px 2px rgba(0,0,0,0.04);border-left:3px solid ${prio.cor}${atrasada?';border:1px solid #ef4444;background:#fef2f2':''}" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 1px 2px rgba(0,0,0,0.04)'">
         <div style="font-size:12.5px;font-weight:700;color:#0f172a;line-height:1.3;margin-bottom:6px">${_esc(t.titulo)}</div>
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:10.5px">
@@ -12504,7 +12505,7 @@ function renderTributario() {
           ${t.area?`<span style="background:#fef3c7;color:#78350f;padding:2px 7px;border-radius:4px;font-weight:600">${_esc(t.area)}</span>`:''}
           ${t.prazo?`<span style="color:${atrasada?'#dc2626':'#64748b'};font-weight:${atrasada?'800':'500'}">${atrasada?'⚠️ ':'📅 '}${_fmtDataBR(t.prazo)}</span>`:''}
         </div>
-        ${(numCheck+numComent)>0?`<div style="margin-top:6px;display:flex;gap:8px;font-size:10.5px;color:#64748b">${numCheck>0?`<span>☑️ ${numCheckFeito}/${numCheck}</span>`:''}${numComent>0?`<span>💬 ${numComent}</span>`:''}</div>`:''}
+        ${(numCheck+numComent+numAnex)>0?`<div style="margin-top:6px;display:flex;gap:8px;font-size:10.5px;color:#64748b">${numCheck>0?`<span>☑️ ${numCheckFeito}/${numCheck}</span>`:''}${numAnex>0?`<span>📎 ${numAnex}</span>`:''}${numComent>0?`<span>💬 ${numComent}</span>`:''}</div>`:''}
       </div>`;
     });
     html += `</div></div>`;
@@ -12542,6 +12543,21 @@ window._tribAbrirModal = function(id) {
     { id:'concluido', txt:'Concluído' },
     { id:'pendencia', txt:'Pendência / Problema' }
   ];
+  
+  // Anexos (só links, nunca upload — não sobrecarrega storage)
+  const anexosHtml = (t.evidencias || []).map((e,i) => {
+    const icone = e.link.includes('drive.google') ? '🔗 Drive' :
+                  e.link.includes('docs.google') ? '📄 Google Docs' :
+                  e.link.includes('sheets.google') ? '📊 Google Sheets' :
+                  e.link.includes('onedrive') || e.link.includes('sharepoint') ? '☁️ OneDrive' :
+                  e.link.includes('dropbox') ? '📦 Dropbox' :
+                  e.link.match(/\.(pdf)($|\?)/i) ? '📕 PDF' :
+                  e.link.match(/\.(doc|docx)($|\?)/i) ? '📘 Word' :
+                  e.link.match(/\.(xls|xlsx)($|\?)/i) ? '📗 Excel' :
+                  e.link.match(/\.(png|jpg|jpeg|gif|webp)($|\?)/i) ? '🖼️ Imagem' :
+                  '🔗 Link';
+    return `<div style="background:white;border:1px solid #e2e8f0;border-radius:6px;padding:8px 10px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:700;color:#0f172a;margin-bottom:2px">${icone} — ${esc(e.descricao)}</div><a href="${esc(e.link)}" target="_blank" rel="noopener" style="font-size:11px;color:#2563eb;text-decoration:none;word-break:break-all">🔗 Abrir link</a><div style="font-size:10.5px;color:#64748b;margin-top:2px">Adicionado por ${esc(e.por || '—')} em ${e.dataAdd || ''}</div></div><button onclick="_tribRemAnexo('${t.id}',${i})" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:16px;padding:4px 8px" title="Remover anexo">✕</button></div>`;
+  }).join('') || '<div style="color:#94a3b8;font-size:12px;font-style:italic;padding:6px">Nenhum anexo. Cole um link do Google Drive, OneDrive, Dropbox ou qualquer URL.</div>';
   
   // Checklist da tarefa
   const checklistHtml = (t.checklist || []).map((item, i) => `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:${item.feito?'#f0fdf4':'#f8fafc'};border:1px solid ${item.feito?'#86efac':'#e2e8f0'};border-radius:6px;margin-bottom:4px"><input type="checkbox" ${item.feito?'checked':''} onchange="_tribToggleCheck('${t.id}',${i},this.checked)" style="width:16px;height:16px;accent-color:#059669;cursor:pointer;flex-shrink:0"><input type="text" value="${esc(item.texto)}" onchange="_tribUpdCheck('${t.id}',${i},this.value)" style="flex:1;padding:4px 6px;border:1px solid transparent;background:transparent;font-family:Poppins;font-size:12px;color:${item.feito?'#065f46':'#0f172a'};text-decoration:${item.feito?'line-through':'none'};border-radius:4px" onfocus="this.style.border='1px solid #cbd5e1';this.style.background='white'" onblur="this.style.border='1px solid transparent';this.style.background='transparent'"><button onclick="_tribRemCheck('${t.id}',${i})" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:14px;padding:2px 6px" title="Remover">✕</button></div>`).join('') || '<div style="color:#94a3b8;font-size:12px;font-style:italic;padding:6px">Nenhum item no checklist.</div>';
@@ -12593,6 +12609,15 @@ window._tribAbrirModal = function(id) {
     <div style="margin-bottom:16px">
       <label style="font-size:10.5px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Descrição</label>
       <textarea onchange="_tribUpd('${t.id}','descricao',this.value)" style="width:100%;min-height:60px;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-family:Poppins;font-size:12.5px;margin-top:4px;resize:vertical;background:white">${esc(t.descricao || '')}</textarea>
+    </div>
+    
+    <div style="margin-bottom:12px;padding:12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px">
+        <div style="font-size:11.5px;font-weight:800;color:#1e40af;text-transform:uppercase;letter-spacing:0.5px">📎 Anexos (links)</div>
+        <button onclick="_tribAddAnexo('${t.id}')" style="padding:5px 10px;background:#2563eb;color:white;border:none;border-radius:6px;font-family:Poppins;font-weight:700;font-size:11px;cursor:pointer">+ Adicionar link</button>
+      </div>
+      <div style="font-size:10.5px;color:#1e40af;margin-bottom:8px;background:white;padding:6px 8px;border-radius:4px">💡 Cole aqui o link do arquivo hospedado no Google Drive, OneDrive ou similar. Apenas o link é salvo — o arquivo mora onde já está.</div>
+      ${anexosHtml}
     </div>
     
     <div style="margin-bottom:16px;padding:12px;background:#f0fdf4;border:1px solid #86efac;border-radius:8px">
@@ -12713,6 +12738,58 @@ window._tribRemover = function(id) {
   data.tarefas = data.tarefas.filter(x => x.id !== id);
   localStorage.setItem('tributario_v1', JSON.stringify(data));
   _tribFecharModal();
+  renderTributario();
+};
+
+// ============ ANEXOS (só links — não sobrecarrega storage) ============
+window._tribAddAnexo = function(id) {
+  const link = prompt('Cole o LINK do arquivo (Google Drive, OneDrive, Dropbox, ou qualquer URL):');
+  if (!link || !link.trim()) return;
+  const url = link.trim();
+  // Validação básica: precisa começar com http/https
+  if (!/^https?:\/\//i.test(url)) {
+    alert('⚠️ O link precisa começar com http:// ou https://\n\nExemplo: https://drive.google.com/file/d/...');
+    return;
+  }
+  const descricao = prompt('Descrição curta do que é este anexo (ex: "Parecer Granville PDF", "NFS-e maio", "Print homologação"):');
+  if (!descricao || !descricao.trim()) return;
+  const por = prompt('Adicionado por (seu nome):', 'Leandro') || 'Leandro';
+  const data = JSON.parse(localStorage.getItem('tributario_v1') || '{"tarefas":[],"historico":[]}');
+  const t = data.tarefas.find(x => x.id === id);
+  if (!t) return;
+  t.evidencias = t.evidencias || [];
+  t.evidencias.push({ 
+    tipo: 'link', 
+    descricao: descricao.trim(), 
+    link: url, 
+    por: por.trim(), 
+    dataAdd: new Date().toISOString().slice(0,10) 
+  });
+  data.historico = data.historico || [];
+  data.historico.push({ 
+    tarefaId: id, 
+    data: new Date().toISOString().slice(0,16).replace('T',' '), 
+    acao: `Anexo +: ${descricao.slice(0,40)}` 
+  });
+  localStorage.setItem('tributario_v1', JSON.stringify(data));
+  _tribAbrirModal(id);
+  renderTributario();
+};
+
+window._tribRemAnexo = function(id, idx) {
+  if (!confirm('Remover este anexo? (o arquivo original no Drive/OneDrive NÃO é apagado, só o link daqui.)')) return;
+  const data = JSON.parse(localStorage.getItem('tributario_v1') || '{"tarefas":[],"historico":[]}');
+  const t = data.tarefas.find(x => x.id === id);
+  if (!t || !t.evidencias) return;
+  const removido = t.evidencias.splice(idx, 1)[0];
+  data.historico = data.historico || [];
+  data.historico.push({ 
+    tarefaId: id, 
+    data: new Date().toISOString().slice(0,16).replace('T',' '), 
+    acao: `Anexo removido: ${removido.descricao}` 
+  });
+  localStorage.setItem('tributario_v1', JSON.stringify(data));
+  _tribAbrirModal(id);
   renderTributario();
 };
 
