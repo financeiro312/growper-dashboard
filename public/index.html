@@ -12251,165 +12251,120 @@ function renderTributario() {
   };
   const _tribSave = (d) => { try { localStorage.setItem('tributario_v1', JSON.stringify(d)); } catch(e) {} };
   
-  // Mapeamento V1 → V2 (novos responsáveis/áreas)
+  // Migração de versões
   const _tribMigrar = (d) => {
-    if (!d || d.dataVersion === 2) return d;
-    const mapResp = {
-      'Growper': 'Leandro', 'Financeiro': 'Leandro',
-      'Contabilidade / Contase': 'Fornecedor Terceiros',
-      'Granville': 'Fornecedor Terceiros',
-      'Tecnologia / Will': 'William',
-      'Criação / Breno': 'Breno',
-      'Comercial': 'Leandro', 'Amazon': 'Leandro',
-      'Gráfica': 'Fornecedor Terceiros', 'Outros terceiros': 'Fornecedor Terceiros'
-    };
-    const mapArea = {
-      'Jurídico': 'Administrativo', 'Cadastro': 'Administrativo',
-      'Editorial': 'Criação', 'Produção': 'Administrativo',
-      'Comercial': 'Comercial', 'Amazon': 'Comercial',
-      'Tecnologia': 'Tecnologia', 'Precificação': 'Financeiro',
-      'Faturamento': 'Financeiro', 'Compliance': 'Contabilidade'
-    };
-    const mapStatus = { 'aguardando_terceiro': 'andamento', 'aguardando_growper': 'andamento' };
-    (d.tarefas || []).forEach(t => {
-      if (mapResp[t.responsavel]) t.responsavel = mapResp[t.responsavel];
-      if (mapArea[t.area]) t.area = mapArea[t.area];
-      if (mapStatus[t.status]) t.status = mapStatus[t.status];
-      if (!t.checklist) t.checklist = [];
-    });
-    d.dataVersion = 2;
+    if (!d) return d;
+    // v1→v2: remapear responsáveis/áreas (mantido para compatibilidade)
+    if (!d.dataVersion || d.dataVersion < 2) {
+      const mapResp = {'Growper':'Leandro','Financeiro':'Leandro','Contabilidade / Contase':'Fornecedor Terceiros','Granville':'Fornecedor Terceiros','Tecnologia / Will':'William','Criação / Breno':'Breno','Comercial':'Leandro','Amazon':'Leandro','Gráfica':'Fornecedor Terceiros','Outros terceiros':'Fornecedor Terceiros'};
+      const mapArea = {'Jurídico':'Granville','Cadastro':'Administrativo','Editorial':'Criação','Produção':'Administrativo','Comercial':'Comercial','Amazon':'Comercial','Tecnologia':'Tecnologia','Precificação':'Financeiro','Faturamento':'Financeiro','Compliance':'Contabilidade'};
+      const mapStatus = { 'aguardando_terceiro': 'andamento', 'aguardando_growper': 'andamento' };
+      (d.tarefas || []).forEach(t => {
+        if (mapResp[t.responsavel]) t.responsavel = mapResp[t.responsavel];
+        if (mapArea[t.area]) t.area = mapArea[t.area];
+        if (mapStatus[t.status]) t.status = mapStatus[t.status];
+        if (!t.checklist) t.checklist = [];
+      });
+      d.dataVersion = 2;
+    }
+    // v2→v3: consolidar em macros — substitui tarefas e histórico
+    if (d.dataVersion < 3) {
+      const seedNovo = _seedInicial();
+      d.tarefas = seedNovo.tarefas;
+      d.historico = [];
+      d.dataVersion = 3;
+    }
     _tribSave(d);
     return d;
   };
   
-  // ============ Cards iniciais (semente) ============
+  // ============ Cards iniciais (semente v3 — macros consolidados) ============
   const _seedInicial = () => {
-    const seed = { tarefas: [], historico: [], seedApplied: true };
+    const seed = { tarefas: [], historico: [], seedApplied: true, dataVersion: 3 };
     let nextId = 1;
-    const add = (titulo, descricao, responsavel, area, status, prioridade, prazo) => {
+    const add = (titulo, descricao, responsavel, area, status, prioridade, checklist) => {
       seed.tarefas.push({
         id: 't' + (nextId++),
-        titulo, descricao, responsavel, area, status,
+        titulo, descricao: descricao || '',
+        responsavel: responsavel || 'Leandro',
+        area: area || '',
+        status: status || 'backlog',
         prioridade: prioridade || 'media',
-        prazo: prazo || '',
+        prazo: '',
         dataCriacao: _hojeISO(),
-        dataConclusao: status === 'concluido' ? _hojeISO() : '',
-        dependencia: '',
+        dataConclusao: '',
         evidencias: [],
+        checklist: (checklist || []).map(txt => ({ texto: txt, feito: false })),
         comentarios: [],
         origem: 'Semente inicial'
       });
     };
 
-    // JURÍDICO / GRANVILLE — CONCLUÍDO
-    add('Parecer Técnico-Tributário entregue', 'Documento formal com análise tributária/editorial.', 'Granville', 'Jurídico', 'concluido', 'alta');
-    add('Manual de Aplicação entregue', 'Manual prático de aplicação das regras.', 'Granville', 'Jurídico', 'concluido', 'alta');
-    add('Contratos da equipe revisados', '', 'Granville', 'Jurídico', 'concluido', 'media');
-    add('Contratos de autor revisados', '', 'Granville', 'Jurídico', 'concluido', 'media');
-    add('Contrato B2B revisado', '', 'Granville', 'Jurídico', 'concluido', 'media');
-    add('Contrato B2C/PF revisado', '', 'Granville', 'Jurídico', 'concluido', 'media');
-    add('Contrato de assinatura de periódico/publicações criado', '', 'Granville', 'Jurídico', 'concluido', 'alta');
-    add('Rodada final de ajustes dos contratos de clientes', '', 'Granville', 'Jurídico', 'concluido', 'media');
-    add('Orientação de uso dos contratos entregue', '', 'Granville', 'Jurídico', 'concluido', 'media');
-    add('Trabalhos contratados da Granville encerrados', '', 'Granville', 'Jurídico', 'concluido', 'alta');
+    // === EM ANDAMENTO (mover para Concluído manualmente) ===
+    add('Parecer Técnico-Tributário', '', 'Fornecedor Terceiros', 'Granville', 'andamento', 'alta');
+    add('Manual de Aplicação', '', 'Fornecedor Terceiros', 'Granville', 'andamento', 'alta');
+    add('Contratos da equipe', 'Revisão completa dos contratos jurídicos.', 'Fornecedor Terceiros', 'Granville', 'andamento', 'alta', [
+      'Contratos de autor',
+      'Contrato B2B',
+      'Contrato B2C/PF',
+      'Contrato de assinatura de periódico e publicações',
+      'Rodada final de ajustes dos contratos com clientes',
+      'Orientação de uso dos contratos'
+    ]);
+    add('Informações cadastrais enviadas à Contasy', '', 'Fornecedor Terceiros', 'Contabilidade', 'andamento', 'alta', [
+      'Inscrição estadual recebida',
+      'Cartão CNPJ atualizado recebido',
+      'Segunda alteração contratual deferida recebida'
+    ]);
 
-    // CADASTRO / CONTASE — CONCLUÍDO
-    add('Informações cadastrais enviadas à Contase', '', 'Contabilidade / Contase', 'Cadastro', 'concluido', 'alta');
-    add('Inscrição estadual recebida', '', 'Contabilidade / Contase', 'Cadastro', 'concluido', 'alta');
-    add('Cartão CNPJ atualizado recebido', '', 'Contabilidade / Contase', 'Cadastro', 'concluido', 'media');
-    add('Segunda alteração contratual deferida recebida', '', 'Contabilidade / Contase', 'Cadastro', 'concluido', 'media');
-
-    // CADASTRO / CONTASE — A FAZER
-    add('Confirmar dados cadastrais nos sistemas', 'Validar que todos os dados cadastrais estão corretamente refletidos em todos os sistemas utilizados.', 'Contabilidade / Contase', 'Cadastro', 'backlog', 'alta');
-    add('Confirmar credenciamento/emissão de NF-e de produto', '', 'Contabilidade / Contase', 'Cadastro', 'backlog', 'alta');
-    add('Confirmar parametrização dos CNAEs editoriais', '', 'Contabilidade / Contase', 'Cadastro', 'backlog', 'alta');
-    add('Confirmar manutenção dos CNAEs de serviço', '', 'Contabilidade / Contase', 'Cadastro', 'backlog', 'alta');
-    add('Pagar R$ 210,00 de renovação/regularização do CNPJ', 'Efetuar pagamento e anexar comprovante.', 'Financeiro', 'Cadastro', 'backlog', 'alta');
-    add('Anexar comprovante do pagamento do CNPJ', '', 'Financeiro', 'Cadastro', 'backlog', 'media');
-    add('Confirmar conclusão da renovação do CNPJ', '', 'Contabilidade / Contase', 'Cadastro', 'backlog', 'media');
-
-    // REGISTROS EDITORIAIS
-    add('Confirmar ISBN', '', 'Contabilidade / Contase', 'Editorial', 'backlog', 'alta');
-    add('Confirmar ficha catalográfica', '', 'Contabilidade / Contase', 'Editorial', 'backlog', 'alta');
-    add('Confirmar ISSN', '', 'Contabilidade / Contase', 'Editorial', 'backlog', 'alta');
-    add('Confirmar cadastro do periódico', '', 'Contabilidade / Contase', 'Editorial', 'backlog', 'alta');
-    add('Confirmar título definitivo do periódico', '', 'Growper', 'Editorial', 'backlog', 'alta');
-    add('Confirmar periodicidade', '', 'Growper', 'Editorial', 'backlog', 'alta');
-    add('Garantir ISSN nas edições', '', 'Criação / Breno', 'Editorial', 'backlog', 'alta');
-    add('Criar calendário editorial', '', 'Growper', 'Editorial', 'backlog', 'media');
-    add('Garantir edições datadas e regulares', '', 'Criação / Breno', 'Editorial', 'backlog', 'alta');
-    add('Confirmar expediente/editor/conselho/ano/número da edição', '', 'Criação / Breno', 'Editorial', 'backlog', 'alta');
-    add('Arquivar comprovantes dos registros', '', 'Financeiro', 'Editorial', 'backlog', 'media');
-
-    // PRODUÇÃO FÍSICA
-    add('Definir quantidade total da produção', '', 'Growper', 'Produção', 'backlog', 'alta');
-    add('Calcular tiragem mínima de 10%', '', 'Growper', 'Produção', 'backlog', 'alta');
-    add('Contratar gráfica', '', 'Growper', 'Produção', 'backlog', 'alta');
-    add('Produzir tiragem física', '', 'Gráfica', 'Produção', 'backlog', 'alta');
-    add('Guardar NF da gráfica', '', 'Financeiro', 'Produção', 'backlog', 'media');
-    add('Registrar quantidade produzida', '', 'Financeiro', 'Produção', 'backlog', 'media');
-    add('Organizar controle dos exemplares', '', 'Financeiro', 'Produção', 'backlog', 'media');
-    add('Organizar logística de remessa', '', 'Growper', 'Produção', 'backlog', 'media');
-    add('Organizar notas de remessa', '', 'Financeiro', 'Produção', 'backlog', 'media');
-    add('Efetuar depósito legal', '', 'Growper', 'Produção', 'backlog', 'alta');
-    add('Arquivar protocolos do depósito legal', '', 'Financeiro', 'Produção', 'backlog', 'media');
-
-    // SITE / COMERCIAL — Breno
-    add('Finalizar estrutura comercial do site', '', 'Criação / Breno', 'Comercial', 'backlog', 'alta');
-    add('Disponibilizar as publicações para venda no site', '', 'Criação / Breno', 'Comercial', 'backlog', 'alta');
-    add('Definir/exibir preço público', '', 'Criação / Breno', 'Comercial', 'backlog', 'alta');
-    add('Configurar fluxo de compra', '', 'Criação / Breno', 'Comercial', 'backlog', 'alta');
-    add('Realizar teste de compra', '', 'Criação / Breno', 'Comercial', 'backlog', 'alta');
-    add('Validar funcionamento da operação comercial', '', 'Criação / Breno', 'Comercial', 'backlog', 'alta');
-
-    // AMAZON — Leandro
-    add('Confirmar situação do cadastro da Growper na Amazon', '', 'Financeiro', 'Amazon', 'backlog', 'alta');
-    add('Identificar eventual pendência cadastral (Amazon)', '', 'Financeiro', 'Amazon', 'backlog', 'media');
-    add('Regularizar cadastro Amazon, se necessário', '', 'Financeiro', 'Amazon', 'backlog', 'media');
-    add('Publicar o e-book na Amazon', '', 'Financeiro', 'Amazon', 'backlog', 'alta');
-    add('Configurar preço público Amazon', '', 'Financeiro', 'Amazon', 'backlog', 'media');
-    add('Confirmar disponibilidade para venda na Amazon', '', 'Financeiro', 'Amazon', 'backlog', 'media');
-    add('Fazer validação final da publicação Amazon', '', 'Financeiro', 'Amazon', 'backlog', 'alta');
-
-    // TECNOLOGIA / DISPARO — Will
-    add('Levantar e-mails dos clientes', '', 'Tecnologia / Will', 'Tecnologia', 'backlog', 'alta');
-    add('Consolidar base de e-mails', '', 'Tecnologia / Will', 'Tecnologia', 'backlog', 'alta');
-    add('Validar clientes que receberão o periódico', '', 'Tecnologia / Will', 'Tecnologia', 'backlog', 'alta');
-    add('Configurar disparo dos periódicos', '', 'Tecnologia / Will', 'Tecnologia', 'backlog', 'alta');
-    add('Fazer teste de disparo', '', 'Tecnologia / Will', 'Tecnologia', 'backlog', 'alta');
-    add('Realizar primeiro disparo', '', 'Tecnologia / Will', 'Tecnologia', 'backlog', 'alta');
-    add('Confirmar entrega do disparo', '', 'Tecnologia / Will', 'Tecnologia', 'backlog', 'media');
-    add('Arquivar evidência do disparo', '', 'Financeiro', 'Tecnologia', 'backlog', 'media');
-
-    // PRECIFICAÇÃO / PVP
-    add('Elaborar memória de cálculo do rateio PVP', '', 'Contabilidade / Contase', 'Precificação', 'backlog', 'alta');
-    add('Definir tabela de preços públicos', '', 'Growper', 'Precificação', 'backlog', 'alta');
-    add('Validar preços das publicações', '', 'Growper', 'Precificação', 'backlog', 'alta');
-    add('Parametrizar faturamento segregado', '', 'Contabilidade / Contase', 'Precificação', 'backlog', 'alta');
-    add('Arquivar memória de cálculo do PVP', '', 'Financeiro', 'Precificação', 'backlog', 'media');
-    add('Definir rotina de revisão periódica de preços', '', 'Growper', 'Precificação', 'backlog', 'media');
-
-    // FATURAMENTO / CONTABILIDADE
-    add('Configurar NFS-e de serviço', '', 'Contabilidade / Contase', 'Faturamento', 'backlog', 'alta');
-    add('Configurar NF-e de produto', '', 'Contabilidade / Contase', 'Faturamento', 'backlog', 'alta');
-    add('Separar faturamento de serviço e produto', '', 'Financeiro', 'Faturamento', 'backlog', 'alta');
-    add('Definir classificação das receitas', '', 'Financeiro', 'Faturamento', 'backlog', 'alta');
-    add('Realizar primeiro faturamento segregado', '', 'Financeiro', 'Faturamento', 'backlog', 'alta');
-    add('Conferir primeira NFS-e', '', 'Contabilidade / Contase', 'Faturamento', 'backlog', 'alta');
-    add('Conferir primeira NF-e', '', 'Contabilidade / Contase', 'Faturamento', 'backlog', 'alta');
-    add('Conferir classificação contábil', '', 'Contabilidade / Contase', 'Faturamento', 'backlog', 'alta');
-    add('Conferir primeira apuração tributária', '', 'Contabilidade / Contase', 'Faturamento', 'backlog', 'alta');
-    add('Registrar eventuais ajustes de faturamento', '', 'Financeiro', 'Faturamento', 'backlog', 'media');
-
-    // COMPLIANCE TRIBUTÁRIO
-    add('Criar calendário tributário', '', 'Contabilidade / Contase', 'Compliance', 'backlog', 'alta');
-    add('Controlar obrigações acessórias', '', 'Contabilidade / Contase', 'Compliance', 'backlog', 'alta');
-    add('Controlar IBS/CBS', '', 'Contabilidade / Contase', 'Compliance', 'backlog', 'alta');
-    add('Preparar sistemas para 2027 (IBS/CBS)', '', 'Contabilidade / Contase', 'Compliance', 'backlog', 'alta');
-    add('Criar rotina mensal de conferência', '', 'Financeiro', 'Compliance', 'backlog', 'alta');
-    add('Criar rotina de arquivamento das evidências', '', 'Financeiro', 'Compliance', 'backlog', 'media');
-    add('Constituir reserva de contingência', '', 'Growper', 'Compliance', 'backlog', 'alta');
-    add('Agendar revisão anual do estudo tributário', '', 'Growper', 'Compliance', 'backlog', 'media');
+    // === BACKLOG ===
+    add('Ajustes nos sistemas OMIE', 'Configurações de cadastro e faturamento no OMIE.', 'Leandro', 'Contabilidade', 'backlog', 'alta', [
+      'Alterar dados cadastrais no sistema OMIE',
+      'Emissão de nota fiscal de produto',
+      'Configurar NFS-e',
+      'Configurar NF-e de produto',
+      'Separar faturamento de serviço e produto',
+      'Definir classificação das receitas',
+      'Realizar primeiro faturamento segregado',
+      'Conferir primeira apuração tributária'
+    ]);
+    add('Ajustes na contabilidade', 'Ajustes contábeis via Contasy.', 'Fornecedor Terceiros', 'Contabilidade', 'backlog', 'alta', [
+      'Parametrização dos CNAEs editoriais',
+      'Manutenção dos CNAEs de serviço',
+      'Pagar R$ 210,00 — renovação/regularização CNPJ'
+    ]);
+    add('Cadastro do periódico', '', 'Breno', 'Criação', 'backlog', 'alta', [
+      'Título definitivo do periódico'
+    ]);
+    add('Blindagem de documentos', 'Arquivar comprovantes e evidências dos registros editoriais e tributários.', 'Leandro', 'Administrativo', 'backlog', 'media');
+    add('Setor de Criação', 'Ajustes no site e operação comercial.', 'Breno', 'Criação', 'backlog', 'alta', [
+      'Finalizar estrutura comercial do site',
+      'Disponibilizar publicações para venda no site',
+      'Definir/exibir preço público',
+      'Configurar fluxo de compra',
+      'Realizar teste de compra',
+      'Validar funcionamento da operação comercial'
+    ]);
+    add('Processo de e-book', 'Produção física e publicação do e-book na Amazon.', 'Leandro', 'Criação', 'backlog', 'alta', [
+      'Tiragem mínima de 10%',
+      'Contratar gráfica',
+      'Produzir tiragem física',
+      'Organizar logística de remessa',
+      'Situação do cadastro da Growper na Amazon',
+      'Identificar pendência cadastral Amazon',
+      'Realizar cadastro Amazon',
+      'Publicar e-book na Amazon',
+      'Configurar preço público Amazon',
+      'Confirmar disponibilidade para venda na Amazon'
+    ]);
+    add('Setor de Tecnologia', 'Configuração do disparo dos periódicos.', 'William', 'Tecnologia', 'backlog', 'alta', [
+      'Levantar e-mails dos clientes',
+      'Consolidar base de e-mails',
+      'Validar clientes que receberão o periódico',
+      'Configurar disparo dos periódicos',
+      'Realizar primeiro disparo'
+    ]);
+    add('Reserva de contingência', 'Constituir reserva para contingências tributárias.', 'Leandro', 'Contabilidade', 'backlog', 'alta');
 
     return seed;
   };
@@ -12658,7 +12613,7 @@ window._tribAbrirModal = function(id) {
     </div>
     
     <details style="margin-bottom:16px">
-      <summary style="cursor:pointer;font-size:11.5px;font-weight:800;color:#334155;text-transform:uppercase;letter-spacing:0.5px">📋 Histórico (últimas 10 alterações)</summary>
+      <summary style="cursor:pointer;font-size:11.5px;font-weight:800;color:#334155;text-transform:uppercase;letter-spacing:0.5px">📋 Histórico (últimas 10 alterações) <button onclick="event.stopPropagation();_tribLimparHist('${t.id}')" style="margin-left:8px;padding:2px 8px;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;border-radius:4px;font-family:Poppins;font-weight:700;font-size:10px;cursor:pointer">Limpar</button></summary>
       <div style="margin-top:8px;padding:10px;background:#f8fafc;border-radius:6px">${historicoT}</div>
     </details>
     
@@ -12850,6 +12805,14 @@ window._tribRemCheck = function(id, idx) {
   localStorage.setItem('tributario_v1', JSON.stringify(data));
   _tribAbrirModal(id);
   renderTributario();
+};
+
+window._tribLimparHist = function(id) {
+  if (!confirm('Limpar o histórico desta tarefa?')) return;
+  const data = JSON.parse(localStorage.getItem('tributario_v1') || '{"tarefas":[],"historico":[]}');
+  data.historico = (data.historico || []).filter(h => h.tarefaId !== id);
+  localStorage.setItem('tributario_v1', JSON.stringify(data));
+  _tribAbrirModal(id);
 };
 
 window._tribNovaTarefa = function() {
