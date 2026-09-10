@@ -5415,7 +5415,7 @@ function renderReembolso() {
   
   // Info-box explicativo (menor, à direita)
   html += '<div style="align-self:flex-end">';
-  html += `<div style="background:#eff6ff;border:1px solid #dbeafe;border-radius:8px;padding:8px 12px;font-size:11px;color:#1e40af;max-width:220px;line-height:1.4">💡 Combustível = <code style="background:#dbeafe;padding:1px 5px;border-radius:3px;font-family:monospace">km × 2 × R$${taxaKm.toFixed(2)}</code> (ida+volta)</div>`;
+  html += `<div style="background:#eff6ff;border:1px solid #dbeafe;border-radius:8px;padding:10px 12px;font-size:11px;color:#1e40af;max-width:280px;line-height:1.5"><div style="margin-bottom:6px">💡 <strong>Combustível</strong> = <code style="background:#dbeafe;padding:1px 5px;border-radius:3px;font-family:monospace">km ida × 2 × R$${taxaKm.toFixed(2)}</code></div><div style="font-size:10.5px;color:#3730a3;padding-top:6px;border-top:1px solid #c7d2fe">📊 <strong>Referência de mercado:</strong> R$ 0,80 a R$ 1,20 por km<br><span style="opacity:0.85">(Trabalhista/CLT) — reajuste conforme combustível.</span></div></div>`;
   html += '</div>';
   
   html += '</div>';
@@ -5473,7 +5473,7 @@ function renderReembolso() {
     html += '<thead><tr>';
     html += `<th onclick="_reembolsoToggleOrdemColab()" title="${_titC}" style="${_thBase};text-align:left;cursor:pointer;user-select:none">Colaborador <span style="color:${_ordC==='inserido'?'#94a3b8':'#8b5cf6'};font-size:10px;margin-left:4px">${_setaC}</span></th>`;
     html += `<th onclick="_reembolsoToggleOrdemStatus()" title="${_titS}" style="${_thBase};text-align:center;cursor:pointer;user-select:none;min-width:145px">Status <span style="color:${_ordS==='nenhum'?'#94a3b8':'#8b5cf6'};font-size:10px;margin-left:4px">${_setaS}</span></th>`;
-    html += `<th style="${_thBase};text-align:center" title="Km só ida — sistema calcula ida+volta">Km ida</th>`;
+    html += `<th style="${_thBase};text-align:center;min-width:70px" title="Digite a distância SÓ IDA (o sistema multiplica automaticamente por 2 para calcular ida+volta)">Km<br><span style="font-size:9px;opacity:0.85;font-weight:600">(só ida)</span></th>`;
     html += `<th style="${_thBase};text-align:center;min-width:130px">🎫 Passagem</th>`;
     html += `<th style="${_thBase};text-align:center;min-width:150px">🛢️ Combustível</th>`;
     html += `<th style="${_thBase};text-align:center;min-width:130px">🏨 Hospedagem</th>`;
