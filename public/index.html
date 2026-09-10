@@ -12634,14 +12634,14 @@ window._tribAbrirModal = function(id) {
     
     <div style="margin-bottom:16px">
       <label style="font-size:10.5px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Descrição</label>
-      <textarea onchange="_tribUpd('${t.id}','descricao',this.value)" style="width:100%;min-height:60px;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-family:Poppins;font-size:12.5px;margin-top:4px;resize:vertical;background:white">${esc(t.descricao || '')}</textarea>
+      <textarea class="tribAutoResize" oninput="_tribAjustarAltura(this)" onchange="_tribUpd('${t.id}','descricao',this.value)" style="width:100%;min-height:80px;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-family:Poppins;font-size:12.5px;line-height:1.5;margin-top:4px;resize:none;background:white;overflow:hidden">${esc(t.descricao || '')}</textarea>
     </div>
     
     <div style="margin-bottom:16px">
       <div style="font-size:11.5px;font-weight:800;color:#334155;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">💬 Comentários</div>
       ${coments}
       <div style="display:flex;gap:6px;margin-top:8px">
-        <input type="text" id="tribNovoComent" placeholder="Adicionar comentário..." style="flex:1;padding:7px 10px;border:1px solid #cbd5e1;border-radius:6px;font-family:Poppins;font-size:12px;background:white">
+        <textarea id="tribNovoComent" class="tribAutoResize" oninput="_tribAjustarAltura(this)" placeholder="Adicionar comentário..." rows="1" style="flex:1;padding:7px 10px;border:1px solid #cbd5e1;border-radius:6px;font-family:Poppins;font-size:12px;background:white;resize:none;line-height:1.5;min-height:34px;overflow:hidden"></textarea>
         <button onclick="_tribAddComent('${t.id}')" style="padding:7px 14px;background:#334155;color:white;border:none;border-radius:6px;font-family:Poppins;font-weight:700;font-size:11.5px;cursor:pointer">Enviar</button>
       </div>
     </div>
@@ -12675,6 +12675,17 @@ window._tribAbrirModal = function(id) {
     </div>
   </div>`;
   modal.style.display = 'flex';
+  // Auto-resize inicial de todos os textareas do modal
+  setTimeout(() => {
+    modal.querySelectorAll('.tribAutoResize').forEach(el => _tribAjustarAltura(el));
+  }, 20);
+};
+
+// Ajusta altura de um textarea ao conteúdo (auto-resize)
+window._tribAjustarAltura = function(el) {
+  if (!el) return;
+  el.style.height = 'auto';
+  el.style.height = (el.scrollHeight + 2) + 'px';
 };
 
 window._tribFecharModal = function() {
