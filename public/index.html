@@ -12373,10 +12373,36 @@ function renderTributario() {
   let data = _tribLoad();
   if (!data || !data.seedApplied) {
     data = _seedInicial();
-    // seed criado com nomes antigos; migração vai remapear e setar dataVersion=2
     _tribSave(data);
   }
   data = _tribMigrar(data);
+  
+  // Garantir que TODA tarefa tem 'ordem' numérica dentro da sua coluna
+  // (evita bugs de reordenação quando alguns cards têm ordem e outros não)
+  const _tribNormalizarOrdem = (d) => {
+    const porStatus = {};
+    (d.tarefas || []).forEach(t => {
+      if (!porStatus[t.status]) porStatus[t.status] = [];
+      porStatus[t.status].push(t);
+    });
+    let mudou = false;
+    Object.keys(porStatus).forEach(status => {
+      // Ordena por: ordem existente, depois dataCriacao
+      porStatus[status].sort((a, b) => {
+        const oa = (typeof a.ordem === 'number') ? a.ordem : 999999;
+        const ob = (typeof b.ordem === 'number') ? b.ordem : 999999;
+        if (oa !== ob) return oa - ob;
+        return (a.dataCriacao || '').localeCompare(b.dataCriacao || '');
+      });
+      // Renumera sequencialmente
+      porStatus[status].forEach((t, i) => {
+        if (t.ordem !== i) { t.ordem = i; mudou = true; }
+      });
+    });
+    if (mudou) _tribSave(d);
+    return d;
+  };
+  data = _tribNormalizarOrdem(data);
 
   if (!window._tribFiltros) window._tribFiltros = { responsavel: 'todos', area: 'todos', prioridade: 'todos', busca: '' };
   const F = window._tribFiltros;
@@ -13009,32 +13035,56 @@ window._tribDrop = function(e, colId) {
   const data = JSON.parse(localStorage.getItem('tributario_v1') || '{"tarefas":[],"historico":[]}');
   const t = data.tarefas.find(x => x.id === id);
   if (!t) return;
+  
   const antes = t.status;
   const mudouColuna = antes !== colId;
+  const targetId = window._tribDropOnCardId;
+  const before = window._tribDropBefore;
+  // limpar estado do drop imediatamente
+  window._tribDropOnCardId = null;
+  window._tribDropBefore = false;
+  
+  // Se soltou no mesmo lugar (mesmo card, sem target), não faz nada
+  if (!mudouColuna && (!targetId || targetId === id)) {
+    renderTributario();
+    return;
+  }
+  
+  // 1) Muda status
   t.status = colId;
   if (colId === 'concluido' && antes !== 'concluido') t.dataConclusao = new Date().toISOString().slice(0,10);
   else if (antes === 'concluido' && colId !== 'concluido') t.dataConclusao = '';
-  // Recalcular ordem: se soltou sobre outro card, vira antes/depois dele; senão vai pro final da coluna
-  const targetId = window._tribDropOnCardId;
-  const outrasDaCol = data.tarefas.filter(x => x.status === colId && x.id !== id).sort((a,b) => ((a.ordem||999999) - (b.ordem||999999)) || (a.dataCriacao||'').localeCompare(b.dataCriacao||''));
+  
+  // 2) Pega TODOS os cards da coluna destino EXCETO o movido, ordenados pela ordem atual
+  const outrasDaCol = data.tarefas
+    .filter(x => x.status === colId && x.id !== id)
+    .sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
+  
+  // 3) Descobrir onde inserir
+  let insertIdx = outrasDaCol.length; // default: no final da coluna
   if (targetId && targetId !== id) {
     const idxTgt = outrasDaCol.findIndex(x => x.id === targetId);
     if (idxTgt >= 0) {
-      const before = window._tribDropBefore;
-      outrasDaCol.splice(before ? idxTgt : idxTgt + 1, 0, t);
-    } else {
-      outrasDaCol.push(t);
+      insertIdx = before ? idxTgt : idxTgt + 1;
     }
-  } else {
-    outrasDaCol.push(t);
   }
+  
+  // 4) Insere t na posição correta
+  outrasDaCol.splice(insertIdx, 0, t);
+  
+  // 5) Renumera SOMENTE a coluna destino (as outras ficam intocadas)
   outrasDaCol.forEach((x, i) => { x.ordem = i; });
-  window._tribDropOnCardId = null;
-  window._tribDropBefore = false;
+  
+  // 6) Se mudou de coluna, renumera também a coluna de origem para tapar o buraco
   if (mudouColuna) {
+    const origemDaCol = data.tarefas
+      .filter(x => x.status === antes)
+      .sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
+    origemDaCol.forEach((x, i) => { x.ordem = i; });
     data.historico = data.historico || [];
     data.historico.push({ tarefaId: id, data: new Date().toISOString().slice(0,16).replace('T',' '), acao: `Arrastada: ${antes} → ${colId}` });
   }
+  
   localStorage.setItem('tributario_v1', JSON.stringify(data));
   renderTributario();
 };
@@ -13164,10 +13214,14 @@ window._tribNovaTarefa = function() {
   if (!titulo) return;
   const data = JSON.parse(localStorage.getItem('tributario_v1') || '{"tarefas":[],"historico":[]}');
   const id = 't' + Date.now();
+  // Calcular próxima ordem no backlog (fica no FINAL)
+  const backlogAtual = data.tarefas.filter(x => x.status === 'backlog');
+  const maxOrdem = backlogAtual.reduce((m, x) => Math.max(m, (typeof x.ordem === 'number' ? x.ordem : -1)), -1);
   data.tarefas.push({
-    id, titulo, descricao: '', responsavel: 'Growper', area: '', status: 'backlog',
+    id, titulo, descricao: '', responsavel: 'Leandro', area: '', status: 'backlog',
     prioridade: 'media', prazo: '', dataCriacao: new Date().toISOString().slice(0,10),
-    dataConclusao: '', dependencia: '', evidencias: [], comentarios: [],
+    dataConclusao: '', evidencias: [], comentarios: [], checklist: [],
+    ordem: maxOrdem + 1,
     origem: 'Criada manualmente'
   });
   data.historico = data.historico || [];
