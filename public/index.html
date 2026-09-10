@@ -7447,24 +7447,28 @@ function renderRecebiveis() {
     <table id="_recTable" style="width:${filtroMesAtivo?'auto':'100%'};border-collapse:collapse;font-size:11.5px">
       <thead>
         <tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0">
-          <th style="padding:12px 14px;text-align:left;font-size:10px;color:white;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;position:sticky;left:0;top:0;background:linear-gradient(180deg,#065f46 0%,#047857 100%);z-index:100;box-shadow:0 2px 6px rgba(6,95,70,0.25);${filtroMesAtivo?'min-width:280px;width:280px':'min-width:240px'};cursor:pointer;user-select:none" onclick="window._recOrdem = window._recOrdem === 'valor' ? 'az' : (window._recOrdem === 'az' ? 'za' : 'valor'); renderRecebiveis()" title="Clique para alternar ordenação">Cliente ${window._recOrdem === 'az' ? '<span style=\'color:#fbbf24;font-weight:900\'>▲ A→Z</span>' : (window._recOrdem === 'za' ? '<span style=\'color:#fbbf24;font-weight:900\'>▼ Z→A</span>' : '<span style=\'color:rgba(255,255,255,0.5)\'>⇅ valor</span>')}</th>`;
+          <th style="padding:10px 12px;text-align:left;font-size:10px;color:white;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;position:sticky;left:0;top:62px;background:linear-gradient(180deg,#065f46 0%,#047857 100%);z-index:101;box-shadow:0 2px 6px rgba(6,95,70,0.25);${filtroMesAtivo?'min-width:290px;width:290px':'min-width:250px'};user-select:none">
+            <div style="display:flex;align-items:center;gap:8px">
+              <button onclick="event.stopPropagation();window._recTelExpandido = !window._recTelExpandido; renderRecebiveis()" title="${window._recTelExpandido?'Recolher coluna Telefone':'Expandir coluna Telefone'}" style="background:${window._recTelExpandido?'#06b6d4':'rgba(255,255,255,0.2)'};color:white;border:1px solid rgba(255,255,255,0.4);padding:4px 9px;border-radius:5px;font-family:Poppins;font-size:11.5px;font-weight:800;cursor:pointer;line-height:1;flex-shrink:0">${window._recTelExpandido?'▾':'▸'} 📞</button>
+              <span onclick="window._recOrdem = window._recOrdem === 'valor' ? 'az' : (window._recOrdem === 'az' ? 'za' : 'valor'); renderRecebiveis()" style="cursor:pointer;flex:1" title="Clique para ordenar">Cliente ${window._recOrdem === 'az' ? '<span style=\'color:#fbbf24;font-weight:900\'>▲ A→Z</span>' : (window._recOrdem === 'za' ? '<span style=\'color:#fbbf24;font-weight:900\'>▼ Z→A</span>' : '<span style=\'color:rgba(255,255,255,0.5)\'>⇅ valor</span>')}</span>
+            </div>
+          </th>`;
   
-  // Coluna Telefone (expansível igual aos meses)
+  // Coluna Telefone (quando expandida)
   if (window._recTelExpandido) {
-    html += `<th onclick="window._recTelExpandido=false; renderRecebiveis()" style="padding:10px 8px;text-align:left;font-size:10.5px;color:white;text-transform:uppercase;letter-spacing:0.5px;font-weight:800;cursor:pointer;user-select:none;background:linear-gradient(180deg,#0e7490 0%,#0891b2 100%);border-left:2px solid #06b6d4;position:sticky;top:0;left:${filtroMesAtivo?'280px':'240px'};z-index:99;box-shadow:0 2px 6px rgba(6,182,212,0.25);min-width:170px" title="Clique para recolher"><span style="font-size:10px;color:rgba(255,255,255,0.7)">▾</span> 📞 Telefone</th>`;
-  } else {
-    html += `<th onclick="window._recTelExpandido=true; renderRecebiveis()" style="padding:10px 8px;text-align:center;font-size:10.5px;color:white;text-transform:uppercase;letter-spacing:0.5px;font-weight:800;cursor:pointer;user-select:none;background:linear-gradient(180deg,#065f46 0%,#047857 100%);border-left:1px solid #059669;min-width:40px;width:40px;position:sticky;top:0;z-index:99;box-shadow:0 2px 6px rgba(6,95,70,0.25)" title="Expandir coluna com telefones"><span style="font-size:10px;color:rgba(255,255,255,0.7)">▸</span> 📞</th>`;
+    html += `<th style="padding:10px 12px;text-align:left;font-size:10.5px;color:white;text-transform:uppercase;letter-spacing:0.5px;font-weight:800;background:linear-gradient(180deg,#0e7490 0%,#0891b2 100%);border-left:2px solid #06b6d4;position:sticky;top:62px;left:${filtroMesAtivo?'290px':'250px'};z-index:100;box-shadow:0 2px 6px rgba(6,182,212,0.25);min-width:170px">📞 Telefone</th>`;
   }
-  
+
+    
   mesesExibidos.forEach((mes) => {
     const mesLbl = MONTH_LABELS[parseInt(mes.slice(-2)) - 1];
     const expandido = window._recExpandidos.has(mes);
     const temDados = (MENS[mes] || []).length > 0;
     
     if (expandido) {
-      html += `<th colspan="2" onclick="if(window._recExpandidos.has('${mes}'))window._recExpandidos.delete('${mes}'); else window._recExpandidos.add('${mes}'); renderRecebiveis()" style="padding:10px 8px;text-align:center;font-size:11px;color:white;text-transform:uppercase;letter-spacing:0.5px;font-weight:800;cursor:pointer;user-select:none;background:linear-gradient(180deg,#047857 0%,#059669 100%);border-left:2px solid #10b981;position:sticky;top:0;z-index:99;box-shadow:0 2px 6px rgba(6,95,70,0.25)"><span style="font-size:10px;color:#64748b">▾</span> ${mesLbl}</th>`;
+      html += `<th colspan="2" onclick="if(window._recExpandidos.has('${mes}'))window._recExpandidos.delete('${mes}'); else window._recExpandidos.add('${mes}'); renderRecebiveis()" style="padding:10px 8px;text-align:center;font-size:11px;color:white;text-transform:uppercase;letter-spacing:0.5px;font-weight:800;cursor:pointer;user-select:none;background:linear-gradient(180deg,#047857 0%,#059669 100%);border-left:2px solid #10b981;position:sticky;top:62px;z-index:99;box-shadow:0 2px 6px rgba(6,95,70,0.25)"><span style="font-size:10px;color:#64748b">▾</span> ${mesLbl}</th>`;
     } else {
-      html += `<th onclick="if(window._recExpandidos.has('${mes}'))window._recExpandidos.delete('${mes}'); else window._recExpandidos.add('${mes}'); renderRecebiveis()" style="padding:10px 8px;text-align:center;font-size:11px;color:${temDados?'white':'rgba(255,255,255,0.5)'};text-transform:uppercase;letter-spacing:0.5px;font-weight:800;cursor:pointer;user-select:none;background:linear-gradient(180deg,#065f46 0%,#047857 100%);border-left:1px solid #059669;min-width:100px;position:sticky;top:0;z-index:99;box-shadow:0 2px 6px rgba(6,95,70,0.25)"><span style="font-size:10px;color:#64748b">▸</span> ${mesLbl}</th>`;
+      html += `<th onclick="if(window._recExpandidos.has('${mes}'))window._recExpandidos.delete('${mes}'); else window._recExpandidos.add('${mes}'); renderRecebiveis()" style="padding:10px 8px;text-align:center;font-size:11px;color:${temDados?'white':'rgba(255,255,255,0.5)'};text-transform:uppercase;letter-spacing:0.5px;font-weight:800;cursor:pointer;user-select:none;background:linear-gradient(180deg,#065f46 0%,#047857 100%);border-left:1px solid #059669;min-width:100px;position:sticky;top:62px;z-index:99;box-shadow:0 2px 6px rgba(6,95,70,0.25)"><span style="font-size:10px;color:#64748b">▸</span> ${mesLbl}</th>`;
     }
   });
   html += `</tr>`;
@@ -7472,16 +7476,16 @@ function renderRecebiveis() {
   const temExpansao = mesesExibidos.some(m => window._recExpandidos.has(m));
   if (temExpansao) {
     html += `<tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0">
-      <th style="padding:6px 14px;position:sticky;left:0;top:44px;background:#f8fafc;z-index:100"></th>`;
+      <th style="padding:6px 14px;position:sticky;left:0;top:44px;background:#f8fafc;z-index:101"></th>`;
     if (window._recTelExpandido) {
-      html += `<th style="padding:6px 8px;background:#ecfeff;border-left:2px solid #06b6d4;position:sticky;top:44px;left:${filtroMesAtivo?'280px':'240px'};z-index:99"></th>`;
+      html += `<th style="padding:6px 8px;background:#ecfeff;border-left:2px solid #06b6d4;position:sticky;top:106px;left:${filtroMesAtivo?'290px':'250px'};z-index:100"></th>`;
     }
     mesesExibidos.forEach(mes => {
       if (window._recExpandidos.has(mes)) {
-        html += `<th style="padding:6px 8px;text-align:center;font-size:9.5px;color:#4338ca;font-weight:700;background:#eef2ff;border-left:2px solid #6366f1;position:sticky;top:44px;z-index:98">Elo</th>`;
-        html += `<th style="padding:6px 8px;text-align:center;font-size:9.5px;color:#065f46;font-weight:700;background:#ecfdf5;position:sticky;top:44px;z-index:98">Realizado</th>`;
+        html += `<th style="padding:6px 8px;text-align:center;font-size:9.5px;color:#4338ca;font-weight:700;background:#eef2ff;border-left:2px solid #6366f1;position:sticky;top:106px;z-index:98">Elo</th>`;
+        html += `<th style="padding:6px 8px;text-align:center;font-size:9.5px;color:#065f46;font-weight:700;background:#ecfdf5;position:sticky;top:106px;z-index:98">Realizado</th>`;
       } else {
-        html += `<th style="padding:6px 8px;border-left:1px solid #e2e8f0;background:#f8fafc;position:sticky;top:44px;z-index:98"></th>`;
+        html += `<th style="padding:6px 8px;border-left:1px solid #e2e8f0;background:#f8fafc;position:sticky;top:106px;z-index:98"></th>`;
       }
     });
     html += `</tr>`;
@@ -7498,13 +7502,13 @@ function renderRecebiveis() {
       
       const _telCli = (window.TELEFONES_ELO || {})[id] || '';
       html += `<tr style="border-bottom:1px solid #f1f5f9">
-        <td style="padding:8px 14px;color:#0f172a;font-weight:600;text-align:left;position:sticky;left:0;background:white;z-index:1;border-right:1px solid #f1f5f9">
+        <td style="padding:8px 14px;color:#0f172a;font-weight:600;text-align:left;position:sticky;left:0;background:white;z-index:2;border-right:1px solid #f1f5f9">
           ${_esc(nomeOmie)}
         </td>`;
-      // Coluna Telefone (quando expandida)
       if (window._recTelExpandido) {
-        html += `<td style="padding:8px 14px;background:#ecfeff;color:#0c4a6e;font-weight:600;font-family:'Courier New',monospace;font-size:12px;text-align:left;position:sticky;left:${filtroMesAtivo?'280px':'240px'};z-index:1;border-right:2px solid #06b6d4;white-space:nowrap;user-select:all;cursor:text">${_telCli ? `📱 ${_esc(_telCli)}` : '<span style="color:#cbd5e1;font-style:italic">—</span>'}</td>`;
+        html += `<td style="padding:8px 12px;background:#ecfeff;color:#0c4a6e;font-weight:600;font-family:'Courier New',monospace;font-size:12.5px;text-align:left;position:sticky;left:${filtroMesAtivo?'290px':'250px'};z-index:2;border-right:2px solid #06b6d4;white-space:nowrap;user-select:all;cursor:text" title="Clique para selecionar e copiar">${_telCli ? `📱 ${_esc(_telCli)}` : '<span style=\"color:#cbd5e1;font-style:italic\">—</span>'}</td>`;
       }
+
       
       mesesExibidos.forEach(mes => {
         const expandido = window._recExpandidos.has(mes);
@@ -7562,10 +7566,11 @@ function renderRecebiveis() {
   
   html += `<tfoot>
     <tr style="background:#f0fdf4;border-top:2px solid #10b981">
-      <td style="padding:12px 14px;font-weight:800;color:#166534;text-align:left;position:sticky;left:0;background:#f0fdf4;border-right:1px solid #d1fae5;z-index:2">TOTAL (${listaFiltrada.length})</td>`;
+      <td style="padding:12px 14px;font-weight:800;color:#166534;text-align:left;position:sticky;left:0;background:#f0fdf4;border-right:1px solid #d1fae5;z-index:3">TOTAL (${listaFiltrada.length})</td>`;
   if (window._recTelExpandido) {
-    html += `<td style="padding:12px 14px;background:#f0fdf4;border-right:2px solid #06b6d4;position:sticky;left:${filtroMesAtivo?'280px':'240px'};z-index:2"></td>`;
+    html += `<td style="padding:12px 14px;background:#f0fdf4;border-right:2px solid #06b6d4;position:sticky;left:${filtroMesAtivo?'290px':'250px'};z-index:3"></td>`;
   }
+
   
   mesesExibidos.forEach(mes => {
     const expandido = window._recExpandidos.has(mes);
