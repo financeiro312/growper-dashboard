@@ -12585,8 +12585,21 @@ window._tribAbrirModal = function(id) {
     return `<div style="background:white;border:1px solid #e2e8f0;border-radius:6px;padding:8px 10px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:700;color:#0f172a;margin-bottom:2px;display:flex;align-items:center;gap:6px"><span style="font-size:16px">${ic}</span><span style="word-break:break-all">${esc(e.nome)}</span></div><div style="font-size:10.5px;color:#64748b">${_tribFmtTam(e.tamanho)} · adicionado por ${esc(e.por || '—')} em ${e.dataAdd || ''}</div></div><button onclick="_tribBaixarAnexo('${e.idbKey}','${esc(e.nome).replace(/'/g,"\\'")}')" style="background:#2563eb;color:white;border:none;border-radius:6px;font-family:Poppins;font-weight:700;font-size:11px;cursor:pointer;padding:6px 10px" title="Baixar arquivo">⬇️ Baixar</button><button onclick="_tribRemAnexo('${t.id}',${i})" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:16px;padding:4px 8px" title="Remover">✕</button></div>`;
   }).join('') || '<div style="color:#94a3b8;font-size:12px;font-style:italic;padding:6px">Nenhum arquivo anexado.</div>';
   
-  // Checklist da tarefa
-  const checklistHtml = (t.checklist || []).map((item, i) => `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:${item.feito?'#f0fdf4':'#f8fafc'};border:1px solid ${item.feito?'#86efac':'#e2e8f0'};border-radius:6px;margin-bottom:4px"><input type="checkbox" ${item.feito?'checked':''} onchange="_tribToggleCheck('${t.id}',${i},this.checked)" style="width:16px;height:16px;accent-color:#059669;cursor:pointer;flex-shrink:0"><input type="text" value="${esc(item.texto)}" onchange="_tribUpdCheck('${t.id}',${i},this.value)" style="flex:1;padding:4px 6px;border:1px solid transparent;background:transparent;font-family:Poppins;font-size:12px;color:${item.feito?'#065f46':'#0f172a'};text-decoration:${item.feito?'line-through':'none'};border-radius:4px" onfocus="this.style.border='1px solid #cbd5e1';this.style.background='white'" onblur="this.style.border='1px solid transparent';this.style.background='transparent'"><button onclick="_tribRemCheck('${t.id}',${i})" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:14px;padding:2px 6px" title="Remover">✕</button></div>`).join('') || '<div style="color:#94a3b8;font-size:12px;font-style:italic;padding:6px">Nenhum item no checklist.</div>';
+  // Checklist da tarefa (com botões ▲▼ para reordenar)
+  const checklistTotal = (t.checklist || []).length;
+  const checklistHtml = (t.checklist || []).map((item, i) => {
+    const canUp = i > 0;
+    const canDown = i < checklistTotal - 1;
+    return `<div style="display:flex;align-items:center;gap:6px;padding:6px 8px;background:${item.feito?'#f0fdf4':'#f8fafc'};border:1px solid ${item.feito?'#86efac':'#e2e8f0'};border-radius:6px;margin-bottom:4px">
+      <div style="display:flex;flex-direction:column;gap:1px;flex-shrink:0">
+        <button onclick="_tribMoveCheck('${t.id}',${i},-1)" ${canUp?'':'disabled'} title="Mover para cima" style="background:${canUp?'white':'#f1f5f9'};border:1px solid ${canUp?'#cbd5e1':'#e2e8f0'};color:${canUp?'#334155':'#cbd5e1'};cursor:${canUp?'pointer':'not-allowed'};font-size:9px;padding:0;width:18px;height:14px;line-height:1;border-radius:3px;font-family:Poppins">▲</button>
+        <button onclick="_tribMoveCheck('${t.id}',${i},1)" ${canDown?'':'disabled'} title="Mover para baixo" style="background:${canDown?'white':'#f1f5f9'};border:1px solid ${canDown?'#cbd5e1':'#e2e8f0'};color:${canDown?'#334155':'#cbd5e1'};cursor:${canDown?'pointer':'not-allowed'};font-size:9px;padding:0;width:18px;height:14px;line-height:1;border-radius:3px;font-family:Poppins">▼</button>
+      </div>
+      <input type="checkbox" ${item.feito?'checked':''} onchange="_tribToggleCheck('${t.id}',${i},this.checked)" style="width:16px;height:16px;accent-color:#059669;cursor:pointer;flex-shrink:0">
+      <input type="text" value="${esc(item.texto)}" onchange="_tribUpdCheck('${t.id}',${i},this.value)" style="flex:1;padding:4px 6px;border:1px solid transparent;background:transparent;font-family:Poppins;font-size:12px;color:${item.feito?'#065f46':'#0f172a'};text-decoration:${item.feito?'line-through':'none'};border-radius:4px" onfocus="this.style.border='1px solid #cbd5e1';this.style.background='white'" onblur="this.style.border='1px solid transparent';this.style.background='transparent'">
+      <button onclick="_tribRemCheck('${t.id}',${i})" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:14px;padding:2px 6px;flex-shrink:0" title="Remover">✕</button>
+    </div>`;
+  }).join('') || '<div style="color:#94a3b8;font-size:12px;font-style:italic;padding:6px">Nenhum item no checklist.</div>';
   
   const coments = (t.comentarios || []).map((c, ci) => `<div style="background:#f8fafc;border-left:3px solid #94a3b8;padding:8px 12px;margin-bottom:6px;border-radius:0 6px 6px 0;position:relative"><button onclick="_tribRemComent('${t.id}',${ci})" title="Remover comentário" style="position:absolute;top:6px;right:6px;background:none;border:none;color:#dc2626;cursor:pointer;font-size:14px;padding:2px 6px;line-height:1;border-radius:4px" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='none'">✕</button><textarea class="tribAutoResize" oninput="_tribAjustarAltura(this)" onchange="_tribEditComent('${t.id}',${ci},this.value)" style="width:100%;padding:4px 22px 4px 0;border:1px solid transparent;background:transparent;font-family:Poppins;font-size:12px;color:#0f172a;line-height:1.5;resize:none;overflow:hidden;box-sizing:border-box" onfocus="this.style.border='1px solid #cbd5e1';this.style.background='white';this.style.padding='6px 22px 6px 8px';this.style.borderRadius='4px'" onblur="this.style.border='1px solid transparent';this.style.background='transparent';this.style.padding='4px 22px 4px 0'">${esc(c.texto)}</textarea><div style="font-size:10.5px;color:#64748b;margin-top:2px">${c.data || ''} · ${esc(c.autor || 'Sistema')}</div></div>`).join('') || '<div style="color:#94a3b8;font-size:12px;font-style:italic;padding:8px">Sem comentários.</div>';
   
@@ -12705,8 +12718,7 @@ window._tribUpd = function(id, campo, valor) {
   data.historico = data.historico || [];
   data.historico.push({ tarefaId: id, data: new Date().toISOString().slice(0,16).replace('T',' '), acao: `${campo}: "${String(antes).slice(0,30)}" → "${String(valor).slice(0,30)}"` });
   localStorage.setItem('tributario_v1', JSON.stringify(data));
-  // Não re-render modal (evita perda de foco). Só re-render kanban se status/prazo/prioridade mudar visualmente
-  if (['status','prioridade','prazo','titulo','responsavel','area'].includes(campo)) renderTributario();
+  // Kanban só atualiza ao FECHAR o modal (para não fazer o modal desaparecer durante edição)
 };
 
 // Mudar status — se for concluído, exige evidência
@@ -12721,7 +12733,6 @@ window._tribMudarStatus = function(id, novoStatus) {
   data.historico = data.historico || [];
   data.historico.push({ tarefaId: id, data: new Date().toISOString().slice(0,16).replace('T',' '), acao: `Status: ${antes} → ${novoStatus}` });
   localStorage.setItem('tributario_v1', JSON.stringify(data));
-  renderTributario();
   _tribAbrirModal(id);
 };
 
@@ -13048,6 +13059,18 @@ window._tribCardDragLeave = function(e) {
 };
 
 // ============ CHECKLIST ============
+window._tribMoveCheck = function(id, idx, direcao) {
+  const data = JSON.parse(localStorage.getItem('tributario_v1') || '{"tarefas":[],"historico":[]}');
+  const t = data.tarefas.find(x => x.id === id);
+  if (!t || !t.checklist) return;
+  const novoIdx = idx + direcao;
+  if (novoIdx < 0 || novoIdx >= t.checklist.length) return;
+  const [item] = t.checklist.splice(idx, 1);
+  t.checklist.splice(novoIdx, 0, item);
+  localStorage.setItem('tributario_v1', JSON.stringify(data));
+  _tribAbrirModal(id);
+};
+
 window._tribAddCheck = function(id) {
   const texto = prompt('Item do checklist:');
   if (!texto || !texto.trim()) return;
@@ -13087,7 +13110,6 @@ window._tribRemCheck = function(id, idx) {
   t.checklist.splice(idx, 1);
   localStorage.setItem('tributario_v1', JSON.stringify(data));
   _tribAbrirModal(id);
-  renderTributario();
 };
 
 window._tribLimparHist = function(id) {
