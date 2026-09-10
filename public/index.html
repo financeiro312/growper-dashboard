@@ -605,7 +605,8 @@ body.scalia-mode .sidebar .nav-cat-simple[data-cat="notif"],
 body.scalia-mode .sidebar .nav-cat-simple[data-cat="contab"] {
   display: none !important;
 }
-/* Scalia: no painel Financeiro, esconde Mensalidades e Cartão */
+/* Scalia: no painel Financeiro, esconde Principal, Mensalidades e Cartão */
+body.scalia-mode .painelCat-sub[data-cat="financeiro"] [data-menu-key="main"],
 body.scalia-mode .painelCat-sub[data-cat="financeiro"] [data-menu-key="recebiveis"],
 body.scalia-mode .painelCat-sub[data-cat="financeiro"] [data-menu-key="card"] {
   display: none !important;
@@ -9845,9 +9846,9 @@ function scaliaKitsRender() {
                 <thead>
                   <tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0">
                     <th style="padding:6px 8px;text-align:left;color:#334155;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:0.3px">Item</th>
-                    <th style="padding:6px 4px;text-align:center;color:#334155;font-weight:700;font-size:10px;width:52px">Qtd</th>
-                    <th style="padding:6px 4px;text-align:right;color:#334155;font-weight:700;font-size:10px;width:74px">Vlr Un</th>
-                    <th style="padding:6px 6px;text-align:right;color:#334155;font-weight:700;font-size:10px;width:80px">Subtot</th>
+                    <th style="padding:6px 6px;text-align:center;color:#334155;font-weight:700;font-size:10px;width:72px" title="Quantidade de visitas (= nº de kits)">Qtd visitas</th>
+                    <th style="padding:6px 6px;text-align:right;color:#334155;font-weight:700;font-size:10px;width:96px" title="Valor por unidade do item">Vlr Un</th>
+                    <th style="padding:6px 8px;text-align:right;color:#334155;font-weight:700;font-size:10px;width:96px" title="Qtd × Valor Unit">Subtot</th>
                     <th style="padding:6px 4px;width:24px"></th>
                   </tr>
                 </thead>
@@ -9857,18 +9858,23 @@ function scaliaKitsRender() {
               const subtot = (Number(item.qtd) || 0) * (Number(item.vlrUn) || 0);
               html += `<tr style="border-bottom:1px solid #f1f5f9">
                 <td style="padding:5px 8px"><input type="text" value="${_kitsEsc(item.nome)}" onchange="scaliaKitsUpdItem('${compra.id}','${p.id}',${ii},'nome',this.value)" style="width:100%;border:1px solid transparent;padding:3px 5px;border-radius:4px;font-family:Poppins;font-size:11.5px;color:#0f172a;background:transparent" onfocus="this.style.border='1px solid #cbd5e1';this.style.background='white'" onblur="this.style.border='1px solid transparent';this.style.background='transparent'"></td>
-                <td style="padding:5px 4px"><input type="number" min="0" step="1" value="${item.qtd || 0}" onchange="scaliaKitsUpdItem('${compra.id}','${p.id}',${ii},'qtd',this.value)" style="width:100%;border:1px solid #e2e8f0;padding:3px 5px;border-radius:4px;font-family:Poppins;font-size:11.5px;text-align:center;color:#0f172a"></td>
-                <td style="padding:5px 4px"><input type="number" min="0" step="0.01" value="${item.vlrUn || 0}" onchange="scaliaKitsUpdItem('${compra.id}','${p.id}',${ii},'vlrUn',this.value)" style="width:100%;border:1px solid #e2e8f0;padding:3px 5px;border-radius:4px;font-family:Poppins;font-size:11.5px;text-align:right;color:#0f172a"></td>
-                <td style="padding:5px 6px;text-align:right;font-weight:700;color:${subtot>0?'#0f172a':'#cbd5e1'};font-size:11.5px">${subtot > 0 ? scaliaKitsFmt(subtot) : '—'}</td>
+                <td style="padding:5px 6px"><input type="number" min="0" step="1" value="${item.qtd || 0}" onchange="scaliaKitsUpdItem('${compra.id}','${p.id}',${ii},'qtd',this.value)" style="width:100%;min-width:60px;border:1px solid #e2e8f0;padding:5px 8px;border-radius:5px;font-family:Poppins;font-size:12.5px;font-weight:600;text-align:center;color:#0f172a"></td>
+                <td style="padding:5px 6px"><input type="number" min="0" step="0.01" value="${item.vlrUn || 0}" onchange="scaliaKitsUpdItem('${compra.id}','${p.id}',${ii},'vlrUn',this.value)" style="width:100%;min-width:82px;border:1px solid #e2e8f0;padding:5px 8px;border-radius:5px;font-family:Poppins;font-size:12.5px;font-weight:600;text-align:right;color:#0f172a"></td>
+                <td style="padding:5px 8px;text-align:right;font-weight:700;color:${subtot>0?'#0f172a':'#cbd5e1'};font-size:12px;white-space:nowrap">${subtot > 0 ? scaliaKitsFmt(subtot) : '—'}</td>
                 <td style="padding:5px 4px;text-align:center"><button onclick="scaliaKitsRemoverItem('${compra.id}','${p.id}',${ii})" title="Remover item" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:11px;padding:2px 4px;line-height:1">✕</button></td>
               </tr>`;
             });
             
             // Linha Total Itens
+            // Qtd = nº de visitas (max de todos os itens que têm qtd > 0)
+            const qtdVisitas = Math.max(...(p.itens || []).map(x => Number(x.qtd) || 0), 0);
+            // Vlr Un total = soma dos vlrUn (isso é o custo por KIT/VISITA)
+            const custoPorKit = (p.itens || []).reduce((s, x) => s + (Number(x.vlrUn) || 0), 0);
             html += `<tr style="background:#f0f9ff;border-top:2px solid #bfdbfe">
-              <td style="padding:7px 8px;font-weight:800;color:#1e40af;font-size:11px">TOTAL ITENS</td>
-              <td colspan="2" style="padding:7px 4px;text-align:right;font-weight:700;color:#64748b;font-size:10px">Subtotal:</td>
-              <td style="padding:7px 6px;text-align:right;font-weight:800;color:#1e40af;font-size:12.5px">${scaliaKitsFmt(pcalc.itensTotal)}</td>
+              <td style="padding:9px 8px;font-weight:800;color:#1e40af;font-size:11px" title="Uma quantidade = um kit para uma visita">📦 CUSTO POR KIT</td>
+              <td style="padding:9px 6px;text-align:center;font-weight:800;color:#1e40af;font-size:12.5px" title="Número de visitas planejadas">${qtdVisitas || '—'}</td>
+              <td style="padding:9px 6px;text-align:right;font-weight:800;color:#1e40af;font-size:13px" title="Soma dos valores unitários = custo unitário de UM kit">${scaliaKitsFmt(custoPorKit)}</td>
+              <td style="padding:9px 8px;text-align:right;font-weight:800;color:#1e40af;font-size:13px;white-space:nowrap" title="Custo total dos itens (${qtdVisitas} kits × ${scaliaKitsFmt(custoPorKit)})">${scaliaKitsFmt(pcalc.itensTotal)}</td>
               <td></td>
             </tr>`;
             
@@ -9876,16 +9882,19 @@ function scaliaKitsRender() {
             const locoSubtot = (Number(p.locomocao?.qtd) || 0) * (Number(p.locomocao?.vlrUn) || 0);
             html += `<tr style="background:#fffbeb;border-top:1px solid #fef3c7">
               <td style="padding:5px 8px;font-weight:700;color:#92400e;font-size:11.5px">🚗 Locomoção</td>
-              <td style="padding:5px 4px"><input type="number" min="0" step="1" value="${p.locomocao?.qtd || 0}" onchange="scaliaKitsUpdLoco('${compra.id}','${p.id}','qtd',this.value)" style="width:100%;border:1px solid #fbbf24;padding:3px 5px;border-radius:4px;font-family:Poppins;font-size:11.5px;text-align:center;color:#0f172a;background:white"></td>
-              <td style="padding:5px 4px"><input type="number" min="0" step="0.01" value="${p.locomocao?.vlrUn || 0}" onchange="scaliaKitsUpdLoco('${compra.id}','${p.id}','vlrUn',this.value)" style="width:100%;border:1px solid #fbbf24;padding:3px 5px;border-radius:4px;font-family:Poppins;font-size:11.5px;text-align:right;color:#0f172a;background:white"></td>
-              <td style="padding:5px 6px;text-align:right;font-weight:800;color:#92400e;font-size:11.5px">${scaliaKitsFmt(locoSubtot)}</td>
+              <td style="padding:5px 6px"><input type="number" min="0" step="1" value="${p.locomocao?.qtd || 0}" onchange="scaliaKitsUpdLoco('${compra.id}','${p.id}','qtd',this.value)" style="width:100%;min-width:60px;border:1px solid #fbbf24;padding:5px 8px;border-radius:5px;font-family:Poppins;font-size:12.5px;font-weight:600;text-align:center;color:#0f172a;background:white"></td>
+              <td style="padding:5px 6px"><input type="number" min="0" step="0.01" value="${p.locomocao?.vlrUn || 0}" onchange="scaliaKitsUpdLoco('${compra.id}','${p.id}','vlrUn',this.value)" style="width:100%;min-width:82px;border:1px solid #fbbf24;padding:5px 8px;border-radius:5px;font-family:Poppins;font-size:12.5px;font-weight:600;text-align:right;color:#0f172a;background:white"></td>
+              <td style="padding:5px 8px;text-align:right;font-weight:800;color:#92400e;font-size:12px;white-space:nowrap">${scaliaKitsFmt(locoSubtot)}</td>
               <td></td>
             </tr>`;
             
-            // Linha TOTAL POR VISITA
+            // Linha TOTAL POR VISITA — custo unitário de UM kit + UMA locomoção
+            const custoLocoUn = Number(p.locomocao?.vlrUn) || 0;
+            const custoVisita = custoPorKit + custoLocoUn;
             html += `<tr style="background:linear-gradient(135deg,${nomeCor}22,${nomeCor}11);border-top:2px solid ${nomeCor}">
-              <td colspan="3" style="padding:9px 8px;font-weight:800;color:${nomeCor};font-size:11.5px;text-transform:uppercase;letter-spacing:0.4px">Total por visita</td>
-              <td style="padding:9px 6px;text-align:right;font-weight:800;color:${nomeCor};font-size:14.5px">${scaliaKitsFmt(pcalc.total)}</td>
+              <td colspan="2" style="padding:11px 8px;font-weight:800;color:${nomeCor};font-size:11.5px;text-transform:uppercase;letter-spacing:0.4px">🎯 Custo por visita</td>
+              <td style="padding:11px 6px;text-align:right;font-weight:800;color:${nomeCor};font-size:14px;white-space:nowrap" title="Kit (${scaliaKitsFmt(custoPorKit)}) + Locomoção (${scaliaKitsFmt(custoLocoUn)})">${scaliaKitsFmt(custoVisita)}</td>
+              <td style="padding:11px 8px;text-align:right;font-weight:800;color:${nomeCor};font-size:13.5px;white-space:nowrap" title="Total geral pago: ${qtdVisitas} visitas × ${scaliaKitsFmt(custoVisita)}">${scaliaKitsFmt(pcalc.total)}</td>
               <td></td>
             </tr>`;
             
