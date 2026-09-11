@@ -7163,6 +7163,29 @@ function getValorMes(cliente, mes) {
   return valorComp;
 }
 
+window._recExcelAction = function(action) {
+  if (!action) return;
+  // Criar input file temporário para uploads
+  const uploadFile = (accept, callback) => {
+    const inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = accept;
+    inp.style.display = 'none';
+    document.body.appendChild(inp);
+    inp.onchange = (e) => {
+      callback(e);
+      document.body.removeChild(inp);
+    };
+    inp.click();
+  };
+  
+  if (action === 'modeloReal' && typeof _recDownloadModeloReal === 'function') _recDownloadModeloReal();
+  else if (action === 'exportReal' && typeof _recExportarRealizado === 'function') _recExportarRealizado();
+  else if (action === 'uploadReal') uploadFile('.xlsx,.xls', _recUploadRealizado);
+  else if (action === 'modeloMens' && typeof _recDownloadModelo === 'function') _recDownloadModelo();
+  else if (action === 'uploadMens') uploadFile('.xlsx,.xls', _recUploadExcel);
+};
+
 function _renderStatusDetalhe(statusKey) {
   const STATUS_INFO_DET = {
     pago:         { cor: '#10b981', bg: '#d1fae5', label: 'Pago' },
@@ -7519,6 +7542,19 @@ function renderRecebiveis() {
                 <option value="taxa_imp" style="background:#0f172a">💠 Taxa de implantação</option>
               </select>
             </div>
+            <div style="display:flex;gap:6px;align-items:center">
+              <span style="font-size:10.5px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:700">Excel</span>
+              <select onchange="_recExcelAction(this.value); this.value=''" style="background:rgba(255,255,255,0.1);color:white;border:1px solid rgba(255,255,255,0.2);padding:8px 12px;border-radius:8px;font-family:Poppins;font-weight:700;font-size:13px;cursor:pointer">
+                <option value="" style="background:#0f172a">📊 Ações Excel...</option>
+                <option disabled style="background:#0f172a;font-weight:900">— Realizado (mês a mês) —</option>
+                <option value="modeloReal" style="background:#0f172a">📄 Baixar modelo Realizado (vazio)</option>
+                <option value="exportReal" style="background:#0f172a">💾 Exportar Realizado atual</option>
+                <option value="uploadReal" style="background:#0f172a">📤 Subir Excel Realizado</option>
+                <option disabled style="background:#0f172a;font-weight:900">— Mensalidades Jan → Jun —</option>
+                <option value="modeloMens" style="background:#0f172a">📄 Baixar modelo Mensalidades</option>
+                <option value="uploadMens" style="background:#0f172a">📤 Subir Excel Mensalidades</option>
+              </select>
+            </div>
           </div>
         </div>
         
@@ -7555,11 +7591,13 @@ function renderRecebiveis() {
       </div>
     </div>
     
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px;position:relative;flex-wrap:wrap">
-      <!-- Botão Ordenar (esquerda) -->
+    <div style="display:flex;justify-content:flex-start;align-items:center;gap:8px;margin-bottom:12px;position:relative;flex-wrap:wrap">
+      <!-- Botão Ordenar (só isso na barra agora) -->
       <button onclick="window._recOrdem = window._recOrdem === 'az' ? 'za' : (window._recOrdem === 'za' ? 'valor' : 'az'); renderRecebiveis()" title="Ordenar clientes pelo código entre parênteses" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:${(window._recOrdem === 'az' || window._recOrdem === 'za') ? '#065f46' : '#f0fdf4'};color:${(window._recOrdem === 'az' || window._recOrdem === 'za') ? 'white' : '#065f46'};border:1.5px solid #065f46;border-radius:8px;font-family:Poppins;font-weight:800;font-size:11.5px;cursor:pointer">🔢 ${window._recOrdem === 'az' ? 'Código A→Z' : (window._recOrdem === 'za' ? 'Código Z→A' : 'Ordenar A→Z')}</button>
-      <div style="display:flex;gap:8px;align-items:center">
-      <!-- Botão Realizado -->
+    </div>
+    
+    <div style="display:none">
+      <!-- Menus escondidos (mantidos para compatibilidade com funções existentes) -->
       <button onclick="const m=document.getElementById('_recRealMenu'); const m2=document.getElementById('_recExcelMenu'); if(m2)m2.style.display='none'; m.style.display = m.style.display==='block'?'none':'block'" style="padding:6px 12px;background:white;color:#065f46;border:1px solid #86efac;border-radius:8px;font-family:Poppins;font-weight:600;font-size:11.5px;cursor:pointer;display:inline-flex;align-items:center;gap:6px" title="Import/export dos valores realizados por Excel">
         <span style="font-size:14px">📊</span> Realizado
         <span style="font-size:9px;color:#94a3b8">▾</span>
@@ -7588,15 +7626,9 @@ function renderRecebiveis() {
     </div>
     
     ${(nOvElo + nOvReal) > 0 ? `
-    <div style="background:linear-gradient(135deg,#dbeafe 0%,#bfdbfe 100%);border-radius:12px;padding:12px 18px;margin-bottom:12px;border:1px solid #60a5fa;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
-      <div style="display:flex;align-items:center;gap:10px">
-        <span style="font-size:18px">✏️</span>
-        <div>
-          <div style="font-size:12px;font-weight:800;color:#1e40af">${nOvElo + nOvReal} ajuste${(nOvElo+nOvReal)>1?'s':''} manual${(nOvElo+nOvReal)>1?'is':''} ativo${(nOvElo+nOvReal)>1?'s':''}</div>
-          <div style="font-size:10.5px;color:#1e3a8a">${nOvElo} no valor Elo · ${nOvReal} no valor Realizado. Só valem no dashboard, não afetam Elo/Omie.</div>
-        </div>
-      </div>
-      <button onclick="if(confirm('Limpar TODOS os ajustes manuais (Elo e Realizado)?')){localStorage.removeItem('rec_ov_elo_v1');localStorage.removeItem('rec_ov_real_v1');window._recOvElo={};window._recOvReal={};renderRecebiveis();}" style="padding:6px 12px;background:transparent;color:#1e40af;border:1px solid #60a5fa;border-radius:6px;font-family:Poppins;font-weight:600;font-size:11px;cursor:pointer">Limpar ajustes</button>
+    <div style="font-size:10.5px;color:#94a3b8;margin-bottom:8px;padding:0 4px;display:flex;align-items:center;gap:6px">
+      <span style="font-size:11px">ⓘ</span>
+      <span>${nOvElo + nOvReal} status/valores importados da planilha (só valem neste dashboard)</span>
     </div>
     ` : ''}
     
