@@ -7448,17 +7448,27 @@ function renderRecebiveis() {
   const mesRefKpi = window._recMesFiltro === 'todos' ? mesAtual : window._recMesFiltro;
   const clientesAtivos = (MENS[mesRefKpi] || []).length;
   
-  // Contadores por status no mês de referência
+  // Valores por status — respeita o filtro de mês (todos ou específico)
   const _ovStatus = window._recOvReal || {};
-  let cntPago = 0, cntInadimp = 0, cntTaxaImp = 0;
-  (MENS[mesRefKpi] || []).forEach(rec => {
-    const key = rec[0] + '|' + mesRefKpi;
-    const ov = _ovStatus[key];
-    if (ov) {
-      if (ov.status === 'pago' || ov.status === 'diferenca') cntPago++;
-      else if (ov.status === 'inadimplente') cntInadimp++;
-      else if (ov.status === 'taxa_imp') cntTaxaImp++;
-    }
+  let valInadimp = 0, valTaxaImp = 0;
+  let cntInadimp = 0, cntTaxaImp = 0;
+  const _mesesCalc = (window._recMesFiltro && window._recMesFiltro !== 'todos') ? [window._recMesFiltro] : MONTHS;
+  _mesesCalc.forEach(mes => {
+    (MENS[mes] || []).forEach(rec => {
+      const key = rec[0] + '|' + mes;
+      const ov = _ovStatus[key];
+      if (ov) {
+        if (ov.status === 'inadimplente') {
+          // Valor esperado (não pago) = valor Elo (régua)
+          valInadimp += rec[2] || 0;
+          cntInadimp++;
+        } else if (ov.status === 'taxa_imp') {
+          // Valor cobrado da taxa
+          valTaxaImp += (ov.valor !== undefined ? ov.valor : (rec[2] || 0));
+          cntTaxaImp++;
+        }
+      }
+    });
   });
   const mrrRef = (MENS[mesRefKpi] || []).reduce((s, c) => s + c[2], 0);
   
@@ -7496,6 +7506,19 @@ function renderRecebiveis() {
               </select>
               ${filtroMesAtivo ? `<button onclick="window._recMesFiltro='todos'; renderRecebiveis()" title="Limpar filtro" style="background:#fbbf24;color:#78350f;border:none;padding:8px 10px;border-radius:8px;font-weight:800;cursor:pointer;font-size:11px">✕</button>` : ''}
             </div>
+            <div style="display:flex;gap:6px;align-items:center">
+              <span style="font-size:10.5px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:700">Status</span>
+              <select onchange="if(this.value){ window._recViewDetalhe=this.value; renderRecebiveis(); }" style="background:rgba(255,255,255,0.1);color:white;border:1px solid rgba(255,255,255,0.2);padding:8px 12px;border-radius:8px;font-family:Poppins;font-weight:700;font-size:13px;cursor:pointer">
+                <option value="" style="background:#0f172a">🎯 Filtrar por status...</option>
+                <option value="pago" style="background:#0f172a">🟢 Pago</option>
+                <option value="diferenca" style="background:#0f172a">🟡 Pago com diferença</option>
+                <option value="inadimplente" style="background:#0f172a">🔴 Inadimplente</option>
+                <option value="pendente" style="background:#0f172a">⚪ Pendente</option>
+                <option value="isento" style="background:#0f172a">🔵 Isento</option>
+                <option value="encerrado" style="background:#0f172a">⚫ Encerrado</option>
+                <option value="taxa_imp" style="background:#0f172a">💠 Taxa de implantação</option>
+              </select>
+            </div>
           </div>
         </div>
         
@@ -7517,38 +7540,25 @@ function renderRecebiveis() {
             <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">Esperado no período</div>
             <div style="font-size:22px;font-weight:800;color:#f8fafc">${_fmtRs(totalEsperadoAno)}</div>
           </div>
-          <div>
-            <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">Cobertura</div>
-            <div style="font-size:22px;font-weight:800;color:${totalRecebidoAno/totalEsperadoAno >= 0.9 ? '#10b981' : totalRecebidoAno/totalEsperadoAno >= 0.7 ? '#f59e0b' : '#ef4444'}">${totalEsperadoAno>0 ? ((totalRecebidoAno/totalEsperadoAno)*100).toFixed(1) + '%' : '—'}</div>
-          </div>
-        </div>
-        
-        <!-- Linha inferior: KPIs de status do mês de referência -->
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px;padding-top:16px;margin-top:16px;border-top:1px solid rgba(255,255,255,0.08)">
-          <div style="padding-left:2px">
-            <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">Status no mês</div>
-            <div style="font-size:12px;color:#cbd5e1;line-height:1.4">${MONTH_NOMES[parseInt(mesRefKpi.slice(-2))-1]||'—'} · clique nos filtros abaixo</div>
-          </div>
-          <div style="cursor:pointer" onclick="window._recViewDetalhe='pago'; renderRecebiveis()" title="Ver todos os clientes pagos">
-            <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">✓ Pagos</div>
-            <div style="font-size:22px;font-weight:800;color:#10b981;letter-spacing:-0.5px">${cntPago}</div>
-            <div style="font-size:10px;color:#94a3b8;margin-top:2px">clientes com status Pago</div>
-          </div>
-          <div style="cursor:pointer" onclick="window._recViewDetalhe='inadimplente'; renderRecebiveis()" title="Ver todos os inadimplentes">
+          <div style="cursor:pointer" onclick="window._recViewDetalhe='inadimplente'; renderRecebiveis()" title="Ver detalhes dos inadimplentes">
             <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">⚠ Inadimplentes</div>
-            <div style="font-size:22px;font-weight:800;color:#ef4444;letter-spacing:-0.5px">${cntInadimp}</div>
-            <div style="font-size:10px;color:#94a3b8;margin-top:2px">clientes em atraso</div>
+            <div style="font-size:22px;font-weight:800;color:#ef4444;letter-spacing:-0.5px">${_fmtRs(valInadimp)}</div>
+            <div style="font-size:10px;color:#94a3b8;margin-top:2px">${cntInadimp} cliente(s) em atraso</div>
           </div>
           <div style="cursor:pointer" onclick="window._recViewDetalhe='taxa_imp'; renderRecebiveis()" title="Ver taxa de implantação">
             <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">💠 Taxa Implantação</div>
-            <div style="font-size:22px;font-weight:800;color:#a78bfa;letter-spacing:-0.5px">${cntTaxaImp}</div>
-            <div style="font-size:10px;color:#94a3b8;margin-top:2px">taxa unitária de setup</div>
+            <div style="font-size:22px;font-weight:800;color:#a78bfa;letter-spacing:-0.5px">${_fmtRs(valTaxaImp)}</div>
+            <div style="font-size:10px;color:#94a3b8;margin-top:2px">${cntTaxaImp} cliente(s) com taxa</div>
           </div>
         </div>
+
       </div>
     </div>
     
-    <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:12px;position:relative">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px;position:relative;flex-wrap:wrap">
+      <!-- Botão Ordenar (esquerda) -->
+      <button onclick="window._recOrdem = window._recOrdem === 'az' ? 'za' : (window._recOrdem === 'za' ? 'valor' : 'az'); renderRecebiveis()" title="Ordenar clientes pelo código entre parênteses" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:${(window._recOrdem === 'az' || window._recOrdem === 'za') ? '#065f46' : '#f0fdf4'};color:${(window._recOrdem === 'az' || window._recOrdem === 'za') ? 'white' : '#065f46'};border:1.5px solid #065f46;border-radius:8px;font-family:Poppins;font-weight:800;font-size:11.5px;cursor:pointer">🔢 ${window._recOrdem === 'az' ? 'Código A→Z' : (window._recOrdem === 'za' ? 'Código Z→A' : 'Ordenar A→Z')}</button>
+      <div style="display:flex;gap:8px;align-items:center">
       <!-- Botão Realizado -->
       <button onclick="const m=document.getElementById('_recRealMenu'); const m2=document.getElementById('_recExcelMenu'); if(m2)m2.style.display='none'; m.style.display = m.style.display==='block'?'none':'block'" style="padding:6px 12px;background:white;color:#065f46;border:1px solid #86efac;border-radius:8px;font-family:Poppins;font-weight:600;font-size:11.5px;cursor:pointer;display:inline-flex;align-items:center;gap:6px" title="Import/export dos valores realizados por Excel">
         <span style="font-size:14px">📊</span> Realizado
@@ -7598,16 +7608,7 @@ function renderRecebiveis() {
       <input type="text" id="_recBuscaInput" placeholder="🔍 Buscar por nome ou ID..." value="${_esc(window._recBusca)}" oninput="window._recBusca=this.value; renderRecebiveis(); const el=document.getElementById('_recBuscaInput'); if(el){el.focus(); el.setSelectionRange(el.value.length,el.value.length)}" style="padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;font-family:Poppins;font-size:12px;width:260px;outline:none"/>
     </div>
     
-    <div style="background:white;border-radius:12px;padding:12px 18px;margin-bottom:12px;border:1px solid #e2e8f0;display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:11.5px">
-      <span style="color:#64748b;font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:0.5px;margin-right:4px">Filtrar por status:</span>
-      ${Object.entries(STATUS_INFO).filter(([k]) => !['sem_regua'].includes(k)).map(([k, info]) => {
-        const ativo = false; // botões sempre navegam, nunca ficam 'ativos' inline
-        return `<button onclick="window._recViewDetalhe='${k}'; renderRecebiveis()" title="Ver todos os clientes com status: ${info.label}" style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;background:${ativo?info.bg:'transparent'};border:1.5px solid ${ativo?info.cor:'#e2e8f0'};border-radius:6px;font-family:Poppins;cursor:pointer;transition:all 0.15s;font-size:11.5px"><span style="width:16px;height:16px;background:${info.bg};border-radius:4px;display:inline-flex;align-items:center;justify-content:center"><span style="display:inline-block;width:8px;height:8px;background:${info.cor};border-radius:50%"></span></span><span style="color:${ativo?info.cor:'#334155'};font-weight:${ativo?'800':'600'}">${info.label}</span></button>`;
-      }).join('')}
-      <button onclick="window._recOrdem = window._recOrdem === &#39;az&#39; ? &#39;za&#39; : (window._recOrdem === &#39;za&#39; ? &#39;valor&#39; : &#39;az&#39;); renderRecebiveis()" title="Ordenar clientes pelo código entre parênteses" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:${(window._recOrdem === 'az' || window._recOrdem === 'za') ? '#065f46' : '#f0fdf4'};color:${(window._recOrdem === 'az' || window._recOrdem === 'za') ? 'white' : '#065f46'};border:1.5px solid #065f46;border-radius:6px;font-family:Poppins;font-weight:800;font-size:11.5px;cursor:pointer;margin-left:8px">🔢 ${window._recOrdem === 'az' ? 'Código A→Z' : (window._recOrdem === 'za' ? 'Código Z→A' : 'Ordenar A→Z')}</button>
-      ${window._recFiltroStatus ? `<button onclick="window._recFiltroStatus=null; renderRecebiveis()" style="padding:5px 10px;background:#f1f5f9;color:#64748b;border:1px solid #cbd5e1;border-radius:6px;font-family:Poppins;font-weight:700;font-size:10.5px;cursor:pointer">✕ Limpar filtro</button>` : ''}
-      <span style="color:#94a3b8;font-size:10.5px;margin-left:auto">💡 clique no valor para editar · botão direito mostra o comentário</span>
-    </div>
+    
   `;
   
   html += `<div style="background:white;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden">
