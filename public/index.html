@@ -7518,6 +7518,10 @@ function renderRecebiveis() {
         const mensaEsperada = naRegua ? mensaPorMes[mes][id].mensa : null;
         const ovEloAqui = mensaPorMes[mes][id] && mensaPorMes[mes][id].override;
         
+        // Se filtro de status ativo: célula deste mês só é destacada se o status BATER
+        const foraDoFiltro = window._recFiltroStatus && s.status !== window._recFiltroStatus;
+        const opacidadeMes = foraDoFiltro ? 'opacity:0.18;' : '';
+        
         // ==== COLUNA ELO ====
         const keyElo = id + '|' + mes;
         const ttEloOrig = ovEloAqui ? `Original Elo: ${_fmtR(mensaPorMes[mes][id].mensaOrig)} · Ajustado: ${_fmtR(ovEloAqui.valor)}${ovEloAqui.comentario?' · '+ovEloAqui.comentario:''}` : (mensaEsperada!==null?`Elo: ${_fmtR(mensaEsperada)}`:'Sem régua no Elo');
@@ -7527,11 +7531,11 @@ function renderRecebiveis() {
         const clickAttrs = `onclick="_recEditar('${id}','${mes}','elo')" oncontextmenu="event.preventDefault();_recMostrarComentario('${id}','${mes}','elo');return false;" title="${_esc(ttEloOrig)} · clique para editar" style="position:relative;cursor:pointer;padding:8px;text-align:right;`;
         
         if (mensaEsperada === null) {
-          html += `<td ${clickAttrs}color:#cbd5e1;background:#fafafa;border-left:${expandido?'2px solid #6366f1':'1px solid #e2e8f0'};font-size:11px;${bordaOv}">${badgeEd}—</td>`;
+          html += `<td ${clickAttrs}color:#cbd5e1;background:#fafafa;border-left:${expandido?'2px solid #6366f1':'1px solid #e2e8f0'};font-size:11px;${bordaOv}${opacidadeMes}">${badgeEd}—</td>`;
         } else if (mensaEsperada === 0) {
-          html += `<td ${clickAttrs}color:#6366f1;background:#eef2ff;border-left:${expandido?'2px solid #6366f1':'1px solid #e2e8f0'};font-size:10.5px;font-weight:700;${bordaOv}">${badgeEd}isento</td>`;
+          html += `<td ${clickAttrs}color:#6366f1;background:#eef2ff;border-left:${expandido?'2px solid #6366f1':'1px solid #e2e8f0'};font-size:10.5px;font-weight:700;${bordaOv}${opacidadeMes}">${badgeEd}isento</td>`;
         } else {
-          html += `<td ${clickAttrs}color:#334155;background:#fafafa;border-left:${expandido?'2px solid #6366f1':'1px solid #e2e8f0'};font-weight:600;${bordaOv}">${badgeEd}${_fmtR(mensaEsperada)}</td>`;
+          html += `<td ${clickAttrs}color:#334155;background:#fafafa;border-left:${expandido?'2px solid #6366f1':'1px solid #e2e8f0'};font-weight:600;${bordaOv}${opacidadeMes}">${badgeEd}${_fmtR(mensaEsperada)}</td>`;
         }
         
         // ==== COLUNA REALIZADO (só quando expandido) ====
