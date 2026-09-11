@@ -7163,9 +7163,111 @@ function getValorMes(cliente, mes) {
   return valorComp;
 }
 
+function _renderStatusDetalhe(statusKey) {
+  const STATUS_INFO_DET = {
+    pago:         { cor: '#10b981', bg: '#d1fae5', label: 'Pago' },
+    diferenca:    { cor: '#f59e0b', bg: '#fef3c7', label: 'Pago com Diferença' },
+    inadimplente: { cor: '#ef4444', bg: '#fee2e2', label: 'Inadimplente' },
+    pendente:     { cor: '#94a3b8', bg: '#f1f5f9', label: 'Pendente' },
+    isento:       { cor: '#6366f1', bg: '#e0e7ff', label: 'Isento' },
+    encerrado:    { cor: '#374151', bg: '#e5e7eb', label: 'Encerrado' },
+    taxa_imp:     { cor: '#7c3aed', bg: '#ede9fe', label: 'Taxa de Implantação' }
+  };
+  const info = STATUS_INFO_DET[statusKey] || STATUS_INFO_DET.pendente;
+  const MES_LABEL = { '2026-01':'Jan/26','2026-02':'Fev/26','2026-03':'Mar/26','2026-04':'Abr/26','2026-05':'Mai/26','2026-06':'Jun/26','2026-07':'Jul/26','2026-08':'Ago/26','2026-09':'Set/26','2026-10':'Out/26','2026-11':'Nov/26','2026-12':'Dez/26' };
+  const MESES_ORDEM = ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'];
+  
+  // Coletar todos os matches: {clienteId, nome, mes, valor, telefone}
+  const overrides = JSON.parse(localStorage.getItem('rec_ov_real_v1') || '{}');
+  const telefones = window.TELEFONES_ELO || {};
+  const matches = [];
+  
+  Object.keys(overrides).forEach(key => {
+    const ov = overrides[key];
+    if (ov.status === statusKey) {
+      const [id, mes] = key.split('|');
+      // Buscar nome na base
+      const MENS = window.MENSALIDADES_ELO_BASE || {};
+      let nome = '?';
+      for (const m of Object.keys(MENS)) {
+        const rec = (MENS[m] || []).find(r => r[0] === id);
+        if (rec) { nome = rec[1]; break; }
+      }
+      matches.push({
+        id, nome, mes, 
+        valor: ov.valor || 0, 
+        telefone: telefones[id] || '',
+        mesLabel: MES_LABEL[mes] || mes
+      });
+    }
+  });
+  
+  // Agrupar por cliente
+  const porCliente = {};
+  matches.forEach(m => {
+    if (!porCliente[m.id]) porCliente[m.id] = { id: m.id, nome: m.nome, telefone: m.telefone, meses: [], valorTotal: 0 };
+    porCliente[m.id].meses.push({ mes: m.mes, mesLabel: m.mesLabel, valor: m.valor });
+    porCliente[m.id].valorTotal += m.valor;
+  });
+  
+  const clientes = Object.values(porCliente).sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
+  const totalGeral = clientes.reduce((s, c) => s + c.valorTotal, 0);
+  
+  let html = `<div style="background:linear-gradient(135deg,${info.cor} 0%,${info.cor}dd 100%);border-radius:14px;padding:20px 28px;margin-bottom:16px;color:white;box-shadow:0 4px 12px ${info.cor}66">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
+      <div>
+        <div style="font-size:11px;opacity:0.85;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;margin-bottom:4px">Filtro de Status</div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="width:14px;height:14px;background:white;border-radius:50%;display:inline-block"></span>
+          <h1 style="margin:0;font-size:26px;font-weight:800">${info.label}</h1>
+        </div>
+        <div style="font-size:12.5px;opacity:0.9;margin-top:6px">${clientes.length} cliente(s) · ${matches.length} ocorrência(s) · Total: R$ ${totalGeral.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+      </div>
+      <button onclick="window._recViewDetalhe=null; renderRecebiveis()" style="background:rgba(255,255,255,0.2);color:white;border:1px solid rgba(255,255,255,0.4);padding:9px 18px;border-radius:8px;font-family:Poppins;font-weight:700;font-size:12.5px;cursor:pointer;backdrop-filter:blur(10px)">← Voltar à tabela</button>
+    </div>
+  </div>`;
+  
+  if (clientes.length === 0) {
+    html += `<div style="background:white;border-radius:12px;padding:50px 20px;text-align:center;color:#94a3b8;border:2px dashed #e2e8f0"><div style="font-size:14px">Nenhum cliente com status <strong>${info.label}</strong> encontrado.</div></div>`;
+  } else {
+    html += '<div style="background:white;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.05)"><table style="width:100%;border-collapse:collapse;font-size:12.5px">';
+    html += `<thead><tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0">
+      <th style="padding:12px 14px;text-align:left;font-size:11px;color:#334155;font-weight:800;text-transform:uppercase;letter-spacing:0.4px">Cliente</th>
+      <th style="padding:12px 14px;text-align:left;font-size:11px;color:#334155;font-weight:800;text-transform:uppercase;letter-spacing:0.4px">📞 Telefone</th>
+      <th style="padding:12px 14px;text-align:left;font-size:11px;color:#334155;font-weight:800;text-transform:uppercase;letter-spacing:0.4px">Meses com "${info.label}"</th>
+      <th style="padding:12px 14px;text-align:right;font-size:11px;color:#334155;font-weight:800;text-transform:uppercase;letter-spacing:0.4px">Valor</th>
+    </tr></thead><tbody>`;
+    
+    clientes.forEach((c, i) => {
+      const bgRow = i % 2 === 0 ? 'white' : '#fafbfc';
+      const mesesPills = c.meses.map(m => `<span style="display:inline-block;background:${info.bg};color:${info.cor};padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700;margin-right:4px;margin-bottom:2px;border:1px solid ${info.cor}44">${m.mesLabel}${m.valor>0?' · R$ '+m.valor.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):''}</span>`).join('');
+      html += `<tr style="background:${bgRow};border-bottom:1px solid #f1f5f9">
+        <td style="padding:11px 14px;font-weight:700;color:#0f172a">(${String(c.id).padStart(3,'0')}) ${c.nome}</td>
+        <td style="padding:11px 14px;font-family:'Courier New',monospace;font-weight:600;color:#0c4a6e;background:#f0fdff;user-select:all;cursor:text" title="Clique para selecionar e copiar">${c.telefone ? '📱 '+c.telefone : '<span style=\'color:#cbd5e1;font-style:italic\'>—</span>'}</td>
+        <td style="padding:11px 14px">${mesesPills}</td>
+        <td style="padding:11px 14px;text-align:right;font-weight:800;color:#0f172a;white-space:nowrap">R$ ${c.valorTotal.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+      </tr>`;
+    });
+    
+    html += `<tr style="background:#f0fdf4;border-top:2px solid #10b981">
+      <td colspan="3" style="padding:12px 14px;font-weight:800;color:#065f46;text-transform:uppercase;letter-spacing:0.4px;font-size:11px">TOTAL — ${clientes.length} cliente(s)</td>
+      <td style="padding:12px 14px;text-align:right;font-weight:900;color:#065f46;font-size:14px;white-space:nowrap">R$ ${totalGeral.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+    </tr>`;
+    html += '</tbody></table></div>';
+  }
+  
+  return html;
+}
+
 function renderRecebiveis() {
   const container = document.getElementById('recebiveisContent');
   if (!container) return;
+  
+  // Se view de detalhe está ativa, renderiza página filtrada e sai
+  if (window._recViewDetalhe) {
+    container.innerHTML = _renderStatusDetalhe(window._recViewDetalhe);
+    return;
+  }
   
   const MENS = window.MENSALIDADES_ELO || {};
   
@@ -7435,8 +7537,8 @@ function renderRecebiveis() {
     <div style="background:white;border-radius:12px;padding:12px 18px;margin-bottom:12px;border:1px solid #e2e8f0;display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:11.5px">
       <span style="color:#64748b;font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:0.5px;margin-right:4px">Filtrar por status:</span>
       ${Object.entries(STATUS_INFO).filter(([k]) => !['sem_regua'].includes(k)).map(([k, info]) => {
-        const ativo = window._recFiltroStatus === k;
-        return `<button onclick="window._recFiltroStatus = (window._recFiltroStatus==='${k}' ? null : '${k}'); renderRecebiveis()" title="Clique para filtrar por ${info.label}" style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;background:${ativo?info.bg:'transparent'};border:1.5px solid ${ativo?info.cor:'#e2e8f0'};border-radius:6px;font-family:Poppins;cursor:pointer;transition:all 0.15s;font-size:11.5px"><span style="width:16px;height:16px;background:${info.bg};border-radius:4px;display:inline-flex;align-items:center;justify-content:center"><span style="display:inline-block;width:8px;height:8px;background:${info.cor};border-radius:50%"></span></span><span style="color:${ativo?info.cor:'#334155'};font-weight:${ativo?'800':'600'}">${info.label}</span></button>`;
+        const ativo = false; // botões sempre navegam, nunca ficam 'ativos' inline
+        return `<button onclick="window._recViewDetalhe='${k}'; renderRecebiveis()" title="Ver todos os clientes com status: ${info.label}" style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;background:${ativo?info.bg:'transparent'};border:1.5px solid ${ativo?info.cor:'#e2e8f0'};border-radius:6px;font-family:Poppins;cursor:pointer;transition:all 0.15s;font-size:11.5px"><span style="width:16px;height:16px;background:${info.bg};border-radius:4px;display:inline-flex;align-items:center;justify-content:center"><span style="display:inline-block;width:8px;height:8px;background:${info.cor};border-radius:50%"></span></span><span style="color:${ativo?info.cor:'#334155'};font-weight:${ativo?'800':'600'}">${info.label}</span></button>`;
       }).join('')}
       <button onclick="window._recOrdem = window._recOrdem === &#39;az&#39; ? &#39;za&#39; : (window._recOrdem === &#39;za&#39; ? &#39;valor&#39; : &#39;az&#39;); renderRecebiveis()" title="Ordenar clientes pelo código entre parênteses" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:${(window._recOrdem === 'az' || window._recOrdem === 'za') ? '#065f46' : '#f0fdf4'};color:${(window._recOrdem === 'az' || window._recOrdem === 'za') ? 'white' : '#065f46'};border:1.5px solid #065f46;border-radius:6px;font-family:Poppins;font-weight:800;font-size:11.5px;cursor:pointer;margin-left:8px">🔢 ${window._recOrdem === 'az' ? 'Código A→Z' : (window._recOrdem === 'za' ? 'Código Z→A' : 'Ordenar A→Z')}</button>
       ${window._recFiltroStatus ? `<button onclick="window._recFiltroStatus=null; renderRecebiveis()" style="padding:5px 10px;background:#f1f5f9;color:#64748b;border:1px solid #cbd5e1;border-radius:6px;font-family:Poppins;font-weight:700;font-size:10.5px;cursor:pointer">✕ Limpar filtro</button>` : ''}
@@ -7518,9 +7620,7 @@ function renderRecebiveis() {
         const mensaEsperada = naRegua ? mensaPorMes[mes][id].mensa : null;
         const ovEloAqui = mensaPorMes[mes][id] && mensaPorMes[mes][id].override;
         
-        // Se filtro de status ativo: célula deste mês só é destacada se o status BATER
-        const foraDoFiltro = window._recFiltroStatus && s.status !== window._recFiltroStatus;
-        const opacidadeMes = foraDoFiltro ? 'opacity:0.18;' : '';
+
         
         // ==== COLUNA ELO ====
         const keyElo = id + '|' + mes;
@@ -7531,11 +7631,11 @@ function renderRecebiveis() {
         const clickAttrs = `onclick="_recEditar('${id}','${mes}','elo')" oncontextmenu="event.preventDefault();_recMostrarComentario('${id}','${mes}','elo');return false;" title="${_esc(ttEloOrig)} · clique para editar" style="position:relative;cursor:pointer;padding:8px;text-align:right;`;
         
         if (mensaEsperada === null) {
-          html += `<td ${clickAttrs}color:#cbd5e1;background:#fafafa;border-left:${expandido?'2px solid #6366f1':'1px solid #e2e8f0'};font-size:11px;${bordaOv}${opacidadeMes}">${badgeEd}—</td>`;
+          html += `<td ${clickAttrs}color:#cbd5e1;background:#fafafa;border-left:${expandido?'2px solid #6366f1':'1px solid #e2e8f0'};font-size:11px;${bordaOv}">${badgeEd}—</td>`;
         } else if (mensaEsperada === 0) {
-          html += `<td ${clickAttrs}color:#6366f1;background:#eef2ff;border-left:${expandido?'2px solid #6366f1':'1px solid #e2e8f0'};font-size:10.5px;font-weight:700;${bordaOv}${opacidadeMes}">${badgeEd}isento</td>`;
+          html += `<td ${clickAttrs}color:#6366f1;background:#eef2ff;border-left:${expandido?'2px solid #6366f1':'1px solid #e2e8f0'};font-size:10.5px;font-weight:700;${bordaOv}">${badgeEd}isento</td>`;
         } else {
-          html += `<td ${clickAttrs}color:#334155;background:#fafafa;border-left:${expandido?'2px solid #6366f1':'1px solid #e2e8f0'};font-weight:600;${bordaOv}${opacidadeMes}">${badgeEd}${_fmtR(mensaEsperada)}</td>`;
+          html += `<td ${clickAttrs}color:#334155;background:#fafafa;border-left:${expandido?'2px solid #6366f1':'1px solid #e2e8f0'};font-weight:600;${bordaOv}">${badgeEd}${_fmtR(mensaEsperada)}</td>`;
         }
         
         // ==== COLUNA REALIZADO (só quando expandido) ====
