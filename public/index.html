@@ -760,6 +760,109 @@ body.scalia-mode .company-badge {
   border: 1px solid rgba(255,255,255,0.15);
 }
 
+
+/* ============================================================
+   MOBILE (≤ 640px) — só aplica em celular, não muda desktop
+   ============================================================ */
+@media (max-width: 640px) {
+  /* Sidebar vira barra compacta lateral */
+  .sidebar { width: 48px !important; padding: 10px 4px !important; }
+  .main-content { margin-left: 48px !important; }
+  .nav-btn { padding: 8px 4px !important; font-size: 16px !important; }
+  
+  /* Header do site (menu superior) — mais compacto */
+  .header { padding: 12px 14px !important; }
+  .header-title { font-size: 16px !important; }
+  .header-controls { gap: 6px !important; }
+  .header-controls select, .header-controls button { 
+    padding: 5px 8px !important; font-size: 11px !important; 
+  }
+  
+  /* Heros: reduzir padding gigante */
+  [id$="HeroContainer"] > div, 
+  [id$="Content"] > div:first-child {
+    padding: 16px 14px !important;
+  }
+  
+  /* Títulos H1 em heros — menores */
+  .main-content h1 { font-size: 20px !important; line-height:1.2 !important; }
+  .main-content h2 { font-size: 17px !important; }
+  .main-content h3 { font-size: 15px !important; }
+  
+  /* Grids de KPIs — 2 colunas em vez de 4/5 */
+  [style*="grid-template-columns:repeat(auto-fit"],
+  [style*="grid-template-columns: repeat(auto-fit"],
+  [style*="grid-template-columns:repeat(4"],
+  [style*="grid-template-columns:repeat(5"],
+  [style*="grid-template-columns: repeat(4"],
+  [style*="grid-template-columns: repeat(5"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+  }
+  
+  /* Valores dos KPIs — não estourarem */
+  [style*="font-size:22px"], [style*="font-size: 22px"],
+  [style*="font-size:26px"], [style*="font-size: 26px"],
+  [style*="font-size:28px"], [style*="font-size: 28px"] {
+    font-size: 17px !important;
+  }
+  
+  /* Tabelas — scroll horizontal natural, fonte um pouco menor */
+  table { font-size: 10.5px !important; }
+  table th, table td { padding: 6px 5px !important; }
+  
+  /* Container de scroll das tabelas — usa altura menor */
+  .table-container, #_recScrollMain {
+    max-height: calc(100vh - 180px) !important;
+  }
+  
+  /* Botões de ação — maiores para dedão */
+  button { min-height: 34px; }
+  input, select, textarea { font-size: 14px !important; } /* evita zoom automático iOS */
+  
+  /* Painel de categoria (grid de cards) — 1 coluna */
+  .painelCat-sub [style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+  }
+  
+  /* Notas/tooltips — não estourarem */
+  .header-controls, .header-content {
+    flex-wrap: wrap !important;
+  }
+  
+  /* Kits Scalia — participantes em 1 coluna */
+  #scaliaKitsContent [style*="minmax(320px"] {
+    grid-template-columns: 1fr !important;
+  }
+  
+  /* Tributário — colunas kanban em rolagem horizontal */
+  #tributarioContent [style*="repeat(4,1fr)"],
+  #tributarioContent [style*="repeat(4, 1fr)"] {
+    grid-template-columns: repeat(4, 260px) !important;
+    overflow-x: auto !important;
+  }
+  
+  /* Modais — full-screen em mobile */
+  #tribModal > div, #_recModal > div {
+    max-width: 96vw !important;
+    max-height: 92vh !important;
+    padding: 16px !important;
+  }
+}
+
+/* Telas MUITO pequenas (≤ 400px) */
+@media (max-width: 400px) {
+  .sidebar { width: 40px !important; padding: 8px 2px !important; }
+  .main-content { margin-left: 40px !important; }
+  .header { padding: 10px 12px !important; }
+  .main-content h1 { font-size: 18px !important; }
+  [style*="grid-template-columns:repeat(auto-fit"],
+  [style*="grid-template-columns:repeat(4"],
+  [style*="grid-template-columns:repeat(5"] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
 </style>
 
 <style>
