@@ -773,11 +773,12 @@ body.scalia-mode .company-badge {
    AUTENTICAÇÃO — modal de login e filtro por role
    ============================================================ */
 body:not(.auth-ready) .sidebar,
-body:not(.auth-ready) .main-content {
+body:not(.auth-ready) .main-content,
+body:not(.auth-ready) #companySelector {
   visibility: hidden !important;
 }
 #authOverlay {
-  position: fixed; inset: 0; z-index: 9999;
+  position: fixed; inset: 0; z-index: 10001;
   background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f766e 100%);
   display: flex; align-items: center; justify-content: center;
   padding: 20px;
@@ -821,18 +822,19 @@ body:not(.auth-ready) .main-content {
 /* Botão sair no header */
 /* Badge do usuário — dentro do container fixo do canto inferior esquerdo */
 #authUserBadge .avatar {
-  width: 32px; height: 32px; border-radius: 50%;
+  width: 26px; height: 26px; border-radius: 50%;
   background: linear-gradient(135deg, #10b981, #059669);
-  color: white; font-size: 12px; font-weight: 800;
-  line-height: 32px; text-align: center;
+  color: white; font-size: 10.5px; font-weight: 800;
+  line-height: 26px; text-align: center;
   flex-shrink: 0;
   object-fit: cover;
 }
 #authUserBadge .role-tag {
-  background: rgba(255,255,255,0.15); color: white;
-  padding: 2px 7px; border-radius: 4px;
-  font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.5px;
+  background: rgba(255,255,255,0.18); color: white;
+  padding: 1px 6px; border-radius: 3px;
+  font-size: 8.5px; text-transform: uppercase; letter-spacing: 0.4px;
   font-weight: 700; margin-left: 4px;
+  vertical-align: middle;
 }
 
 /* Container fixo aparece só após auth-ready */
@@ -15384,9 +15386,9 @@ window._tribNovaTarefa = function() {
 
 </script>
 <!-- CONTAINER FIXO NO CANTO INFERIOR ESQUERDO: engrenagem (admin) + badge do usuário -->
-<div id="authFooterFixed" style="position:fixed;bottom:20px;left:20px;z-index:100;display:none;align-items:center;gap:10px">
-  <button id="adminGearBtn" onclick="_authAbrirAdmin()" title="Gerenciar acessos" style="background:linear-gradient(135deg,#334155,#1e293b);color:white;border:1px solid rgba(255,255,255,0.1);width:48px;height:48px;border-radius:50%;font-family:Poppins;font-weight:700;font-size:20px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.3);align-items:center;justify-content:center;transition:all 0.2s;flex-shrink:0" onmouseover="this.style.transform='scale(1.1)';this.style.background='linear-gradient(135deg,#475569,#334155)'" onmouseout="this.style.transform='scale(1)';this.style.background='linear-gradient(135deg,#334155,#1e293b)'">⚙️</button>
-  <button id="authUserBadge" onclick="_authSair()" title="Clique para sair" style="background:linear-gradient(135deg,#334155,#1e293b);color:white;border:1px solid rgba(255,255,255,0.1);padding:8px 16px 8px 8px;border-radius:26px;font-family:Poppins;font-weight:600;font-size:13px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.3);display:flex;align-items:center;gap:10px;transition:all 0.2s" onmouseover="this.style.background='linear-gradient(135deg,#dc2626,#991b1b)'" onmouseout="this.style.background='linear-gradient(135deg,#334155,#1e293b)'"></button>
+<div id="authFooterFixed" style="position:fixed;bottom:16px;left:16px;z-index:100;display:none;align-items:center;gap:10px">
+  <button id="adminGearBtn" onclick="_authAbrirAdmin()" title="Gerenciar acessos" style="background:linear-gradient(135deg,#334155,#1e293b);color:white;border:1px solid rgba(255,255,255,0.1);width:38px;height:38px;border-radius:50%;font-family:Poppins;font-weight:700;font-size:16px;cursor:pointer;box-shadow:0 3px 8px rgba(0,0,0,0.25);align-items:center;justify-content:center;transition:all 0.2s;flex-shrink:0" onmouseover="this.style.transform='scale(1.1)';this.style.background='linear-gradient(135deg,#475569,#334155)'" onmouseout="this.style.transform='scale(1)';this.style.background='linear-gradient(135deg,#334155,#1e293b)'">⚙️</button>
+  <button id="authUserBadge" onclick="_authSair()" title="Clique para sair" style="background:linear-gradient(135deg,#334155,#1e293b);color:white;border:1px solid rgba(255,255,255,0.1);padding:4px 11px 4px 4px;border-radius:20px;font-family:Poppins;font-weight:600;font-size:11.5px;cursor:pointer;box-shadow:0 3px 8px rgba(0,0,0,0.25);display:flex;align-items:center;gap:7px;transition:all 0.2s;height:38px" onmouseover="this.style.background='linear-gradient(135deg,#dc2626,#991b1b)'" onmouseout="this.style.background='linear-gradient(135deg,#334155,#1e293b)'"></button>
 </div>
 
 <!-- OVERLAY DE LOGIN -->
@@ -15406,7 +15408,7 @@ window._tribNovaTarefa = function() {
 </div>
 
 <!-- PAINEL ADMIN (só para admin — engrenagem no header) -->
-<div id="adminPanel" style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,0.6);padding:20px;overflow-y:auto">
+<div id="adminPanel" style="display:none;position:fixed;inset:0;z-index:10002;background:rgba(0,0,0,0.6);padding:20px;overflow-y:auto">
   <div style="background:white;border-radius:16px;max-width:900px;margin:40px auto;padding:28px 32px;box-shadow:0 20px 60px rgba(0,0,0,0.4)">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;padding-bottom:16px;border-bottom:2px solid #e2e8f0">
       <div>
