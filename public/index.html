@@ -5507,13 +5507,13 @@ function _reembolsoLoad() {
     if (raw) {
       const data = JSON.parse(raw);
       return {
-        taxaPorKm: typeof data.taxaPorKm === 'number' ? data.taxaPorKm : 0.60,
+        taxaPorKm: typeof data.taxaPorKm === 'number' ? data.taxaPorKm : 0.65,
         encontros: Array.isArray(data.encontros) ? data.encontros : [],
         confraternizacoes: Array.isArray(data.confraternizacoes) ? data.confraternizacoes : []
       };
     }
   } catch(e) { console.error('[reembolso] erro load:', e); }
-  return { taxaPorKm: 0.60, encontros: [], confraternizacoes: [] };
+  return { taxaPorKm: 0.65, encontros: [], confraternizacoes: [] };
 }
 
 function _reembolsoSave(data) {
@@ -6217,24 +6217,46 @@ function _renderConfraternizacoes() {
         </div>
       </div>
       
-      <div style="margin-top:24px;padding-top:20px;border-top:1px solid rgba(255,255,255,0.12)">
-        <div style="display:grid;grid-template-columns:2.5fr 1fr;gap:24px;align-items:stretch">
-          <div style="background:rgba(255,255,255,0.04);border-radius:12px;padding:18px;min-height:260px;position:relative">
-            <div style="font-size:10px;color:#f0abfc;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:12px">📊 Consolidação por tipo — Reembolsos + Fornecedores</div>
-            <div style="height:220px;position:relative"><canvas id="grafHero_confrat_${confAtual.id}"></canvas></div>
-          </div>
-          <div style="display:flex;flex-direction:column;justify-content:center;gap:12px">
-            <div style="background:linear-gradient(135deg,rgba(134,239,172,0.15),rgba(74,222,128,0.08));border:1px solid rgba(134,239,172,0.3);border-radius:12px;padding:18px 20px">
-              <div style="font-size:10.5px;color:#86efac;text-transform:uppercase;letter-spacing:1px;font-weight:800;margin-bottom:6px">💰 Total Geral</div>
-              <div style="font-size:30px;font-weight:800;color:#86efac;letter-spacing:-1px;line-height:1">${fmt(totGeral)}</div>
-              <div style="font-size:11px;color:#f0abfc;margin-top:8px;line-height:1.5">${(confAtual.reembolsos||[]).length} reemb. · ${(confAtual.fornecedores||[]).length} fornecedor(es)</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-top:24px;padding-top:20px;border-top:1px solid rgba(255,255,255,0.12)">
+        ${(() => {
+          const fornAll = confAtual.fornecedores || [];
+          const isGL = (f) => (f.tipo || '').toLowerCase().includes('growper league');
+          const totReembColab = (confAtual.reembolsos || []).reduce((s,r) => s + (Number(r.valor)||0), 0);
+          const totFornSemGL = fornAll.filter(f => !isGL(f)).reduce((s,f) => s + (Number(f.valor)||0), 0);
+          const totGL = fornAll.filter(isGL).reduce((s,f) => s + (Number(f.valor)||0), 0);
+          const totalSemGL = totReembColab + totFornSemGL;
+          const totalComGL = totalSemGL + totGL;
+          const nReemb = (confAtual.reembolsos||[]).length;
+          const nFornSemGL = fornAll.filter(f => !isGL(f)).length;
+          const nGL = fornAll.filter(isGL).length;
+          return `
+            <div style="background:rgba(59,130,246,0.15);border-left:3px solid #60a5fa;padding:14px 16px;border-radius:8px">
+              <div style="font-size:10px;color:#bfdbfe;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:4px">👥 Colaboradores</div>
+              <div style="font-size:22px;font-weight:800;color:white;letter-spacing:-0.5px">${fmt(totReembColab)}</div>
+              <div style="font-size:10.5px;color:#f0abfc;margin-top:2px">${nReemb} reembolso(s)</div>
             </div>
-            <div style="background:rgba(255,255,255,0.06);border-radius:10px;padding:14px 16px;font-size:12px;color:#f0abfc;line-height:1.7">
-              <div style="display:flex;justify-content:space-between"><span>✅ Já pago:</span><strong style="color:#86efac">${fmt(totPago)}</strong></div>
-              <div style="display:flex;justify-content:space-between"><span>⏳ A pagar:</span><strong style="color:#fbbf24">${fmt(totAPagar)}</strong></div>
+            <div style="background:rgba(217,70,239,0.15);border-left:3px solid #e879f9;padding:14px 16px;border-radius:8px">
+              <div style="font-size:10px;color:#f5d0fe;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:4px">🏢 Fornecedores</div>
+              <div style="font-size:22px;font-weight:800;color:white;letter-spacing:-0.5px">${fmt(totFornSemGL)}</div>
+              <div style="font-size:10.5px;color:#f0abfc;margin-top:2px">${nFornSemGL} pagamento(s) · exceto GL</div>
             </div>
-          </div>
-        </div>
+            <div style="background:rgba(252,211,77,0.15);border-left:3px solid #fcd34d;padding:14px 16px;border-radius:8px">
+              <div style="font-size:10px;color:#fde68a;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:4px">🏆 Growper League</div>
+              <div style="font-size:22px;font-weight:800;color:#fcd34d;letter-spacing:-0.5px">${fmt(totGL)}</div>
+              <div style="font-size:10.5px;color:#f0abfc;margin-top:2px">${nGL} lançamento(s)</div>
+            </div>
+            <div style="background:rgba(196,181,253,0.15);border-left:3px solid #c4b5fd;padding:14px 16px;border-radius:8px">
+              <div style="font-size:10px;color:#ddd6fe;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:4px">💰 Total sem GL</div>
+              <div style="font-size:22px;font-weight:800;color:white;letter-spacing:-0.5px">${fmt(totalSemGL)}</div>
+              <div style="font-size:10.5px;color:#f0abfc;margin-top:2px">colab + fornecedores</div>
+            </div>
+            <div style="background:rgba(134,239,172,0.18);border-left:3px solid #86efac;padding:14px 16px;border-radius:8px">
+              <div style="font-size:10px;color:#bbf7d0;text-transform:uppercase;letter-spacing:1px;font-weight:800;margin-bottom:4px">✨ Total geral</div>
+              <div style="font-size:24px;font-weight:800;color:#86efac;letter-spacing:-0.5px">${fmt(totalComGL)}</div>
+              <div style="font-size:10.5px;color:#f0abfc;margin-top:2px">incluindo Growper League</div>
+            </div>
+          `;
+        })()}
       </div>
       
       <!-- BOTÕES ACCORDION -->      <!-- BOTÕES ACCORDION -->
@@ -6345,7 +6367,6 @@ function _renderConfraternizacoes() {
   html += '</tbody></table></div>';
   
   setTimeout(() => { 
-    _initGraficoHero(confAtual, 'confrat');
     _initGraficoBalanco(confAtual, 'confrat'); 
     _initGraficoTendencia(data.confraternizacoes, 'confrat'); 
   }, 100);
@@ -6531,31 +6552,45 @@ function renderReembolso() {
           </div>
         </div>
         
-        <div style="margin-top:24px;padding-top:20px;border-top:1px solid rgba(255,255,255,0.1)">
-          <div style="display:grid;grid-template-columns:2.5fr 1fr;gap:24px;align-items:stretch">
-            <!-- GRÁFICO DE COLUNAS CONSOLIDADO -->
-            <div style="background:rgba(255,255,255,0.04);border-radius:12px;padding:18px;min-height:260px;position:relative">
-              <div style="font-size:10px;color:#c4b5fd;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:12px">📊 Consolidação por tipo — Colaboradores + Fornecedores</div>
-              <div style="height:220px;position:relative"><canvas id="grafHero_encontro_${encontroAtual.id}"></canvas></div>
-            </div>
-            <!-- TOTAL GERAL (destacado) -->
-            <div style="display:flex;flex-direction:column;justify-content:center;gap:14px">
-              ${(() => {
-                const fornAll = encontroAtual.fornecedores || [];
-                const totForn = fornAll.reduce((s,f) => s + (Number(f.valor)||0), 0);
-                const totalConsolidado = totGeral + totForn;
-                const nColab = encontroAtual.colaboradores.length;
-                const nForn = fornAll.length;
-                return `
-                <div style="background:linear-gradient(135deg,rgba(134,239,172,0.15),rgba(74,222,128,0.08));border:1px solid rgba(134,239,172,0.3);border-radius:12px;padding:20px 22px">
-                  <div style="font-size:10.5px;color:#86efac;text-transform:uppercase;letter-spacing:1px;font-weight:800;margin-bottom:6px">💰 Total Geral do Encontro</div>
-                  <div style="font-size:32px;font-weight:800;color:#86efac;letter-spacing:-1px;line-height:1">${_reembolsoFmt(totalConsolidado)}</div>
-                  <div style="font-size:11px;color:#94a3b8;margin-top:8px;line-height:1.5">Colaboradores + Fornecedores<br><span style="font-weight:600">${nColab} colab · ${nForn} fornecedor(es)</span></div>
-                </div>
-                `;
-              })()}
-            </div>
-          </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-top:24px;padding-top:20px;border-top:1px solid rgba(255,255,255,0.1)">
+          ${(() => {
+            const fornAll = encontroAtual.fornecedores || [];
+            const isGL = (f) => (f.tipo || '').toLowerCase().includes('growper league');
+            const totForn = fornAll.filter(f => !isGL(f)).reduce((s,f) => s + (Number(f.valor)||0), 0);
+            const totGL = fornAll.filter(isGL).reduce((s,f) => s + (Number(f.valor)||0), 0);
+            const totalSemGL = totGeral + totForn;
+            const totalComGL = totalSemGL + totGL;
+            const nColab = encontroAtual.colaboradores.length;
+            const nFornSemGL = fornAll.filter(f => !isGL(f)).length;
+            const nGL = fornAll.filter(isGL).length;
+            return `
+              <div style="background:rgba(59,130,246,0.1);border-left:3px solid #60a5fa;padding:14px 16px;border-radius:8px">
+                <div style="font-size:10px;color:#93c5fd;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:4px">👥 Colaboradores</div>
+                <div style="font-size:22px;font-weight:800;color:#f8fafc;letter-spacing:-0.5px">${_reembolsoFmt(totGeral)}</div>
+                <div style="font-size:10.5px;color:#94a3b8;margin-top:2px">${nColab} colaborador(es)</div>
+              </div>
+              <div style="background:rgba(167,139,250,0.1);border-left:3px solid #a78bfa;padding:14px 16px;border-radius:8px">
+                <div style="font-size:10px;color:#c4b5fd;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:4px">🏢 Fornecedores</div>
+                <div style="font-size:22px;font-weight:800;color:#f8fafc;letter-spacing:-0.5px">${_reembolsoFmt(totForn)}</div>
+                <div style="font-size:10.5px;color:#94a3b8;margin-top:2px">${nFornSemGL} pagamento(s) · exceto GL</div>
+              </div>
+              <div style="background:rgba(252,211,77,0.12);border-left:3px solid #fcd34d;padding:14px 16px;border-radius:8px">
+                <div style="font-size:10px;color:#fde68a;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:4px">🏆 Growper League</div>
+                <div style="font-size:22px;font-weight:800;color:#fcd34d;letter-spacing:-0.5px">${_reembolsoFmt(totGL)}</div>
+                <div style="font-size:10.5px;color:#94a3b8;margin-top:2px">${nGL} lançamento(s)</div>
+              </div>
+              <div style="background:rgba(196,181,253,0.12);border-left:3px solid #c4b5fd;padding:14px 16px;border-radius:8px">
+                <div style="font-size:10px;color:#ddd6fe;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:4px">💰 Total sem GL</div>
+                <div style="font-size:22px;font-weight:800;color:#f8fafc;letter-spacing:-0.5px">${_reembolsoFmt(totalSemGL)}</div>
+                <div style="font-size:10.5px;color:#94a3b8;margin-top:2px">colab + fornecedores</div>
+              </div>
+              <div style="background:rgba(134,239,172,0.12);border-left:3px solid #86efac;padding:14px 16px;border-radius:8px">
+                <div style="font-size:10px;color:#bbf7d0;text-transform:uppercase;letter-spacing:1px;font-weight:800;margin-bottom:4px">✨ Total geral</div>
+                <div style="font-size:24px;font-weight:800;color:#86efac;letter-spacing:-0.5px">${_reembolsoFmt(totalComGL)}</div>
+                <div style="font-size:10.5px;color:#94a3b8;margin-top:2px">incluindo Growper League</div>
+              </div>
+            `;
+          })()}
         </div>
         
         <!-- BOTÕES ACCORDION: BALANÇO + TENDÊNCIA -->        <!-- BOTÕES ACCORDION: BALANÇO + TENDÊNCIA -->
@@ -6605,7 +6640,7 @@ function renderReembolso() {
   
   // Info-box explicativo (menor, à direita)
   html += '<div style="align-self:flex-end">';
-  html += `<div style="background:#eff6ff;border:1px solid #dbeafe;border-radius:8px;padding:10px 12px;font-size:11px;color:#1e40af;max-width:300px;line-height:1.5"><div style="margin-bottom:6px">💡 <strong>Combustível</strong> = <code style="background:#dbeafe;padding:1px 5px;border-radius:3px;font-family:monospace">km ida × 2 × R$${taxaKm.toFixed(2)}</code></div><div style="font-size:10.5px;color:#3730a3;padding-top:6px;border-top:1px solid #c7d2fe">📊 <strong>Referência de mercado:</strong> R$ 0,20 a R$ 0,60 por km<br><span style="opacity:0.85">Adotamos o teto: <strong>R$ 0,60/km</strong></span></div></div>`;
+  html += `<div style="background:#eff6ff;border:1px solid #dbeafe;border-radius:8px;padding:10px 12px;font-size:11px;color:#1e40af;max-width:300px;line-height:1.5"><div style="margin-bottom:6px">💡 <strong>Combustível</strong> = <code style="background:#dbeafe;padding:1px 5px;border-radius:3px;font-family:monospace">km ida × 2 × R$${taxaKm.toFixed(2)}</code></div><div style="font-size:10.5px;color:#3730a3;padding-top:6px;border-top:1px solid #c7d2fe">📊 <strong>Referência de mercado:</strong> R$ 0,20 a R$ 0,65 por km<br><span style="opacity:0.85">Adotamos o teto: <strong>R$ 0,65/km</strong></span></div></div>`;
   html += '</div>';
   
   html += '</div>';
@@ -6782,7 +6817,6 @@ function renderReembolso() {
   
   // Inicializar gráficos DENTRO do hero (que já foi renderizado)
   setTimeout(() => { 
-    _initGraficoHero(encontroAtual, 'encontro');
     _initGraficoBalanco(encontroAtual, 'encontro'); 
     _initGraficoTendencia(data.encontros, 'encontro'); 
   }, 100);
