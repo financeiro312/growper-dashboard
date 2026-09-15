@@ -5842,10 +5842,9 @@ function _renderTendenciaEventos(eventos, tipo) {
 }
 
 function _initGraficoTendencia(eventos, tipo) {
-  const canvas = document.querySelector('canvas[id^="grafTend_' + tipo + '_"]:not(:is([data-init]))');
-  if (canvas) canvas.setAttribute('data-init', '1');
+  const grafId = 'grafTend_' + tipo + '_inline';
+  const canvas = document.getElementById(grafId);
   if (!canvas || !window.Chart) return;
-  const grafId = canvas.id;
   const dados = (window._graficoDataTend || {})[grafId] || [];
   if (dados.length < 2) return;
   
@@ -6023,7 +6022,7 @@ function _renderTendenciaEventosInline(eventos, tipo) {
     };
   }).sort((a,b) => (a.data||'').localeCompare(b.data||''));
   
-  const grafId = 'grafTend_' + tipo + '_inline_' + Date.now();
+  const grafId = 'grafTend_' + tipo + '_inline';
   const anteriores = eventosCalc.slice(0, -1);
   const ultimo = eventosCalc[eventosCalc.length - 1];
   const mediaAnt = anteriores.reduce((s,e) => s + e.total, 0) / anteriores.length;
