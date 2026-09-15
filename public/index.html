@@ -5613,7 +5613,7 @@ function _renderFornecedoresEncontro(enc) {
         <th style="padding:9px 12px;text-align:left;font-size:10.5px;color:#334155;font-weight:800;text-transform:uppercase">Fornecedor</th>
         <th style="padding:9px 12px;text-align:left;font-size:10.5px;color:#334155;font-weight:800;text-transform:uppercase;width:150px">Tipo</th>
         <th style="padding:9px 12px;text-align:center;font-size:10.5px;color:#334155;font-weight:800;text-transform:uppercase;width:130px">Data Pagto</th>
-        <th style="padding:9px 12px;text-align:right;font-size:10.5px;color:#334155;font-weight:800;text-transform:uppercase;width:140px">Valor</th>
+        <th style="padding:9px 12px;text-align:right;font-size:10.5px;color:#334155;font-weight:800;text-transform:uppercase;min-width:150px">Valor</th>
         <th style="padding:9px 12px;text-align:center;font-size:10.5px;color:#334155;font-weight:800;text-transform:uppercase;width:80px">Pago?</th>
         <th style="width:40px"></th>
       </tr></thead><tbody>`;
@@ -5629,7 +5629,7 @@ function _renderFornecedoresEncontro(enc) {
         <td style="padding:6px 8px"><input type="text" value="${esc(f.nome||'')}" placeholder="Nome do fornecedor" onchange="_encFornecedorUpd('${enc.id}',${i},'nome',this.value)" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:5px;font-family:Poppins;font-size:12.5px"></td>
         <td style="padding:6px 8px"><input type="text" list="${listId}" value="${esc(f.tipo||'')}" placeholder="Ex: Aluguel, Almoço, Kit Growper..." onchange="_encFornecedorUpd('${enc.id}',${i},'tipo',this.value)" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:5px;font-family:Poppins;font-size:12.5px" title="Escolha uma sugestão ou digite um tipo personalizado"></td>
         <td style="padding:6px 8px"><input type="date" value="${f.data||''}" onchange="_encFornecedorUpd('${enc.id}',${i},'data',this.value)" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:5px;font-family:Poppins;font-size:12.5px"></td>
-        <td style="padding:6px 8px"><input type="number" min="0" step="0.01" value="${f.valor||0}" onchange="_encFornecedorUpd('${enc.id}',${i},'valor',Number(this.value)||0)" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:5px;font-family:Poppins;font-size:12.5px;text-align:right;font-weight:700"></td>
+        <td style="padding:6px 8px"><input type="number" min="0" step="0.01" value="${f.valor||0}" onchange="_encFornecedorUpd('${enc.id}',${i},'valor',Number(this.value)||0)" style="width:100%;min-width:110px;padding:6px 10px;border:1px solid #e2e8f0;border-radius:5px;font-family:Poppins;font-size:12.5px;text-align:right;font-weight:700"></td>
         <td style="padding:6px 8px;text-align:center"><label style="display:inline-flex;align-items:center;cursor:pointer;font-size:11px;font-weight:700;color:${f.pago?'#059669':'#94a3b8'}"><input type="checkbox" ${f.pago?'checked':''} onchange="_encFornecedorUpd('${enc.id}',${i},'pago',this.checked)" style="width:16px;height:16px;accent-color:#10b981;cursor:pointer;margin-right:4px">${f.pago?'✅':'⏳'}</label></td>
         <td style="padding:6px 8px;text-align:center"><button onclick="_encFornecedorRem('${enc.id}',${i})" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:14px;padding:4px 8px;border-radius:4px" title="Remover">✕</button></td>
       </tr>`;
@@ -6184,7 +6184,7 @@ function _renderConfraternizacoes() {
         <th style="padding:9px 12px;text-align:left;font-size:10.5px;color:#334155;font-weight:800;text-transform:uppercase">Colaborador</th>
         <th style="padding:9px 12px;text-align:left;font-size:10.5px;color:#334155;font-weight:800;text-transform:uppercase">Descrição</th>
         <th style="padding:9px 12px;text-align:center;font-size:10.5px;color:#334155;font-weight:800;text-transform:uppercase;width:130px">Data</th>
-        <th style="padding:9px 12px;text-align:right;font-size:10.5px;color:#334155;font-weight:800;text-transform:uppercase;width:140px">Valor</th>
+        <th style="padding:9px 12px;text-align:right;font-size:10.5px;color:#334155;font-weight:800;text-transform:uppercase;min-width:150px">Valor</th>
         <th style="width:40px"></th>
       </tr></thead><tbody>`;
   
@@ -6196,7 +6196,7 @@ function _renderConfraternizacoes() {
         <td style="padding:6px 8px"><input type="text" value="${esc(r.colab||'')}" placeholder="Nome do colaborador" onchange="_confratUpdReemb(${i},'colab',this.value)" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:5px;font-family:Poppins;font-size:12.5px"></td>
         <td style="padding:6px 8px"><input type="text" value="${esc(r.descricao||'')}" placeholder="Ex: transporte, refeição, pequenos itens..." onchange="_confratUpdReemb(${i},'descricao',this.value)" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:5px;font-family:Poppins;font-size:12.5px"></td>
         <td style="padding:6px 8px"><input type="date" value="${r.data||''}" onchange="_confratUpdReemb(${i},'data',this.value)" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:5px;font-family:Poppins;font-size:12.5px"></td>
-        <td style="padding:6px 8px"><input type="number" min="0" step="0.01" value="${r.valor||0}" onchange="_confratUpdReemb(${i},'valor',Number(this.value)||0)" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:5px;font-family:Poppins;font-size:12.5px;text-align:right;font-weight:700"></td>
+        <td style="padding:6px 8px"><input type="number" min="0" step="0.01" value="${r.valor||0}" onchange="_confratUpdReemb(${i},'valor',Number(this.value)||0)" style="width:100%;min-width:110px;padding:6px 10px;border:1px solid #e2e8f0;border-radius:5px;font-family:Poppins;font-size:12.5px;text-align:right;font-weight:700"></td>
         <td style="padding:6px 8px;text-align:center"><button onclick="_confratRemReemb(${i})" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:14px;padding:4px 8px;border-radius:4px" title="Remover">✕</button></td>
       </tr>`;
     });
@@ -6218,7 +6218,7 @@ function _renderConfraternizacoes() {
         <th style="padding:9px 12px;text-align:left;font-size:10.5px;color:#334155;font-weight:800;text-transform:uppercase">Fornecedor</th>
         <th style="padding:9px 12px;text-align:left;font-size:10.5px;color:#334155;font-weight:800;text-transform:uppercase;width:140px">Tipo</th>
         <th style="padding:9px 12px;text-align:center;font-size:10.5px;color:#334155;font-weight:800;text-transform:uppercase;width:130px">Data Pagto</th>
-        <th style="padding:9px 12px;text-align:right;font-size:10.5px;color:#334155;font-weight:800;text-transform:uppercase;width:140px">Valor</th>
+        <th style="padding:9px 12px;text-align:right;font-size:10.5px;color:#334155;font-weight:800;text-transform:uppercase;min-width:150px">Valor</th>
         <th style="padding:9px 12px;text-align:center;font-size:10.5px;color:#334155;font-weight:800;text-transform:uppercase;width:80px">Pago?</th>
         <th style="width:40px"></th>
       </tr></thead><tbody>`;
@@ -6235,7 +6235,7 @@ function _renderConfraternizacoes() {
         <td style="padding:6px 8px"><input type="text" value="${esc(f.nome||'')}" placeholder="Nome do fornecedor" onchange="_confratUpdForn(${i},'nome',this.value)" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:5px;font-family:Poppins;font-size:12.5px"></td>
         <td style="padding:6px 8px"><input type="text" list="${listId}" value="${esc(f.tipo||'')}" placeholder="Ex: Buffet, Kit Growper League..." onchange="_confratUpdForn(${i},'tipo',this.value)" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:5px;font-family:Poppins;font-size:12.5px" title="Escolha uma sugestão ou digite um tipo personalizado"></td>
         <td style="padding:6px 8px"><input type="date" value="${f.data||''}" onchange="_confratUpdForn(${i},'data',this.value)" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:5px;font-family:Poppins;font-size:12.5px"></td>
-        <td style="padding:6px 8px"><input type="number" min="0" step="0.01" value="${f.valor||0}" onchange="_confratUpdForn(${i},'valor',Number(this.value)||0)" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:5px;font-family:Poppins;font-size:12.5px;text-align:right;font-weight:700"></td>
+        <td style="padding:6px 8px"><input type="number" min="0" step="0.01" value="${f.valor||0}" onchange="_confratUpdForn(${i},'valor',Number(this.value)||0)" style="width:100%;min-width:110px;padding:6px 10px;border:1px solid #e2e8f0;border-radius:5px;font-family:Poppins;font-size:12.5px;text-align:right;font-weight:700"></td>
         <td style="padding:6px 8px;text-align:center"><label style="display:inline-flex;align-items:center;cursor:pointer;font-size:11px;font-weight:700;color:${f.pago?'#059669':'#94a3b8'}"><input type="checkbox" ${f.pago?'checked':''} onchange="_confratUpdForn(${i},'pago',this.checked)" style="width:16px;height:16px;accent-color:#10b981;cursor:pointer;margin-right:4px">${f.pago?'✅':'⏳'}</label></td>
         <td style="padding:6px 8px;text-align:center"><button onclick="_confratRemForn(${i})" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:14px;padding:4px 8px;border-radius:4px" title="Remover">✕</button></td>
       </tr>`;
@@ -6454,17 +6454,39 @@ function renderReembolso() {
             <div style="font-size:24px;font-weight:800;color:#f8fafc;letter-spacing:-0.5px">${_reembolsoFmt(totAluguel)}</div>
             <div style="font-size:10.5px;color:#94a3b8;margin-top:2px">${encontroAtual.colaboradores.filter(x=>_reembolsoStatus(x)==='reembolso'&&x.aluguel&&x.aluguel.precisa).length} colaborador(es)</div>
           </div>
-          <!-- KPI Fornecedores + Total Geral -->
-          <div>
-            <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">🏢 Fornecedores</div>
-            <div style="font-size:24px;font-weight:800;color:#f8fafc;letter-spacing:-0.5px">${_reembolsoFmt((encontroAtual.fornecedores||[]).reduce((s,f)=>s+(Number(f.valor)||0),0))}</div>
-            <div style="font-size:10.5px;color:#94a3b8;margin-top:2px">${(encontroAtual.fornecedores||[]).length} pagamento(s)</div>
-          </div>
-          <div>
-            <div style="font-size:10px;color:#c4b5fd;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:4px">💰 TOTAL GERAL</div>
-            <div style="font-size:26px;font-weight:800;color:#86efac;letter-spacing:-0.5px">${_reembolsoFmt(totGeral + (encontroAtual.fornecedores||[]).reduce((s,f)=>s+(Number(f.valor)||0),0))}</div>
-            <div style="font-size:10.5px;color:#94a3b8;margin-top:2px">colab + fornecedores</div>
-          </div>
+          <!-- KPI Fornecedores (excl. Growper League) + Growper League + Totais -->
+          ${(() => {
+            const fornAll = encontroAtual.fornecedores || [];
+            const isGL = (f) => (f.tipo || '').toLowerCase().includes('growper league');
+            const totForn = fornAll.filter(f => !isGL(f)).reduce((s,f) => s + (Number(f.valor)||0), 0);
+            const nForn = fornAll.filter(f => !isGL(f)).length;
+            const totGL = fornAll.filter(isGL).reduce((s,f) => s + (Number(f.valor)||0), 0);
+            const nGL = fornAll.filter(isGL).length;
+            const totalSemGL = totGeral + totForn;
+            const totalComGL = totalSemGL + totGL;
+            return `
+              <div>
+                <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">🏢 Fornecedores</div>
+                <div style="font-size:22px;font-weight:800;color:#f8fafc;letter-spacing:-0.5px">${_reembolsoFmt(totForn)}</div>
+                <div style="font-size:10.5px;color:#94a3b8;margin-top:2px">${nForn} pagamento(s) · exceto GL</div>
+              </div>
+              <div>
+                <div style="font-size:10px;color:#fcd34d;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:4px">🏆 Growper League</div>
+                <div style="font-size:22px;font-weight:800;color:#fcd34d;letter-spacing:-0.5px">${_reembolsoFmt(totGL)}</div>
+                <div style="font-size:10.5px;color:#94a3b8;margin-top:2px">${nGL} lançamento(s)</div>
+              </div>
+              <div>
+                <div style="font-size:10px;color:#c4b5fd;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:4px">💰 Total Geral</div>
+                <div style="font-size:22px;font-weight:800;color:#f8fafc;letter-spacing:-0.5px">${_reembolsoFmt(totalSemGL)}</div>
+                <div style="font-size:10.5px;color:#94a3b8;margin-top:2px">colab + fornecedores</div>
+              </div>
+              <div>
+                <div style="font-size:10px;color:#86efac;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:4px">✨ Total + Growper League</div>
+                <div style="font-size:24px;font-weight:800;color:#86efac;letter-spacing:-0.5px">${_reembolsoFmt(totalComGL)}</div>
+                <div style="font-size:10.5px;color:#94a3b8;margin-top:2px">Total geral + GL</div>
+              </div>
+            `;
+          })()}
         </div>
         
         <!-- BOTÕES ACCORDION: BALANÇO + TENDÊNCIA -->
@@ -6573,11 +6595,11 @@ function renderReembolso() {
     html += `<th onclick="_reembolsoToggleOrdemColab()" title="${_titC}" style="${_thBase};text-align:left;cursor:pointer;user-select:none">Colaborador <span style="color:${_ordC==='inserido'?'#94a3b8':'#8b5cf6'};font-size:10px;margin-left:4px">${_setaC}</span></th>`;
     html += `<th onclick="_reembolsoToggleOrdemStatus()" title="${_titS}" style="${_thBase};text-align:center;cursor:pointer;user-select:none;min-width:145px">Status <span style="color:${_ordS==='nenhum'?'#94a3b8':'#8b5cf6'};font-size:10px;margin-left:4px">${_setaS}</span></th>`;
     html += `<th style="${_thBase};text-align:center;min-width:70px" title="Digite a distância SÓ IDA (o sistema multiplica automaticamente por 2 para calcular ida+volta)">Km<br><span style="font-size:9px;opacity:0.85;font-weight:600">(só ida)</span></th>`;
-    html += `<th style="${_thBase};text-align:center;min-width:130px">🎫 Passagem</th>`;
+    html += `<th style="${_thBase};text-align:center;min-width:150px">🎫 Passagem</th>`;
     html += `<th style="${_thBase};text-align:center;min-width:150px">🛢️ Combustível</th>`;
-    html += `<th style="${_thBase};text-align:center;min-width:130px">🏨 Hospedagem</th>`;
-    html += `<th style="${_thBase};text-align:center;min-width:130px" title="Excepcional — geralmente sócios">🚗 Aluguel</th>`;
-    html += `<th style="${_thBase};text-align:center;min-width:130px" title="Estacionamento pago pelo colaborador">🅿️ Estacionamento</th>`;
+    html += `<th style="${_thBase};text-align:center;min-width:150px">🏨 Hospedagem</th>`;
+    html += `<th style="${_thBase};text-align:center;min-width:150px" title="Excepcional — geralmente sócios">🚗 Aluguel</th>`;
+    html += `<th style="${_thBase};text-align:center;min-width:150px" title="Estacionamento pago pelo colaborador">🅿️ Estacionamento</th>`;
     html += `<th style="${_thBase};text-align:center;min-width:105px" title="Marcar após efetuar o reembolso">✓ Pago?</th>`;
     html += `<th style="${_thBase};text-align:right;min-width:90px">Total</th>`;
     if (!isFechado) html += `<th style="${_thBase};text-align:center;width:40px"></th>`;
@@ -6611,7 +6633,7 @@ function renderReembolso() {
         return `<div style="display:flex;align-items:center;justify-content:center;gap:5px;height:26px">${chk}<div style="text-align:left"><div style="font-size:13px;font-weight:700;color:#0f172a;line-height:1.1">${_reembolsoFmt(calc.combustivel)}</div><div style="font-size:9.5px;color:#94a3b8;line-height:1.1">${calc.combKm}km × R$${taxaKm.toFixed(2)}</div></div></div>`;
       }
       // Passagem/hospedagem/aluguel — input inline
-      return `<div style="display:flex;align-items:center;justify-content:center;gap:4px;height:26px">${chk}<div style="display:flex;align-items:center;gap:3px"><span style="font-size:11px;color:#64748b;font-weight:600">R$</span><input type="number" min="0" step="0.01" ${disabledAttr} value="${valor}" onchange="_reembolsoUpdColabSub(${idx},'${tipo}','valor',this.value)" style="width:60px;padding:4px 6px;border:1px solid #e2e8f0;border-radius:5px;font-family:Poppins;font-size:11.5px;text-align:right${isFechado?';background:#f1f5f9;color:#94a3b8':''}" placeholder="0,00"></div></div>`;
+      return `<div style="display:flex;align-items:center;justify-content:center;gap:4px;height:26px">${chk}<div style="display:flex;align-items:center;gap:3px"><span style="font-size:11px;color:#64748b;font-weight:600">R$</span><input type="number" min="0" step="0.01" ${disabledAttr} value="${valor}" onchange="_reembolsoUpdColabSub(${idx},'${tipo}','valor',this.value)" style="width:88px;min-width:88px;padding:4px 8px;border:1px solid #e2e8f0;border-radius:5px;font-family:Poppins;font-size:11.5px;text-align:right${isFechado?';background:#f1f5f9;color:#94a3b8':''}" placeholder="0,00"></div></div>`;
     };
     
     colaboradoresOrdenados.forEach(({col, idx}) => {
