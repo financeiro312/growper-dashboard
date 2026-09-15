@@ -819,27 +819,24 @@ body:not(.auth-ready) .main-content {
 #authFooter strong { color: #64748b; }
 
 /* Botão sair no header */
-#authUserBadge {
-  display: none;
-  align-items: center; gap: 8px;
-  background: rgba(15, 23, 42, 0.06);
-  padding: 6px 12px; border-radius: 8px;
-  font-size: 12px; color: #334155; font-weight: 600;
-}
-body.auth-ready #authUserBadge { display: inline-flex; }
+/* Badge do usuário — dentro do container fixo do canto inferior esquerdo */
 #authUserBadge .avatar {
-  width: 24px; height: 24px; border-radius: 50%;
+  width: 32px; height: 32px; border-radius: 50%;
   background: linear-gradient(135deg, #10b981, #059669);
   color: white; font-size: 12px; font-weight: 800;
-  line-height: 24px; text-align: center;
+  line-height: 32px; text-align: center;
+  flex-shrink: 0;
+  object-fit: cover;
 }
-#authUserBadge button {
-  background: transparent; border: none;
-  color: #64748b; cursor: pointer;
-  font-size: 14px; padding: 0 4px;
-  margin-left: 4px;
+#authUserBadge .role-tag {
+  background: rgba(255,255,255,0.15); color: white;
+  padding: 2px 7px; border-radius: 4px;
+  font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.5px;
+  font-weight: 700; margin-left: 4px;
 }
-#authUserBadge button:hover { color: #dc2626; }
+
+/* Container fixo aparece só após auth-ready */
+body.auth-ready #authFooterFixed { display: flex !important; }
 
 /* Filtro de menus por role — usa seletores REAIS do dashboard
    - .nav-cat-simple[data-cat="..."] na sidebar
@@ -901,7 +898,7 @@ body.role-comercial .painelCat-sub[data-cat="contab"] { display: none !important
 
 /* Engrenagem admin só visível para role admin */
 #adminGearBtn { display: none !important; }
-body.role-admin.auth-ready #adminGearBtn { display: flex !important; }
+body.role-admin.auth-ready #adminGearBtn { display: inline-flex !important; }
 
 /* ============================================================
    MOBILE (≤ 640px) — só aplica em celular, não muda desktop
@@ -1354,7 +1351,6 @@ body.mobile-mini .main-content { margin-left: 40px !important; }
         title="Voltar aos menus da categoria"
         style="display:none;background:#f1f5f9;color:#334155;border:1px solid #cbd5e1;padding:10px 18px;border-radius:8px;font-family:Poppins,sans-serif;font-weight:600;font-size:12.5px;cursor:pointer;transition:all 0.15s;user-select:none;flex-shrink:0;white-space:nowrap">← Voltar</button><span id="sectionTitle">Dashboard Principal</span></div>
       <div class="header-controls">
-      <span id="authUserBadge"></span>
 
 <select id="selYear" onchange="if(typeof _onYearChange==='function')_onYearChange(this.value)"><option value="2026">2026</option><option value="2025">2025</option></select>
         <div id="selContaWrap" style="position:relative;display:inline-block">
@@ -15187,17 +15183,15 @@ window._tribNovaTarefa = function() {
     document.body.classList.add('auth-ready');
     document.body.classList.add('role-' + sessao.nivel);
     
-    // Badge do usuário
+    // Badge do usuário (dentro do container fixo)
     const badge = document.getElementById('authUserBadge');
     if (badge) {
       const iniciais = (sessao.nome || sessao.email).split(' ').map(p => p[0]).slice(0,2).join('').toUpperCase();
       const avatar = sessao.foto 
-        ? `<img src="${sessao.foto}" style="width:24px;height:24px;border-radius:50%;object-fit:cover">`
+        ? `<img src="${sessao.foto}" class="avatar" alt="">`
         : `<span class="avatar">${iniciais}</span>`;
       badge.innerHTML = avatar + 
-        `<span>${sessao.nome}</span>` +
-        `<span style="color:#94a3b8;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;background:#e2e8f0;padding:2px 6px;border-radius:4px;margin-left:2px">${sessao.nivel}</span>` +
-        `<button onclick="_authSair()" title="Sair">🚪</button>`;
+        `<span style="line-height:1.15">${(sessao.nome || sessao.email.split('@')[0]).split(' ')[0]}<span class="role-tag">${sessao.nivel}</span></span>`;
     }
     
     // Esconder overlay
@@ -15389,8 +15383,11 @@ window._tribNovaTarefa = function() {
 })();
 
 </script>
-<!-- BOTÃO FIXO ⚙️ ACESSOS (canto inferior esquerdo — só admin) -->
-<button id="adminGearBtn" onclick="_authAbrirAdmin()" title="Gerenciar acessos" style="position:fixed;bottom:20px;left:20px;z-index:100;background:linear-gradient(135deg,#334155,#1e293b);color:white;border:1px solid rgba(255,255,255,0.1);width:48px;height:48px;border-radius:50%;font-family:Poppins;font-weight:700;font-size:20px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.3);align-items:center;justify-content:center;transition:all 0.2s" onmouseover="this.style.transform='scale(1.1)';this.style.background='linear-gradient(135deg,#475569,#334155)'" onmouseout="this.style.transform='scale(1)';this.style.background='linear-gradient(135deg,#334155,#1e293b)'">⚙️</button>
+<!-- CONTAINER FIXO NO CANTO INFERIOR ESQUERDO: engrenagem (admin) + badge do usuário -->
+<div id="authFooterFixed" style="position:fixed;bottom:20px;left:20px;z-index:100;display:none;align-items:center;gap:10px">
+  <button id="adminGearBtn" onclick="_authAbrirAdmin()" title="Gerenciar acessos" style="background:linear-gradient(135deg,#334155,#1e293b);color:white;border:1px solid rgba(255,255,255,0.1);width:48px;height:48px;border-radius:50%;font-family:Poppins;font-weight:700;font-size:20px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.3);align-items:center;justify-content:center;transition:all 0.2s;flex-shrink:0" onmouseover="this.style.transform='scale(1.1)';this.style.background='linear-gradient(135deg,#475569,#334155)'" onmouseout="this.style.transform='scale(1)';this.style.background='linear-gradient(135deg,#334155,#1e293b)'">⚙️</button>
+  <button id="authUserBadge" onclick="_authSair()" title="Clique para sair" style="background:linear-gradient(135deg,#334155,#1e293b);color:white;border:1px solid rgba(255,255,255,0.1);padding:8px 16px 8px 8px;border-radius:26px;font-family:Poppins;font-weight:600;font-size:13px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.3);display:flex;align-items:center;gap:10px;transition:all 0.2s" onmouseover="this.style.background='linear-gradient(135deg,#dc2626,#991b1b)'" onmouseout="this.style.background='linear-gradient(135deg,#334155,#1e293b)'"></button>
+</div>
 
 <!-- OVERLAY DE LOGIN -->
 <div id="authOverlay">
