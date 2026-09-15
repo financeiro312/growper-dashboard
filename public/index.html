@@ -13,6 +13,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root {
   --primary: #10b981; --primary-dark: #059669;
@@ -768,6 +770,113 @@ body.scalia-mode .company-badge {
 
 
 /* ============================================================
+   AUTENTICAÇÃO — modal de login e filtro por role
+   ============================================================ */
+body:not(.auth-ready) .sidebar,
+body:not(.auth-ready) .main-content {
+  visibility: hidden !important;
+}
+#authOverlay {
+  position: fixed; inset: 0; z-index: 9999;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f766e 100%);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+#authOverlay.hidden { display: none; }
+#authCard {
+  background: white; border-radius: 20px; padding: 40px 36px;
+  max-width: 440px; width: 100%;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+  text-align: center;
+}
+#authCard h1 {
+  margin: 0 0 8px; font-size: 26px; font-weight: 800;
+  color: #0f172a; letter-spacing: -0.5px;
+}
+#authCard .subtitle {
+  color: #64748b; font-size: 14px; margin-bottom: 32px; line-height: 1.5;
+}
+#authCard .logo-badge {
+  display: inline-block;
+  width: 64px; height: 64px; border-radius: 16px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white; font-size: 30px; font-weight: 800;
+  line-height: 64px; text-align: center;
+  margin-bottom: 20px;
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.3);
+}
+#authErro {
+  background: #fee2e2; color: #991b1b;
+  padding: 12px 16px; border-radius: 8px;
+  font-size: 13px; margin-top: 20px;
+  border-left: 4px solid #dc2626;
+  text-align: left;
+}
+#authErro.hidden { display: none; }
+#authFooter {
+  margin-top: 24px; font-size: 11px; color: #94a3b8; line-height: 1.5;
+}
+#authFooter strong { color: #64748b; }
+
+/* Botão sair no header */
+#authUserBadge {
+  display: none;
+  align-items: center; gap: 8px;
+  background: rgba(15, 23, 42, 0.06);
+  padding: 6px 12px; border-radius: 8px;
+  font-size: 12px; color: #334155; font-weight: 600;
+}
+body.auth-ready #authUserBadge { display: inline-flex; }
+#authUserBadge .avatar {
+  width: 24px; height: 24px; border-radius: 50%;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white; font-size: 12px; font-weight: 800;
+  line-height: 24px; text-align: center;
+}
+#authUserBadge button {
+  background: transparent; border: none;
+  color: #64748b; cursor: pointer;
+  font-size: 14px; padding: 0 4px;
+  margin-left: 4px;
+}
+#authUserBadge button:hover { color: #dc2626; }
+
+/* Filtro de menus por role — esconde os que não são permitidos */
+body.role-financeiro .categoriaCard[data-cat="dp"],
+body.role-financeiro .categoriaCard[data-cat="estrategico"],
+body.role-financeiro .categoriaCard[data-cat="notif"],
+body.role-financeiro .categoriaCard[data-cat="contab"],
+body.role-financeiro .companyToggle { display: none !important; }
+
+body.role-rh .categoriaCard[data-cat="financeiro"],
+body.role-rh .categoriaCard[data-cat="estrategico"],
+body.role-rh .categoriaCard[data-cat="notif"],
+body.role-rh .categoriaCard[data-cat="contab"],
+body.role-rh .companyToggle { display: none !important; }
+
+body.role-estrategico .categoriaCard[data-cat="financeiro"],
+body.role-estrategico .categoriaCard[data-cat="dp"],
+body.role-estrategico .categoriaCard[data-cat="notif"],
+body.role-estrategico .categoriaCard[data-cat="contab"],
+body.role-estrategico .companyToggle { display: none !important; }
+
+body.role-contabilidade .categoriaCard[data-cat="financeiro"],
+body.role-contabilidade .categoriaCard[data-cat="dp"],
+body.role-contabilidade .categoriaCard[data-cat="estrategico"],
+body.role-contabilidade .categoriaCard[data-cat="notif"],
+body.role-contabilidade .companyToggle { display: none !important; }
+
+body.role-comercial .categoriaCard[data-cat="financeiro"],
+body.role-comercial .categoriaCard[data-cat="dp"],
+body.role-comercial .categoriaCard[data-cat="notif"],
+body.role-comercial .categoriaCard[data-cat="contab"],
+body.role-comercial .companyToggle { display: none !important; }
+
+/* Engrenagem admin só visível para role admin */
+#adminGearBtn { display: none; }
+body.role-admin #adminGearBtn { display: inline-flex !important; }
+
+/* ============================================================
    MOBILE (≤ 640px) — só aplica em celular, não muda desktop
    ============================================================ */
 @media (max-width: 640px) {
@@ -1218,6 +1327,8 @@ body.mobile-mini .main-content { margin-left: 40px !important; }
         title="Voltar aos menus da categoria"
         style="display:none;background:#f1f5f9;color:#334155;border:1px solid #cbd5e1;padding:10px 18px;border-radius:8px;font-family:Poppins,sans-serif;font-weight:600;font-size:12.5px;cursor:pointer;transition:all 0.15s;user-select:none;flex-shrink:0;white-space:nowrap">← Voltar</button><span id="sectionTitle">Dashboard Principal</span></div>
       <div class="header-controls">
+      <span id="authUserBadge"></span>
+      <button id="adminGearBtn" onclick="_authAbrirAdmin()" title="Gerenciar acessos" style="background:#f1f5f9;color:#334155;border:none;padding:7px 12px;border-radius:8px;font-family:Poppins;font-weight:700;font-size:12px;cursor:pointer">⚙️ Acessos</button>
 
 <select id="selYear" onchange="if(typeof _onYearChange==='function')_onYearChange(this.value)"><option value="2026">2026</option><option value="2025">2025</option></select>
         <div id="selContaWrap" style="position:relative;display:inline-block">
@@ -14945,6 +15056,342 @@ window._tribNovaTarefa = function() {
 
 
 </script>
+
+
+<script>
+// ============================================================
+// SISTEMA DE AUTENTICAÇÃO GOOGLE + SUPABASE
+// ============================================================
+(function _authInit() {
+  const GOOGLE_CLIENT_ID = '514281452294-813l19k0oa0s3lerhhcvv1rc0hpq2eoq.apps.googleusercontent.com';
+  const SUPABASE_URL = 'https://dfaydkiqbhpzxosffurs.supabase.co';
+  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmYXlka2lxYmhwenhvc2ZmdXJzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyMTg1OTYsImV4cCI6MjEwMDc5NDU5Nn0.EJ50JLQw0dufwintmmp_0vR7Cfg9avjDTrmyuC4mfbM';
+  const DOMINIO_PERMITIDO = 'growperdigital.com.br';
+  const SESSAO_KEY = 'auth_sessao_v1';
+  const SESSAO_TTL_HORAS = 12;
+  
+  window._authState = { usuario: null, supabase: null };
+  
+  function _authInitSupabase() {
+    if (!window._authState.supabase && window.supabase) {
+      window._authState.supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+    }
+    return window._authState.supabase;
+  }
+  
+  // Decodifica JWT sem verificação (só para pegar email — Google já verificou)
+  function _authDecodeJWT(token) {
+    try {
+      const payload = token.split('.')[1];
+      const decoded = atob(payload.replace(/-/g,'+').replace(/_/g,'/'));
+      return JSON.parse(decoded);
+    } catch (e) { return null; }
+  }
+  
+  // Chamado pelo Google após login
+  window._authGoogleCallback = async function(resp) {
+    const jwt = resp.credential;
+    const payload = _authDecodeJWT(jwt);
+    if (!payload || !payload.email) {
+      _authMostrarErro('Não foi possível ler os dados do login.');
+      return;
+    }
+    const email = String(payload.email).toLowerCase();
+    const nome = payload.name || email.split('@')[0];
+    const foto = payload.picture || '';
+    
+    // Trava de domínio
+    if (!email.endsWith('@' + DOMINIO_PERMITIDO)) {
+      _authMostrarErro('Apenas emails @' + DOMINIO_PERMITIDO + ' têm acesso.');
+      return;
+    }
+    
+    document.getElementById('authLoading').style.display = 'block';
+    document.getElementById('authGoogleBtn').style.display = 'none';
+    
+    // Consultar Supabase pela permissão
+    try {
+      const supa = _authInitSupabase();
+      if (!supa) {
+        _authMostrarErro('Erro ao conectar. Recarregue a página.');
+        return;
+      }
+      const { data, error } = await supa
+        .from('usuarios_permitidos')
+        .select('email, nome, nivel, menus_personalizados, ativo')
+        .eq('email', email)
+        .single();
+      
+      if (error || !data) {
+        _authMostrarErro('Sem acesso liberado. Contate o administrador: financeiro@growperdigital.com.br');
+        return;
+      }
+      if (!data.ativo) {
+        _authMostrarErro('Seu acesso foi desativado. Contate o administrador.');
+        return;
+      }
+      
+      // Sucesso
+      const sessao = {
+        email: data.email,
+        nome: data.nome || nome,
+        nivel: data.nivel,
+        menus: data.menus_personalizados || [],
+        foto: foto,
+        expira: Date.now() + SESSAO_TTL_HORAS * 60 * 60 * 1000
+      };
+      localStorage.setItem(SESSAO_KEY, JSON.stringify(sessao));
+      _authAplicarSessao(sessao);
+    } catch (e) {
+      console.error('[auth] erro:', e);
+      _authMostrarErro('Erro ao verificar acesso. Tente novamente.');
+    }
+  };
+  
+  function _authMostrarErro(msg) {
+    const e = document.getElementById('authErro');
+    e.textContent = msg;
+    e.classList.remove('hidden');
+    document.getElementById('authLoading').style.display = 'none';
+    document.getElementById('authGoogleBtn').style.display = 'flex';
+  }
+  
+  function _authAplicarSessao(sessao) {
+    window._authState.usuario = sessao;
+    document.body.classList.add('auth-ready');
+    document.body.classList.add('role-' + sessao.nivel);
+    
+    // Badge do usuário
+    const badge = document.getElementById('authUserBadge');
+    if (badge) {
+      const iniciais = (sessao.nome || sessao.email).split(' ').map(p => p[0]).slice(0,2).join('').toUpperCase();
+      const avatar = sessao.foto 
+        ? `<img src="${sessao.foto}" style="width:24px;height:24px;border-radius:50%;object-fit:cover">`
+        : `<span class="avatar">${iniciais}</span>`;
+      badge.innerHTML = avatar + 
+        `<span>${sessao.nome}</span>` +
+        `<span style="color:#94a3b8;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;background:#e2e8f0;padding:2px 6px;border-radius:4px;margin-left:2px">${sessao.nivel}</span>` +
+        `<button onclick="_authSair()" title="Sair">🚪</button>`;
+    }
+    
+    // Esconder overlay
+    document.getElementById('authOverlay').classList.add('hidden');
+  }
+  
+  window._authSair = function() {
+    if (!confirm('Deseja sair da sua conta?')) return;
+    localStorage.removeItem(SESSAO_KEY);
+    document.body.classList.remove('auth-ready');
+    document.body.classList.remove('role-admin','role-financeiro','role-rh','role-estrategico','role-contabilidade','role-comercial','role-personalizado');
+    location.reload();
+  };
+  
+  // Verificar sessão existente ao carregar
+  function _authVerificarSessao() {
+    try {
+      const raw = localStorage.getItem(SESSAO_KEY);
+      if (!raw) return null;
+      const s = JSON.parse(raw);
+      if (!s.expira || s.expira < Date.now()) {
+        localStorage.removeItem(SESSAO_KEY);
+        return null;
+      }
+      return s;
+    } catch (e) { return null; }
+  }
+  
+  // Inicializar Google Sign-In
+  function _authRenderGoogleBtn() {
+    if (!window.google || !window.google.accounts) {
+      setTimeout(_authRenderGoogleBtn, 200);
+      return;
+    }
+    google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: _authGoogleCallback,
+      hd: DOMINIO_PERMITIDO,
+      auto_select: false,
+      ux_mode: 'popup'
+    });
+    google.accounts.id.renderButton(
+      document.getElementById('authGoogleBtn'),
+      { theme: 'filled_blue', size: 'large', text: 'signin_with', shape: 'rectangular', logo_alignment: 'left', width: 300 }
+    );
+  }
+  
+  // ============ PAINEL ADMIN ============
+  window._authAbrirAdmin = async function() {
+    const painel = document.getElementById('adminPanel');
+    const cont = document.getElementById('adminPanelContent');
+    painel.style.display = 'block';
+    cont.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8">🔄 Carregando…</div>';
+    
+    const supa = _authInitSupabase();
+    const { data, error } = await supa
+      .from('usuarios_permitidos')
+      .select('*')
+      .order('criado_em', { ascending: false });
+    
+    if (error) {
+      cont.innerHTML = '<div style="color:#dc2626">Erro ao carregar: ' + (error.message || 'desconhecido') + '</div>';
+      return;
+    }
+    
+    const NIVEIS = [
+      { id: 'admin', label: 'Admin', desc: 'Tudo — Growper + Scalia' },
+      { id: 'financeiro', label: 'Financeiro', desc: 'Só Financeiro' },
+      { id: 'rh', label: 'RH / DP', desc: 'Só Departamento Pessoal' },
+      { id: 'estrategico', label: 'Estratégico', desc: 'Só Estratégico' },
+      { id: 'contabilidade', label: 'Contabilidade', desc: 'Só Contabilidade' },
+      { id: 'comercial', label: 'Comercial', desc: 'Só Comercial' }
+    ];
+    
+    let html = `<div style="background:#f0fdf4;border-left:4px solid #10b981;padding:14px 18px;border-radius:8px;margin-bottom:20px;font-size:12.5px;color:#065f46;line-height:1.6">
+      <strong>Como funciona:</strong> Adicione o email da pessoa e o nível de acesso. Ela deverá fazer login com Google usando este mesmo email.
+    </div>`;
+    
+    // Form de adicionar
+    html += `<div style="background:#f8fafc;border-radius:10px;padding:16px 20px;margin-bottom:20px;border:1px solid #e2e8f0">
+      <div style="font-size:12px;font-weight:800;color:#334155;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px">+ Adicionar novo acesso</div>
+      <div style="display:grid;grid-template-columns:2fr 1.5fr 1.5fr auto;gap:10px;align-items:end">
+        <div>
+          <label style="font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase">Email (@growperdigital.com.br)</label>
+          <input id="admNovoEmail" type="email" placeholder="pessoa@growperdigital.com.br" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-family:Poppins;font-size:13px;margin-top:4px">
+        </div>
+        <div>
+          <label style="font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase">Nome (opcional)</label>
+          <input id="admNovoNome" type="text" placeholder="Ex: Bruna" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-family:Poppins;font-size:13px;margin-top:4px">
+        </div>
+        <div>
+          <label style="font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase">Nível</label>
+          <select id="admNovoNivel" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-family:Poppins;font-size:13px;margin-top:4px;background:white">
+            ${NIVEIS.map(n => `<option value="${n.id}">${n.label} — ${n.desc}</option>`).join('')}
+          </select>
+        </div>
+        <button onclick="_authAdmSalvarNovo()" style="background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;padding:10px 18px;border-radius:8px;font-family:Poppins;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;height:38px">+ Adicionar</button>
+      </div>
+    </div>`;
+    
+    // Tabela de usuários
+    html += `<div style="font-size:12px;font-weight:800;color:#334155;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">Usuários com acesso (${data.length})</div>`;
+    html += `<table style="width:100%;border-collapse:collapse;font-size:12.5px;background:white;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
+      <thead><tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0">
+        <th style="padding:10px 14px;text-align:left;font-size:10.5px;color:#334155;font-weight:800;text-transform:uppercase">Email</th>
+        <th style="padding:10px 14px;text-align:left;font-size:10.5px;color:#334155;font-weight:800;text-transform:uppercase">Nome</th>
+        <th style="padding:10px 14px;text-align:left;font-size:10.5px;color:#334155;font-weight:800;text-transform:uppercase">Nível</th>
+        <th style="padding:10px 14px;text-align:center;font-size:10.5px;color:#334155;font-weight:800;text-transform:uppercase">Status</th>
+        <th style="padding:10px 14px;text-align:right;font-size:10.5px;color:#334155;font-weight:800;text-transform:uppercase">Ações</th>
+      </tr></thead><tbody>`;
+    
+    data.forEach(u => {
+      const nivelLabel = NIVEIS.find(n => n.id === u.nivel);
+      const nivelBg = u.nivel === 'admin' ? '#dc2626' : '#3b82f6';
+      html += `<tr style="border-bottom:1px solid #f1f5f9">
+        <td style="padding:10px 14px;font-weight:600;color:#0f172a">${u.email}</td>
+        <td style="padding:10px 14px;color:#334155">${u.nome || '<span style="color:#cbd5e1">—</span>'}</td>
+        <td style="padding:10px 14px"><span style="background:${nivelBg};color:white;padding:3px 8px;border-radius:5px;font-size:10.5px;font-weight:700;text-transform:uppercase">${nivelLabel?.label || u.nivel}</span></td>
+        <td style="padding:10px 14px;text-align:center">${u.ativo ? '<span style="color:#059669;font-weight:700">✓ Ativo</span>' : '<span style="color:#94a3b8">Desativado</span>'}</td>
+        <td style="padding:10px 14px;text-align:right">
+          <button onclick="_authAdmToggleAtivo('${u.email}',${!u.ativo})" style="background:${u.ativo?'#f1f5f9':'#dcfce7'};color:${u.ativo?'#64748b':'#059669'};border:none;padding:5px 10px;border-radius:5px;font-family:Poppins;font-weight:700;font-size:11px;cursor:pointer;margin-right:4px">${u.ativo?'Desativar':'Ativar'}</button>
+          ${u.email !== window._authState.usuario.email ? `<button onclick="_authAdmExcluir('${u.email}')" style="background:#fee2e2;color:#dc2626;border:none;padding:5px 10px;border-radius:5px;font-family:Poppins;font-weight:700;font-size:11px;cursor:pointer">✕</button>` : ''}
+        </td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+    cont.innerHTML = html;
+  };
+  
+  window._authAdmSalvarNovo = async function() {
+    const email = document.getElementById('admNovoEmail').value.trim().toLowerCase();
+    const nome = document.getElementById('admNovoNome').value.trim();
+    const nivel = document.getElementById('admNovoNivel').value;
+    
+    if (!email.endsWith('@growperdigital.com.br')) {
+      alert('Email deve ser @growperdigital.com.br');
+      return;
+    }
+    
+    const supa = _authInitSupabase();
+    const { error } = await supa
+      .from('usuarios_permitidos')
+      .upsert({ email, nome: nome || null, nivel, ativo: true, criado_por: window._authState.usuario.email });
+    
+    if (error) {
+      alert('Erro: ' + error.message);
+      return;
+    }
+    _authAbrirAdmin();
+  };
+  
+  window._authAdmToggleAtivo = async function(email, novoAtivo) {
+    const supa = _authInitSupabase();
+    const { error } = await supa
+      .from('usuarios_permitidos')
+      .update({ ativo: novoAtivo, atualizado_em: new Date().toISOString() })
+      .eq('email', email);
+    if (error) { alert('Erro: ' + error.message); return; }
+    _authAbrirAdmin();
+  };
+  
+  window._authAdmExcluir = async function(email) {
+    if (!confirm('Excluir o acesso de ' + email + '?')) return;
+    const supa = _authInitSupabase();
+    const { error } = await supa
+      .from('usuarios_permitidos')
+      .delete()
+      .eq('email', email);
+    if (error) { alert('Erro: ' + error.message); return; }
+    _authAbrirAdmin();
+  };
+  
+  // ============ BOOT ============
+  document.addEventListener('DOMContentLoaded', function() {
+    const sessao = _authVerificarSessao();
+    if (sessao) {
+      _authAplicarSessao(sessao);
+    } else {
+      _authRenderGoogleBtn();
+    }
+  });
+  
+  // Fallback caso DOMContentLoaded já tenha disparado
+  if (document.readyState !== 'loading') {
+    const sessao = _authVerificarSessao();
+    if (sessao) _authAplicarSessao(sessao);
+    else _authRenderGoogleBtn();
+  }
+})();
+
+</script>
+<!-- OVERLAY DE LOGIN -->
+<div id="authOverlay">
+  <div id="authCard">
+    <div class="logo-badge">G</div>
+    <h1>Dashboard Growper</h1>
+    <div class="subtitle">Faça login com sua conta Growper para acessar</div>
+    <div id="authGoogleBtn" style="display:flex;justify-content:center;margin:20px 0"></div>
+    <div id="authLoading" style="display:none;color:#64748b;font-size:13px">🔄 Verificando acesso…</div>
+    <div id="authErro" class="hidden"></div>
+    <div id="authFooter">
+      Acesso restrito a <strong>@growperdigital.com.br</strong><br>
+      Cada perfil vê apenas os menus autorizados
+    </div>
+  </div>
+</div>
+
+<!-- PAINEL ADMIN (só para admin — engrenagem no header) -->
+<div id="adminPanel" style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,0.6);padding:20px;overflow-y:auto">
+  <div style="background:white;border-radius:16px;max-width:900px;margin:40px auto;padding:28px 32px;box-shadow:0 20px 60px rgba(0,0,0,0.4)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;padding-bottom:16px;border-bottom:2px solid #e2e8f0">
+      <div>
+        <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1px;font-weight:700">⚙️ Configuração</div>
+        <h2 style="margin:4px 0 0;font-size:22px;font-weight:800;color:#0f172a">Gerenciar Acessos</h2>
+      </div>
+      <button onclick="document.getElementById('adminPanel').style.display='none'" style="background:#f1f5f9;color:#64748b;border:none;padding:8px 14px;border-radius:8px;font-family:Poppins;font-weight:700;cursor:pointer;font-size:13px">✕ Fechar</button>
+    </div>
+    <div id="adminPanelContent"></div>
+  </div>
+</div>
 
 </body>
 </html>
