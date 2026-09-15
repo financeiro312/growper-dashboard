@@ -841,36 +841,63 @@ body.auth-ready #authUserBadge { display: inline-flex; }
 }
 #authUserBadge button:hover { color: #dc2626; }
 
-/* Filtro de menus por role — esconde os que não são permitidos */
-body.role-financeiro .categoriaCard[data-cat="dp"],
-body.role-financeiro .categoriaCard[data-cat="estrategico"],
-body.role-financeiro .categoriaCard[data-cat="notif"],
-body.role-financeiro .categoriaCard[data-cat="contab"],
-body.role-financeiro .companyToggle { display: none !important; }
+/* Filtro de menus por role — usa seletores REAIS do dashboard
+   - .nav-cat-simple[data-cat="..."] na sidebar
+   - .painelCat-sub[data-cat="..."] no painel principal (categorias)
+   Admin vê tudo (nenhuma regra aplicada).
+*/
 
-body.role-rh .categoriaCard[data-cat="financeiro"],
-body.role-rh .categoriaCard[data-cat="estrategico"],
-body.role-rh .categoriaCard[data-cat="notif"],
-body.role-rh .categoriaCard[data-cat="contab"],
-body.role-rh .companyToggle { display: none !important; }
+/* FINANCEIRO — só vê a categoria financeiro */
+body.role-financeiro .sidebar .nav-cat-simple[data-cat="dp"],
+body.role-financeiro .sidebar .nav-cat-simple[data-cat="estrategico"],
+body.role-financeiro .sidebar .nav-cat-simple[data-cat="notif"],
+body.role-financeiro .sidebar .nav-cat-simple[data-cat="contab"],
+body.role-financeiro .painelCat-sub[data-cat="dp"],
+body.role-financeiro .painelCat-sub[data-cat="estrategico"],
+body.role-financeiro .painelCat-sub[data-cat="notif"],
+body.role-financeiro .painelCat-sub[data-cat="contab"] { display: none !important; }
 
-body.role-estrategico .categoriaCard[data-cat="financeiro"],
-body.role-estrategico .categoriaCard[data-cat="dp"],
-body.role-estrategico .categoriaCard[data-cat="notif"],
-body.role-estrategico .categoriaCard[data-cat="contab"],
-body.role-estrategico .companyToggle { display: none !important; }
+/* RH — só vê DP */
+body.role-rh .sidebar .nav-cat-simple[data-cat="financeiro"],
+body.role-rh .sidebar .nav-cat-simple[data-cat="estrategico"],
+body.role-rh .sidebar .nav-cat-simple[data-cat="notif"],
+body.role-rh .sidebar .nav-cat-simple[data-cat="contab"],
+body.role-rh .painelCat-sub[data-cat="financeiro"],
+body.role-rh .painelCat-sub[data-cat="estrategico"],
+body.role-rh .painelCat-sub[data-cat="notif"],
+body.role-rh .painelCat-sub[data-cat="contab"] { display: none !important; }
 
-body.role-contabilidade .categoriaCard[data-cat="financeiro"],
-body.role-contabilidade .categoriaCard[data-cat="dp"],
-body.role-contabilidade .categoriaCard[data-cat="estrategico"],
-body.role-contabilidade .categoriaCard[data-cat="notif"],
-body.role-contabilidade .companyToggle { display: none !important; }
+/* ESTRATÉGICO */
+body.role-estrategico .sidebar .nav-cat-simple[data-cat="financeiro"],
+body.role-estrategico .sidebar .nav-cat-simple[data-cat="dp"],
+body.role-estrategico .sidebar .nav-cat-simple[data-cat="notif"],
+body.role-estrategico .sidebar .nav-cat-simple[data-cat="contab"],
+body.role-estrategico .painelCat-sub[data-cat="financeiro"],
+body.role-estrategico .painelCat-sub[data-cat="dp"],
+body.role-estrategico .painelCat-sub[data-cat="notif"],
+body.role-estrategico .painelCat-sub[data-cat="contab"] { display: none !important; }
 
-body.role-comercial .categoriaCard[data-cat="financeiro"],
-body.role-comercial .categoriaCard[data-cat="dp"],
-body.role-comercial .categoriaCard[data-cat="notif"],
-body.role-comercial .categoriaCard[data-cat="contab"],
-body.role-comercial .companyToggle { display: none !important; }
+/* CONTABILIDADE */
+body.role-contabilidade .sidebar .nav-cat-simple[data-cat="financeiro"],
+body.role-contabilidade .sidebar .nav-cat-simple[data-cat="dp"],
+body.role-contabilidade .sidebar .nav-cat-simple[data-cat="estrategico"],
+body.role-contabilidade .sidebar .nav-cat-simple[data-cat="notif"],
+body.role-contabilidade .painelCat-sub[data-cat="financeiro"],
+body.role-contabilidade .painelCat-sub[data-cat="dp"],
+body.role-contabilidade .painelCat-sub[data-cat="estrategico"],
+body.role-contabilidade .painelCat-sub[data-cat="notif"] { display: none !important; }
+
+/* COMERCIAL — mesmo que estratégico basicamente */
+body.role-comercial .sidebar .nav-cat-simple[data-cat="financeiro"],
+body.role-comercial .sidebar .nav-cat-simple[data-cat="dp"],
+body.role-comercial .sidebar .nav-cat-simple[data-cat="notif"],
+body.role-comercial .sidebar .nav-cat-simple[data-cat="contab"],
+body.role-comercial .painelCat-sub[data-cat="financeiro"],
+body.role-comercial .painelCat-sub[data-cat="dp"],
+body.role-comercial .painelCat-sub[data-cat="notif"],
+body.role-comercial .painelCat-sub[data-cat="contab"] { display: none !important; }
+
+/* IMPORTANTE: role-admin não tem nenhuma regra — vê tudo */
 
 /* Engrenagem admin só visível para role admin */
 #adminGearBtn { display: none; }
