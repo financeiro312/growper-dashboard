@@ -900,8 +900,8 @@ body.role-comercial .painelCat-sub[data-cat="contab"] { display: none !important
 /* IMPORTANTE: role-admin não tem nenhuma regra — vê tudo */
 
 /* Engrenagem admin só visível para role admin */
-#adminGearBtn { display: none; }
-body.role-admin #adminGearBtn { display: inline-flex !important; }
+#adminGearBtn { display: none !important; }
+body.role-admin.auth-ready #adminGearBtn { display: flex !important; }
 
 /* ============================================================
    MOBILE (≤ 640px) — só aplica em celular, não muda desktop
@@ -1355,7 +1355,6 @@ body.mobile-mini .main-content { margin-left: 40px !important; }
         style="display:none;background:#f1f5f9;color:#334155;border:1px solid #cbd5e1;padding:10px 18px;border-radius:8px;font-family:Poppins,sans-serif;font-weight:600;font-size:12.5px;cursor:pointer;transition:all 0.15s;user-select:none;flex-shrink:0;white-space:nowrap">← Voltar</button><span id="sectionTitle">Dashboard Principal</span></div>
       <div class="header-controls">
       <span id="authUserBadge"></span>
-      <button id="adminGearBtn" onclick="_authAbrirAdmin()" title="Gerenciar acessos" style="background:#f1f5f9;color:#334155;border:none;padding:7px 12px;border-radius:8px;font-family:Poppins;font-weight:700;font-size:12px;cursor:pointer">⚙️ Acessos</button>
 
 <select id="selYear" onchange="if(typeof _onYearChange==='function')_onYearChange(this.value)"><option value="2026">2026</option><option value="2025">2025</option></select>
         <div id="selContaWrap" style="position:relative;display:inline-block">
@@ -15390,6 +15389,9 @@ window._tribNovaTarefa = function() {
 })();
 
 </script>
+<!-- BOTÃO FIXO ⚙️ ACESSOS (canto inferior esquerdo — só admin) -->
+<button id="adminGearBtn" onclick="_authAbrirAdmin()" title="Gerenciar acessos" style="position:fixed;bottom:20px;left:20px;z-index:100;background:linear-gradient(135deg,#334155,#1e293b);color:white;border:1px solid rgba(255,255,255,0.1);width:48px;height:48px;border-radius:50%;font-family:Poppins;font-weight:700;font-size:20px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.3);align-items:center;justify-content:center;transition:all 0.2s" onmouseover="this.style.transform='scale(1.1)';this.style.background='linear-gradient(135deg,#475569,#334155)'" onmouseout="this.style.transform='scale(1)';this.style.background='linear-gradient(135deg,#334155,#1e293b)'">⚙️</button>
+
 <!-- OVERLAY DE LOGIN -->
 <div id="authOverlay">
   <div id="authCard">
