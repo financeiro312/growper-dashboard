@@ -5507,13 +5507,13 @@ function _reembolsoLoad() {
     if (raw) {
       const data = JSON.parse(raw);
       return {
-        taxaPorKm: typeof data.taxaPorKm === 'number' ? data.taxaPorKm : 1.00,
+        taxaPorKm: typeof data.taxaPorKm === 'number' ? data.taxaPorKm : 0.60,
         encontros: Array.isArray(data.encontros) ? data.encontros : [],
         confraternizacoes: Array.isArray(data.confraternizacoes) ? data.confraternizacoes : []
       };
     }
   } catch(e) { console.error('[reembolso] erro load:', e); }
-  return { taxaPorKm: 1.00, encontros: [], confraternizacoes: [] };
+  return { taxaPorKm: 0.60, encontros: [], confraternizacoes: [] };
 }
 
 function _reembolsoSave(data) {
@@ -5583,6 +5583,328 @@ function _reembolsoCalcColab(col, taxaKm) {
   return { passagem, combustivel, hospedagem, aluguel, total, combKm };
 }
 
+
+// ============================================================
+// FUNÇÕES AUXILIARES: Fornecedores, Balanço, Gráfico e Tendência
+// ============================================================
+
+function _renderFornecedoresEncontro(enc) {
+  const esc = (s) => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const fmt = (n) => 'R$ ' + (Math.abs(Number(n)||0)).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  
+  enc.fornecedores = enc.fornecedores || [];
+  const totForn = enc.fornecedores.reduce((s,f) => s + (Number(f.valor)||0), 0);
+  const totPago = enc.fornecedores.filter(f => f.pago).reduce((s,f) => s + (Number(f.valor)||0), 0);
+  const totAPagar = totForn - totPago;
+  
+  // Tipos padrão para encontros presenciais
+  const tipos = ['Aluguel','Almoço','Happy Hour','Bebidas','Café/Coffee break','Transporte local','Outros'];
+  
+  let html = `<div style="background:white;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.05);margin-top:16px;margin-bottom:16px">
+    <div style="background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:white;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <div>
+        <div style="font-size:11px;opacity:0.85;text-transform:uppercase;letter-spacing:0.5px;font-weight:700">Pagamentos do evento</div>
+        <div style="font-size:18px;font-weight:800;margin-top:2px">🏢 Fornecedores</div>
+      </div>
+      <button onclick="_encFornecedorAdd('${enc.id}')" style="background:rgba(255,255,255,0.2);color:white;border:1px solid rgba(255,255,255,0.4);padding:8px 14px;border-radius:6px;font-family:Poppins;font-weight:700;font-size:12px;cursor:pointer">+ Adicionar</button>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+      <thead><tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0">
+        <th style="padding:9px 12px;text-align:left;font-size:10.5px;color:#334155;font-weight:800;text-transform:uppercase">Fornecedor</th>
+        <th style="padding:9px 12px;text-align:left;font-size:10.5px;color:#334155;font-weight:800;text-transform:uppercase;width:150px">Tipo</th>
+        <th style="padding:9px 12px;text-align:center;font-size:10.5px;color:#334155;font-weight:800;text-transform:uppercase;width:130px">Data Pagto</th>
+        <th style="padding:9px 12px;text-align:right;font-size:10.5px;color:#334155;font-weight:800;text-transform:uppercase;width:140px">Valor</th>
+        <th style="padding:9px 12px;text-align:center;font-size:10.5px;color:#334155;font-weight:800;text-transform:uppercase;width:80px">Pago?</th>
+        <th style="width:40px"></th>
+      </tr></thead><tbody>`;
+  
+  if (enc.fornecedores.length === 0) {
+    html += '<tr><td colspan="6" style="padding:24px;text-align:center;color:#94a3b8;font-style:italic">Nenhum fornecedor cadastrado. Ex: restaurante do almoço, local do happy hour, aluguel de sala.</td></tr>';
+  } else {
+    const tipoOpts = (sel) => tipos.map(t => `<option value="${t}" ${sel===t?'selected':''}>${t}</option>`).join('');
+    enc.fornecedores.forEach((f, i) => {
+      html += `<tr style="border-bottom:1px solid #f1f5f9;background:${f.pago?'#f0fdf4':'white'}">
+        <td style="padding:6px 8px"><input type="text" value="${esc(f.nome||'')}" placeholder="Nome do fornecedor" onchange="_encFornecedorUpd('${enc.id}',${i},'nome',this.value)" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:5px;font-family:Poppins;font-size:12.5px"></td>
+        <td style="padding:6px 8px"><select onchange="_encFornecedorUpd('${enc.id}',${i},'tipo',this.value)" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:5px;font-family:Poppins;font-size:12.5px"><option value="">— Selecione —</option>${tipoOpts(f.tipo)}</select></td>
+        <td style="padding:6px 8px"><input type="date" value="${f.data||''}" onchange="_encFornecedorUpd('${enc.id}',${i},'data',this.value)" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:5px;font-family:Poppins;font-size:12.5px"></td>
+        <td style="padding:6px 8px"><input type="number" min="0" step="0.01" value="${f.valor||0}" onchange="_encFornecedorUpd('${enc.id}',${i},'valor',Number(this.value)||0)" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:5px;font-family:Poppins;font-size:12.5px;text-align:right;font-weight:700"></td>
+        <td style="padding:6px 8px;text-align:center"><label style="display:inline-flex;align-items:center;cursor:pointer;font-size:11px;font-weight:700;color:${f.pago?'#059669':'#94a3b8'}"><input type="checkbox" ${f.pago?'checked':''} onchange="_encFornecedorUpd('${enc.id}',${i},'pago',this.checked)" style="width:16px;height:16px;accent-color:#10b981;cursor:pointer;margin-right:4px">${f.pago?'✅':'⏳'}</label></td>
+        <td style="padding:6px 8px;text-align:center"><button onclick="_encFornecedorRem('${enc.id}',${i})" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:14px;padding:4px 8px;border-radius:4px" title="Remover">✕</button></td>
+      </tr>`;
+    });
+    html += `<tr style="background:#faf5ff;border-top:2px solid #8b5cf6"><td colspan="3" style="padding:10px 12px;font-weight:800;color:#6d28d9;text-transform:uppercase;font-size:11px">TOTAL FORNECEDORES</td><td style="padding:10px 12px;text-align:right;font-weight:800;color:#6d28d9;font-size:14px">${fmt(totForn)}</td><td colspan="2" style="padding:10px 12px;text-align:right;font-size:11px;color:#6d28d9;font-weight:700">Pago: ${fmt(totPago)} · A pagar: ${fmt(totAPagar)}</td></tr>`;
+  }
+  html += '</tbody></table></div>';
+  return html;
+}
+
+// ============ BALANÇO GERAL COM GRÁFICO ============
+function _renderBalancoEvento(evento, tipo) {
+  const esc = (s) => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const fmt = (n) => 'R$ ' + (Math.abs(Number(n)||0)).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const data = _reembolsoLoad();
+  const taxaKm = data.taxaPorKm;
+  
+  let totColab = 0, totPassagem = 0, totComb = 0, totHosp = 0, totAlug = 0;
+  if (tipo === 'encontro') {
+    (evento.colaboradores || []).forEach(col => {
+      const r = _reembolsoCalcColab(col, taxaKm);
+      totPassagem += r.passagem || 0;
+      totComb += r.combustivel || 0;
+      totHosp += r.hospedagem || 0;
+      totAlug += r.aluguel || 0;
+    });
+    totColab = totPassagem + totComb + totHosp + totAlug;
+  } else {
+    // Confraternização: totColab = soma dos reembolsos
+    totColab = (evento.reembolsos || []).reduce((s,r) => s + (Number(r.valor)||0), 0);
+  }
+  
+  // Fornecedores (por tipo)
+  const fornecedores = evento.fornecedores || [];
+  const totForn = fornecedores.reduce((s,f) => s + (Number(f.valor)||0), 0);
+  const porTipo = {};
+  fornecedores.forEach(f => {
+    const t = f.tipo || 'Outros';
+    porTipo[t] = (porTipo[t] || 0) + (Number(f.valor)||0);
+  });
+  
+  const totGeral = totColab + totForn;
+  const nome = evento.nome || (tipo === 'encontro' ? ('Encontro ' + (evento.data||'')) : 'Confraternização');
+  
+  // ID único para gráfico
+  const grafId = 'grafBal_' + tipo + '_' + evento.id;
+  
+  let html = `<div style="background:white;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.05);margin-top:16px;margin-bottom:16px;overflow:hidden">
+    <div style="background:linear-gradient(135deg,#0f172a,#1e293b);color:white;padding:14px 20px">
+      <div style="font-size:11px;opacity:0.85;text-transform:uppercase;letter-spacing:0.5px;font-weight:700">Balanço geral</div>
+      <div style="font-size:17px;font-weight:800;margin-top:2px">📊 ${esc(nome)}</div>
+    </div>
+    <div style="padding:20px;display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:center">
+      <div style="min-height:280px;position:relative">
+        <canvas id="${grafId}"></canvas>
+      </div>
+      <div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+          <div style="background:#eff6ff;border-left:4px solid #3b82f6;padding:12px;border-radius:6px"><div style="font-size:10.5px;color:#1e40af;font-weight:700;text-transform:uppercase">👥 Colaboradores</div><div style="font-size:20px;font-weight:800;color:#1e40af;margin-top:4px">${fmt(totColab)}</div></div>
+          <div style="background:#faf5ff;border-left:4px solid #8b5cf6;padding:12px;border-radius:6px"><div style="font-size:10.5px;color:#6d28d9;font-weight:700;text-transform:uppercase">🏢 Fornecedores</div><div style="font-size:20px;font-weight:800;color:#6d28d9;margin-top:4px">${fmt(totForn)}</div></div>
+        </div>
+        <div style="background:linear-gradient(135deg,#065f46,#059669);color:white;padding:14px 16px;border-radius:8px;margin-bottom:14px">
+          <div style="font-size:10.5px;opacity:0.85;text-transform:uppercase;letter-spacing:0.5px;font-weight:700">💰 TOTAL DO EVENTO</div>
+          <div style="font-size:24px;font-weight:800;margin-top:2px">${fmt(totGeral)}</div>
+        </div>
+        <div style="font-size:10.5px;color:#64748b;font-weight:700;text-transform:uppercase;margin-bottom:6px;letter-spacing:0.5px">Rateio detalhado</div>
+        <div style="font-size:12px;line-height:1.6">`;
+  
+  const linhas = [];
+  if (tipo === 'encontro') {
+    if (totPassagem > 0) linhas.push(['🎫 Passagem', totPassagem, '#3b82f6']);
+    if (totComb > 0) linhas.push(['🛢️ Combustível', totComb, '#f59e0b']);
+    if (totHosp > 0) linhas.push(['🏨 Hospedagem', totHosp, '#ec4899']);
+    if (totAlug > 0) linhas.push(['🚗 Aluguel veículo', totAlug, '#10b981']);
+  } else {
+    if (totColab > 0) linhas.push(['👥 Reembolsos colab.', totColab, '#3b82f6']);
+  }
+  Object.keys(porTipo).sort((a,b) => porTipo[b] - porTipo[a]).forEach((t, i) => {
+    const cores = ['#8b5cf6','#a78bfa','#c084fc','#d946ef','#e879f9','#f0abfc'];
+    linhas.push(['🏢 ' + t, porTipo[t], cores[i % cores.length]]);
+  });
+  
+  linhas.forEach(([lbl, val, cor]) => {
+    const pct = totGeral > 0 ? (val/totGeral*100).toFixed(1) : '0.0';
+    html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px dashed #e2e8f0"><span style="color:#334155"><span style="color:${cor};font-weight:900">■</span> ${lbl}</span><span style="font-weight:700;color:#0f172a">${fmt(val)} <span style="color:#94a3b8;font-weight:500;font-size:10.5px">(${pct}%)</span></span></div>`;
+  });
+  
+  if (linhas.length === 0) {
+    html += '<div style="color:#94a3b8;font-style:italic;text-align:center;padding:12px">Sem lançamentos ainda</div>';
+  }
+  
+  html += `</div></div></div></div>`;
+  
+  // Salvar dados do gráfico globalmente para o setTimeout ler
+  window._graficoDataBal = window._graficoDataBal || {};
+  window._graficoDataBal[grafId] = linhas;
+  
+  return html;
+}
+
+// ============ INICIALIZAR GRÁFICO PIZZA ============
+function _initGraficoBalanco(evento, tipo) {
+  const grafId = 'grafBal_' + tipo + '_' + evento.id;
+  const canvas = document.getElementById(grafId);
+  if (!canvas || !window.Chart) return;
+  const linhas = (window._graficoDataBal || {})[grafId] || [];
+  if (linhas.length === 0) {
+    canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+    canvas.parentNode.innerHTML = '<div style="text-align:center;color:#94a3b8;padding:60px 20px;font-style:italic">Sem dados para o gráfico</div>';
+    return;
+  }
+  // Destruir gráfico anterior se existir
+  if (window._graficoInstBal && window._graficoInstBal[grafId]) {
+    try { window._graficoInstBal[grafId].destroy(); } catch(e){}
+  }
+  window._graficoInstBal = window._graficoInstBal || {};
+  window._graficoInstBal[grafId] = new Chart(canvas, {
+    type: 'doughnut',
+    data: {
+      labels: linhas.map(l => l[0]),
+      datasets: [{
+        data: linhas.map(l => l[1]),
+        backgroundColor: linhas.map(l => l[2]),
+        borderColor: 'white',
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 11, family: 'Poppins' }, padding: 8, boxWidth: 12 } },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => ctx.label + ': R$ ' + ctx.parsed.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})
+          }
+        }
+      }
+    }
+  });
+}
+
+// ============ ANÁLISE DE TENDÊNCIA ============
+function _renderTendenciaEventos(eventos, tipo) {
+  if (!eventos || eventos.length < 2) return '';  // só faz sentido com 2+
+  
+  const esc = (s) => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const fmt = (n) => 'R$ ' + (Math.abs(Number(n)||0)).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0});
+  const data = _reembolsoLoad();
+  const taxaKm = data.taxaPorKm;
+  
+  // Calcular total de cada evento
+  const eventosCalc = eventos.map(ev => {
+    let totColab = 0;
+    if (tipo === 'encontro') {
+      (ev.colaboradores || []).forEach(col => {
+        const r = _reembolsoCalcColab(col, taxaKm);
+        totColab += (r.passagem||0) + (r.combustivel||0) + (r.hospedagem||0) + (r.aluguel||0);
+      });
+    } else {
+      totColab = (ev.reembolsos || []).reduce((s,r) => s + (Number(r.valor)||0), 0);
+    }
+    const totForn = (ev.fornecedores || []).reduce((s,f) => s + (Number(f.valor)||0), 0);
+    return {
+      nome: ev.nome || ev.local || 'Evento',
+      data: ev.data || '',
+      totColab, totForn,
+      total: totColab + totForn
+    };
+  }).sort((a,b) => (a.data||'').localeCompare(b.data||''));
+  
+  const grafId = 'grafTend_' + tipo + '_' + Date.now();
+  
+  // Análise: variação do último vs média dos anteriores
+  const anteriores = eventosCalc.slice(0, -1);
+  const ultimo = eventosCalc[eventosCalc.length - 1];
+  const mediaAnt = anteriores.reduce((s,e) => s + e.total, 0) / anteriores.length;
+  const varPct = mediaAnt > 0 ? ((ultimo.total - mediaAnt) / mediaAnt * 100) : 0;
+  const varCor = varPct > 5 ? '#dc2626' : (varPct < -5 ? '#10b981' : '#64748b');
+  const varIcon = varPct > 5 ? '📈' : (varPct < -5 ? '📉' : '➡️');
+  
+  let html = `<div style="background:white;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.05);margin-top:16px;margin-bottom:16px;overflow:hidden">
+    <div style="background:linear-gradient(135deg,#1e40af,#3b82f6);color:white;padding:14px 20px">
+      <div style="font-size:11px;opacity:0.85;text-transform:uppercase;letter-spacing:0.5px;font-weight:700">Análise entre eventos</div>
+      <div style="font-size:17px;font-weight:800;margin-top:2px">📈 Tendência de gastos (${eventosCalc.length} eventos)</div>
+    </div>
+    <div style="padding:20px">
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;align-items:center;margin-bottom:16px">
+        <div style="min-height:220px;position:relative"><canvas id="${grafId}"></canvas></div>
+        <div>
+          <div style="background:${varCor}11;border-left:4px solid ${varCor};padding:14px;border-radius:6px;margin-bottom:12px">
+            <div style="font-size:10.5px;color:${varCor};font-weight:700;text-transform:uppercase">Variação do último</div>
+            <div style="font-size:26px;font-weight:800;color:${varCor};margin-top:4px">${varIcon} ${varPct >= 0 ? '+' : ''}${varPct.toFixed(1)}%</div>
+            <div style="font-size:11px;color:#64748b;margin-top:4px">vs média dos ${anteriores.length} anterior(es)</div>
+          </div>
+          <div style="background:#f8fafc;padding:12px;border-radius:6px;font-size:11.5px;line-height:1.7">
+            <div style="color:#64748b;font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:0.5px;margin-bottom:6px">Métricas</div>
+            <div style="display:flex;justify-content:space-between"><span>Menor gasto:</span><strong style="color:#10b981">${fmt(Math.min(...eventosCalc.map(e=>e.total)))}</strong></div>
+            <div style="display:flex;justify-content:space-between"><span>Maior gasto:</span><strong style="color:#dc2626">${fmt(Math.max(...eventosCalc.map(e=>e.total)))}</strong></div>
+            <div style="display:flex;justify-content:space-between"><span>Média:</span><strong style="color:#334155">${fmt(eventosCalc.reduce((s,e)=>s+e.total,0)/eventosCalc.length)}</strong></div>
+            <div style="display:flex;justify-content:space-between"><span>Total acumulado:</span><strong style="color:#0f172a">${fmt(eventosCalc.reduce((s,e)=>s+e.total,0))}</strong></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+  
+  window._graficoDataTend = window._graficoDataTend || {};
+  window._graficoDataTend[grafId] = eventosCalc;
+  
+  return html;
+}
+
+function _initGraficoTendencia(eventos, tipo) {
+  const canvas = document.querySelector('canvas[id^="grafTend_' + tipo + '_"]');
+  if (!canvas || !window.Chart) return;
+  const grafId = canvas.id;
+  const dados = (window._graficoDataTend || {})[grafId] || [];
+  if (dados.length < 2) return;
+  
+  if (window._graficoInstTend && window._graficoInstTend[grafId]) {
+    try { window._graficoInstTend[grafId].destroy(); } catch(e){}
+  }
+  window._graficoInstTend = window._graficoInstTend || {};
+  window._graficoInstTend[grafId] = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: dados.map(d => (d.nome || '').slice(0,20) + (d.data ? '\n' + d.data.slice(5) : '')),
+      datasets: [
+        { label: 'Colaboradores', data: dados.map(d => d.totColab), backgroundColor: '#3b82f6' },
+        { label: 'Fornecedores', data: dados.map(d => d.totForn), backgroundColor: '#8b5cf6' }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: { stacked: true, ticks: { font: { size: 10, family: 'Poppins' } } },
+        y: { stacked: true, ticks: { callback: (v) => 'R$ ' + v.toLocaleString('pt-BR'), font: { size: 10 } } }
+      },
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 11, family: 'Poppins' } } },
+        tooltip: { callbacks: { label: (ctx) => ctx.dataset.label + ': R$ ' + ctx.parsed.y.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) } }
+      }
+    }
+  });
+}
+
+// ============ CRUD Fornecedores em Encontros ============
+window._encFornecedorAdd = function(encId) {
+  const data = _reembolsoLoad();
+  const enc = data.encontros.find(x => x.id === encId);
+  if (!enc) return;
+  enc.fornecedores = enc.fornecedores || [];
+  enc.fornecedores.push({ nome: '', tipo: '', data: '', valor: 0, pago: false });
+  _reembolsoSave(data);
+  renderReembolso();
+};
+
+window._encFornecedorUpd = function(encId, idx, campo, valor) {
+  const data = _reembolsoLoad();
+  const enc = data.encontros.find(x => x.id === encId);
+  if (!enc || !enc.fornecedores[idx]) return;
+  enc.fornecedores[idx][campo] = valor;
+  _reembolsoSave(data);
+  if (campo === 'valor' || campo === 'pago' || campo === 'tipo') renderReembolso();
+};
+
+window._encFornecedorRem = function(encId, idx) {
+  if (!confirm('Remover este fornecedor?')) return;
+  const data = _reembolsoLoad();
+  const enc = data.encontros.find(x => x.id === encId);
+  if (!enc) return;
+  enc.fornecedores.splice(idx, 1);
+  _reembolsoSave(data);
+  renderReembolso();
+};
 
 function _renderTabsReembolso() {
   const abaEnc = window._reembolsoAba === 'encontros';
@@ -5761,9 +6083,14 @@ function _renderConfraternizacoes() {
   }
   html += '</tbody></table></div>';
   
-  // ================ BALANÇO FINAL ================
-  html += `<div style="background:linear-gradient(135deg,#0f172a,#1e293b);color:white;border-radius:12px;padding:20px 24px;box-shadow:0 4px 12px rgba(0,0,0,0.1)">
-    <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:12px">📊 BALANÇO FINAL — ${esc(confAtual.nome)}</div>
+  // Balanço + gráfico + tendência
+  html += _renderBalancoEvento(confAtual, 'confrat');
+  html += _renderTendenciaEventos(data.confraternizacoes, 'confrat');
+  setTimeout(() => { _initGraficoBalanco(confAtual, 'confrat'); _initGraficoTendencia(data.confraternizacoes, 'confrat'); }, 100);
+  
+  // ================ BALANÇO SIMPLES (mantido) ================
+  html += `<div style="background:linear-gradient(135deg,#0f172a,#1e293b);color:white;border-radius:12px;padding:20px 24px;box-shadow:0 4px 12px rgba(0,0,0,0.1);margin-top:16px">
+    <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:12px">📊 RESUMO — ${esc(confAtual.nome)}</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:20px">
       <div><div style="font-size:11px;color:#94a3b8;margin-bottom:4px">👥 Reembolsos colaboradores</div><div style="font-size:20px;font-weight:800;color:#60a5fa">${fmt(totReemb)}</div></div>
       <div><div style="font-size:11px;color:#94a3b8;margin-bottom:4px">🏢 Fornecedores</div><div style="font-size:20px;font-weight:800;color:#c084fc">${fmt(totForn)}</div></div>
@@ -5891,7 +6218,8 @@ function renderReembolso() {
       data: new Date().toISOString().slice(0, 10),
       local: 'São Paulo',
       status: 'aberto',
-      colaboradores: []
+      colaboradores: [],
+      fornecedores: []
     });
     _reembolsoSave(data);
   }
@@ -6005,7 +6333,7 @@ function renderReembolso() {
   
   // Info-box explicativo (menor, à direita)
   html += '<div style="align-self:flex-end">';
-  html += `<div style="background:#eff6ff;border:1px solid #dbeafe;border-radius:8px;padding:10px 12px;font-size:11px;color:#1e40af;max-width:280px;line-height:1.5"><div style="margin-bottom:6px">💡 <strong>Combustível</strong> = <code style="background:#dbeafe;padding:1px 5px;border-radius:3px;font-family:monospace">km ida × 2 × R$${taxaKm.toFixed(2)}</code></div><div style="font-size:10.5px;color:#3730a3;padding-top:6px;border-top:1px solid #c7d2fe">📊 <strong>Referência de mercado:</strong> R$ 0,80 a R$ 1,20 por km<br><span style="opacity:0.85">(Trabalhista/CLT) — reajuste conforme combustível.</span></div></div>`;
+  html += `<div style="background:#eff6ff;border:1px solid #dbeafe;border-radius:8px;padding:10px 12px;font-size:11px;color:#1e40af;max-width:300px;line-height:1.5"><div style="margin-bottom:6px">💡 <strong>Combustível</strong> = <code style="background:#dbeafe;padding:1px 5px;border-radius:3px;font-family:monospace">km ida × 2 × R$${taxaKm.toFixed(2)}</code></div><div style="font-size:10.5px;color:#3730a3;padding-top:6px;border-top:1px solid #c7d2fe">📊 <strong>Referência de mercado:</strong> R$ 0,20 a R$ 0,60 por km<br><span style="opacity:0.85">Adotamos o teto: <strong>R$ 0,60/km</strong></span></div></div>`;
   html += '</div>';
   
   html += '</div>';
@@ -6172,7 +6500,20 @@ function renderReembolso() {
   html += '</div>'; // fecha tabela
   html += '</div>'; // fecha container
   
+  // ============ TABELA DE FORNECEDORES ============
+  encontroAtual.fornecedores = encontroAtual.fornecedores || [];
+  html += _renderFornecedoresEncontro(encontroAtual);
+  
+  // ============ BALANÇO GERAL + GRÁFICO ============
+  html += _renderBalancoEvento(encontroAtual, 'encontro');
+  
+  // ============ ANÁLISE DE TENDÊNCIA ============
+  html += _renderTendenciaEventos(data.encontros, 'encontro');
+  
   cont.innerHTML = _renderTabsReembolso() + html;
+  
+  // Inicializar gráfico após inserir no DOM
+  setTimeout(() => { _initGraficoBalanco(encontroAtual, 'encontro'); _initGraficoTendencia(data.encontros, 'encontro'); }, 100);
   
   // Sincronizar largura da barra de scroll superior com a tabela real
   setTimeout(() => {
@@ -6241,7 +6582,8 @@ function _reembolsoNovoEncontro() {
     data: new Date().toISOString().slice(0, 10),
     local: '',
     status: 'aberto',
-    colaboradores: []
+    colaboradores: [],
+    fornecedores: []
   };
   data.encontros.push(novo);
   window._reembolsoState.encontroAtualId = novo.id;
