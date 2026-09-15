@@ -847,6 +847,12 @@ body.auth-ready #authFooterFixed { display: flex !important; }
 */
 
 /* FINANCEIRO — só vê a categoria financeiro */
+/* Botão SCALIA no seletor de empresa: apenas admin e financeiro veem */
+body.role-rh #companySelector .cs-btn:nth-child(2),
+body.role-estrategico #companySelector .cs-btn:nth-child(2),
+body.role-contabilidade #companySelector .cs-btn:nth-child(2),
+body.role-comercial #companySelector .cs-btn:nth-child(2) { display: none !important; }
+
 body.role-financeiro .sidebar .nav-cat-simple[data-cat="dp"],
 body.role-financeiro .sidebar .nav-cat-simple[data-cat="estrategico"],
 body.role-financeiro .sidebar .nav-cat-simple[data-cat="notif"],
@@ -10744,22 +10750,40 @@ function selectCompany(companyId) {
   currentCompany = companyId;
   document.getElementById('companySelector').style.display = 'none';
   
+  // MAPEAR nível → categoria inicial
+  // Admin e financeiro entram no Financeiro; demais entram na categoria que podem ver
+  const nivel = (window._authState && window._authState.usuario) ? window._authState.usuario.nivel : 'admin';
+  const CAT_POR_ROLE = {
+    admin: 'financeiro',
+    financeiro: 'financeiro',
+    rh: 'dp',
+    estrategico: 'estrategico',
+    contabilidade: 'contab',
+    comercial: 'estrategico',
+    personalizado: 'financeiro'
+  };
+  const catInicial = CAT_POR_ROLE[nivel] || 'financeiro';
+  
   if (companyId === 'growper') {
     document.body.classList.remove('scalia-mode');
     document.getElementById('companyName').textContent = 'Growper Digital';
-    // Restaurar subtítulo original em Growper
     var sub = document.getElementById('_finSubtitle');
     if (sub) sub.textContent = 'Fluxo de caixa, mensalidades e cartão';
-    // Mostrar categoria Financeiro (overlay com os cards)
-    abrirCategoria('financeiro');
+    // Abrir SÓ a categoria permitida ao usuário (não mais fixo em Financeiro)
+    abrirCategoria(catInicial);
   } else if (companyId === 'scalia') {
+    // Scalia é só admin/financeiro (só tem Financeiro)
+    if (nivel !== 'admin' && nivel !== 'financeiro') {
+      // Volta para a seleção — não pode entrar em Scalia com outros roles
+      alert('Você não tem permissão para acessar Scalia. Voltando…');
+      document.getElementById('companySelector').style.display = 'flex';
+      return;
+    }
     document.body.classList.add('scalia-mode');
     document.getElementById('companyName').textContent = 'Scalia Performance';
-    // Atualizar subtítulo do painel Financeiro para Scalia
     var sub = document.getElementById('_finSubtitle');
     if (sub) sub.textContent = 'Fluxo de caixa e kits para futuros clientes';
     if (typeof scaliaInit === 'function') scaliaInit();
-    // Mostra o painel Financeiro (com Principal + Kits)
     abrirCategoria('financeiro');
   }
 }
