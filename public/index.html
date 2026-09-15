@@ -5854,24 +5854,49 @@ function _initGraficoTendencia(eventos, tipo) {
   }
   window._graficoInstTend = window._graficoInstTend || {};
   window._graficoInstTend[grafId] = new Chart(canvas, {
-    type: 'bar',
+    type: 'line',
     data: {
-      labels: dados.map(d => (d.nome || '').slice(0,20) + (d.data ? '\n' + d.data.slice(5) : '')),
-      datasets: [
-        { label: 'Colaboradores', data: dados.map(d => d.totColab), backgroundColor: '#3b82f6' },
-        { label: 'Fornecedores', data: dados.map(d => d.totForn), backgroundColor: '#8b5cf6' }
-      ]
+      labels: dados.map(d => (d.nome || '').slice(0,18) + (d.data ? '\n' + d.data.slice(5) : '')),
+      datasets: [{
+        label: 'Total do evento',
+        data: dados.map(d => d.total),
+        borderColor: '#a78bfa',
+        backgroundColor: 'rgba(167,139,250,0.15)',
+        borderWidth: 3,
+        pointBackgroundColor: '#a78bfa',
+        pointBorderColor: 'white',
+        pointBorderWidth: 2,
+        pointRadius: 6,
+        pointHoverRadius: 8,
+        tension: 0.3,
+        fill: true
+      }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       scales: {
-        x: { stacked: true, ticks: { font: { size: 10, family: 'Poppins' } } },
-        y: { stacked: true, ticks: { callback: (v) => 'R$ ' + v.toLocaleString('pt-BR'), font: { size: 10 } } }
+        x: { 
+          ticks: { font: { size: 10, family: 'Poppins' }, color: '#e2e8f0' },
+          grid: { color: 'rgba(255,255,255,0.05)' }
+        },
+        y: { 
+          ticks: { 
+            callback: (v) => 'R$ ' + v.toLocaleString('pt-BR'), 
+            font: { size: 10 }, 
+            color: '#94a3b8' 
+          },
+          grid: { color: 'rgba(255,255,255,0.05)' },
+          beginAtZero: true
+        }
       },
       plugins: {
-        legend: { position: 'bottom', labels: { font: { size: 11, family: 'Poppins' } } },
-        tooltip: { callbacks: { label: (ctx) => ctx.dataset.label + ': R$ ' + ctx.parsed.y.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) } }
+        legend: { display: false },
+        tooltip: { 
+          callbacks: { 
+            label: (ctx) => 'Total: R$ ' + ctx.parsed.y.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) 
+          } 
+        }
       }
     }
   });
