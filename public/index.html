@@ -5570,17 +5570,17 @@ function _reembolsoFmt(v) {
 
 function _reembolsoCalcColab(col, taxaKm) {
   const st = _reembolsoStatus(col);
-  // Só quem "reembolso" gera valores. Sem_reembolso e nao_vai zeram.
   if (st !== 'reembolso') {
-    return { passagem: 0, combustivel: 0, hospedagem: 0, aluguel: 0, total: 0, combKm: 0 };
+    return { passagem: 0, combustivel: 0, hospedagem: 0, aluguel: 0, estacionamento: 0, total: 0, combKm: 0 };
   }
   const passagem = col.passagem && col.passagem.precisa ? Number(col.passagem.valor || 0) : 0;
   const combKm = Number(col.kmDistancia || 0) * 2;
   const combustivel = col.combustivel && col.combustivel.precisa ? combKm * Number(taxaKm || 0) : 0;
   const hospedagem = col.hospedagem && col.hospedagem.precisa ? Number(col.hospedagem.valor || 0) : 0;
   const aluguel = col.aluguel && col.aluguel.precisa ? Number(col.aluguel.valor || 0) : 0;
-  const total = passagem + combustivel + hospedagem + aluguel;
-  return { passagem, combustivel, hospedagem, aluguel, total, combKm };
+  const estacionamento = col.estacionamento && col.estacionamento.precisa ? Number(col.estacionamento.valor || 0) : 0;
+  const total = passagem + combustivel + hospedagem + aluguel + estacionamento;
+  return { passagem, combustivel, hospedagem, aluguel, estacionamento, total, combKm };
 }
 
 
@@ -5598,7 +5598,7 @@ function _renderFornecedoresEncontro(enc) {
   const totAPagar = totForn - totPago;
   
   // Tipos padrão para encontros presenciais
-  const tipos = ['Aluguel','Almoço','Happy Hour','Bebidas','Café/Coffee break','Transporte local','Outros'];
+  const tipos = ['Aluguel','Almoço','Happy Hour','Bebidas','Café/Coffee break','Transporte local'];
   
   let html = `<div style="background:white;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.05);margin-top:16px;margin-bottom:16px">
     <div style="background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:white;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
@@ -5621,11 +5621,13 @@ function _renderFornecedoresEncontro(enc) {
   if (enc.fornecedores.length === 0) {
     html += '<tr><td colspan="6" style="padding:24px;text-align:center;color:#94a3b8;font-style:italic">Nenhum fornecedor cadastrado. Ex: restaurante do almoço, local do happy hour, aluguel de sala.</td></tr>';
   } else {
-    const tipoOpts = (sel) => tipos.map(t => `<option value="${t}" ${sel===t?'selected':''}>${t}</option>`).join('');
+    const tipoOpts = tipos.map(t => `<option value="${t}"></option>`).join('');
+    const listId = 'tiposEnc_' + enc.id;
+    html += `<datalist id="${listId}">${tipoOpts}</datalist>`;
     enc.fornecedores.forEach((f, i) => {
       html += `<tr style="border-bottom:1px solid #f1f5f9;background:${f.pago?'#f0fdf4':'white'}">
         <td style="padding:6px 8px"><input type="text" value="${esc(f.nome||'')}" placeholder="Nome do fornecedor" onchange="_encFornecedorUpd('${enc.id}',${i},'nome',this.value)" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:5px;font-family:Poppins;font-size:12.5px"></td>
-        <td style="padding:6px 8px"><select onchange="_encFornecedorUpd('${enc.id}',${i},'tipo',this.value)" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:5px;font-family:Poppins;font-size:12.5px"><option value="">— Selecione —</option>${tipoOpts(f.tipo)}</select></td>
+        <td style="padding:6px 8px"><input type="text" list="${listId}" value="${esc(f.tipo||'')}" placeholder="Ex: Aluguel, Almoço, Kit Growper..." onchange="_encFornecedorUpd('${enc.id}',${i},'tipo',this.value)" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:5px;font-family:Poppins;font-size:12.5px" title="Escolha uma sugestão ou digite um tipo personalizado"></td>
         <td style="padding:6px 8px"><input type="date" value="${f.data||''}" onchange="_encFornecedorUpd('${enc.id}',${i},'data',this.value)" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:5px;font-family:Poppins;font-size:12.5px"></td>
         <td style="padding:6px 8px"><input type="number" min="0" step="0.01" value="${f.valor||0}" onchange="_encFornecedorUpd('${enc.id}',${i},'valor',Number(this.value)||0)" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:5px;font-family:Poppins;font-size:12.5px;text-align:right;font-weight:700"></td>
         <td style="padding:6px 8px;text-align:center"><label style="display:inline-flex;align-items:center;cursor:pointer;font-size:11px;font-weight:700;color:${f.pago?'#059669':'#94a3b8'}"><input type="checkbox" ${f.pago?'checked':''} onchange="_encFornecedorUpd('${enc.id}',${i},'pago',this.checked)" style="width:16px;height:16px;accent-color:#10b981;cursor:pointer;margin-right:4px">${f.pago?'✅':'⏳'}</label></td>
@@ -5645,7 +5647,7 @@ function _renderBalancoEvento(evento, tipo) {
   const data = _reembolsoLoad();
   const taxaKm = data.taxaPorKm;
   
-  let totColab = 0, totPassagem = 0, totComb = 0, totHosp = 0, totAlug = 0;
+  let totColab = 0, totPassagem = 0, totComb = 0, totHosp = 0, totAlug = 0, totEstac = 0;
   if (tipo === 'encontro') {
     (evento.colaboradores || []).forEach(col => {
       const r = _reembolsoCalcColab(col, taxaKm);
@@ -5785,7 +5787,7 @@ function _renderTendenciaEventos(eventos, tipo) {
     if (tipo === 'encontro') {
       (ev.colaboradores || []).forEach(col => {
         const r = _reembolsoCalcColab(col, taxaKm);
-        totColab += (r.passagem||0) + (r.combustivel||0) + (r.hospedagem||0) + (r.aluguel||0);
+        totColab += (r.passagem||0) + (r.combustivel||0) + (r.hospedagem||0) + (r.aluguel||0) + (r.estacionamento||0);
       });
     } else {
       totColab = (ev.reembolsos || []).reduce((s,r) => s + (Number(r.valor)||0), 0);
@@ -5939,7 +5941,7 @@ function _renderBalancoEventoInline(evento, tipo) {
   const data = _reembolsoLoad();
   const taxaKm = data.taxaPorKm;
   
-  let totColab = 0, totPassagem = 0, totComb = 0, totHosp = 0, totAlug = 0;
+  let totColab = 0, totPassagem = 0, totComb = 0, totHosp = 0, totAlug = 0, totEstac = 0;
   if (tipo === 'encontro') {
     (evento.colaboradores || []).forEach(col => {
       const r = _reembolsoCalcColab(col, taxaKm);
@@ -5947,8 +5949,9 @@ function _renderBalancoEventoInline(evento, tipo) {
       totComb += r.combustivel || 0;
       totHosp += r.hospedagem || 0;
       totAlug += r.aluguel || 0;
+      totEstac = (totEstac || 0) + (r.estacionamento || 0);
     });
-    totColab = totPassagem + totComb + totHosp + totAlug;
+    totColab = totPassagem + totComb + totHosp + totAlug + (totEstac || 0);
   } else {
     totColab = (evento.reembolsos || []).reduce((s,r) => s + (Number(r.valor)||0), 0);
   }
@@ -5957,7 +5960,7 @@ function _renderBalancoEventoInline(evento, tipo) {
   const totForn = fornecedores.reduce((s,f) => s + (Number(f.valor)||0), 0);
   const porTipo = {};
   fornecedores.forEach(f => {
-    const t = f.tipo || 'Outros';
+    const t = (f.tipo && f.tipo.trim()) ? f.tipo.trim() : 'Sem tipo';
     porTipo[t] = (porTipo[t] || 0) + (Number(f.valor)||0);
   });
   const totGeral = totColab + totForn;
@@ -5969,6 +5972,7 @@ function _renderBalancoEventoInline(evento, tipo) {
     if (totComb > 0) linhas.push(['🛢️ Combustível', totComb, '#f59e0b']);
     if (totHosp > 0) linhas.push(['🏨 Hospedagem', totHosp, '#ec4899']);
     if (totAlug > 0) linhas.push(['🚗 Aluguel veículo', totAlug, '#10b981']);
+    if ((totEstac||0) > 0) linhas.push(['🅿️ Estacionamento', totEstac, '#0891b2']);
   } else {
     if (totColab > 0) linhas.push(['👥 Reembolsos colab.', totColab, '#3b82f6']);
   }
@@ -6008,7 +6012,7 @@ function _renderTendenciaEventosInline(eventos, tipo) {
     if (tipo === 'encontro') {
       (ev.colaboradores || []).forEach(col => {
         const r = _reembolsoCalcColab(col, taxaKm);
-        totColab += (r.passagem||0) + (r.combustivel||0) + (r.hospedagem||0) + (r.aluguel||0);
+        totColab += (r.passagem||0) + (r.combustivel||0) + (r.hospedagem||0) + (r.aluguel||0) + (r.estacionamento||0);
       });
     } else {
       totColab = (ev.reembolsos || []).reduce((s,r) => s + (Number(r.valor)||0), 0);
@@ -6222,12 +6226,14 @@ function _renderConfraternizacoes() {
   if (!confAtual.fornecedores || confAtual.fornecedores.length === 0) {
     html += '<tr><td colspan="6" style="padding:24px;text-align:center;color:#94a3b8;font-style:italic">Nenhum fornecedor lançado. Clique em <strong>+ Adicionar</strong> para começar.</td></tr>';
   } else {
-    const tipos = ['Espaço/Local','Buffet/Comida','Bebidas','Decoração','Som/DJ','Fotografia','Transporte','Brindes','Outros'];
+    const tipos = ['Espaço/Local','Buffet/Comida','Bebidas','Decoração','Som/DJ','Fotografia','Transporte','Brindes'];
     confAtual.fornecedores.forEach((f, i) => {
-      const tipoOptions = tipos.map(t => `<option value="${t}" ${f.tipo===t?'selected':''}>${t}</option>`).join('');
+      const tipoOpts = tipos.map(t => `<option value="${t}"></option>`).join('');
+      const listId = 'tiposConf_' + (window._confratAtualId||'x');
+      if (i === 0) html += `<datalist id="${listId}">${tipoOpts}</datalist>`;
       html += `<tr style="border-bottom:1px solid #f1f5f9;background:${f.pago?'#f0fdf4':'white'}">
         <td style="padding:6px 8px"><input type="text" value="${esc(f.nome||'')}" placeholder="Nome do fornecedor" onchange="_confratUpdForn(${i},'nome',this.value)" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:5px;font-family:Poppins;font-size:12.5px"></td>
-        <td style="padding:6px 8px"><select onchange="_confratUpdForn(${i},'tipo',this.value)" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:5px;font-family:Poppins;font-size:12.5px"><option value="">— Selecione —</option>${tipoOptions}</select></td>
+        <td style="padding:6px 8px"><input type="text" list="${listId}" value="${esc(f.tipo||'')}" placeholder="Ex: Buffet, Kit Growper League..." onchange="_confratUpdForn(${i},'tipo',this.value)" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:5px;font-family:Poppins;font-size:12.5px" title="Escolha uma sugestão ou digite um tipo personalizado"></td>
         <td style="padding:6px 8px"><input type="date" value="${f.data||''}" onchange="_confratUpdForn(${i},'data',this.value)" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:5px;font-family:Poppins;font-size:12.5px"></td>
         <td style="padding:6px 8px"><input type="number" min="0" step="0.01" value="${f.valor||0}" onchange="_confratUpdForn(${i},'valor',Number(this.value)||0)" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:5px;font-family:Poppins;font-size:12.5px;text-align:right;font-weight:700"></td>
         <td style="padding:6px 8px;text-align:center"><label style="display:inline-flex;align-items:center;cursor:pointer;font-size:11px;font-weight:700;color:${f.pago?'#059669':'#94a3b8'}"><input type="checkbox" ${f.pago?'checked':''} onchange="_confratUpdForn(${i},'pago',this.checked)" style="width:16px;height:16px;accent-color:#10b981;cursor:pointer;margin-right:4px">${f.pago?'✅':'⏳'}</label></td>
@@ -6571,6 +6577,7 @@ function renderReembolso() {
     html += `<th style="${_thBase};text-align:center;min-width:150px">🛢️ Combustível</th>`;
     html += `<th style="${_thBase};text-align:center;min-width:130px">🏨 Hospedagem</th>`;
     html += `<th style="${_thBase};text-align:center;min-width:130px" title="Excepcional — geralmente sócios">🚗 Aluguel</th>`;
+    html += `<th style="${_thBase};text-align:center;min-width:130px" title="Estacionamento pago pelo colaborador">🅿️ Estacionamento</th>`;
     html += `<th style="${_thBase};text-align:center;min-width:105px" title="Marcar após efetuar o reembolso">✓ Pago?</th>`;
     html += `<th style="${_thBase};text-align:right;min-width:90px">Total</th>`;
     if (!isFechado) html += `<th style="${_thBase};text-align:center;width:40px"></th>`;
@@ -6634,6 +6641,7 @@ function renderReembolso() {
         html += `<td style="padding:5px 6px">${_renderCampo(col, idx, 'combustivel', '#d97706')}</td>`;
         html += `<td style="padding:5px 6px">${_renderCampo(col, idx, 'hospedagem', '#059669')}</td>`;
         html += `<td style="padding:5px 6px">${_renderCampo(col, idx, 'aluguel', '#dc2626')}</td>`;
+        html += `<td style="padding:5px 6px">${_renderCampo(col, idx, 'estacionamento', '#0891b2')}</td>`;
         // Coluna Pago? — só faz sentido para status='reembolso'
         html += `<td style="padding:5px 6px;text-align:center"><label style="display:inline-flex;align-items:center;gap:5px;cursor:${isFechado?'default':'pointer'};font-size:11px;color:${col.reembolsado?'#065f46':'#94a3b8'};font-weight:${col.reembolsado?'700':'500'}"><input type="checkbox" ${col.reembolsado?'checked':''} ${disabledAttr} onchange="_reembolsoUpdColab(${idx},'reembolsado',this.checked)" style="width:15px;height:15px;accent-color:#10b981;cursor:${isFechado?'default':'pointer'};margin:0">${col.reembolsado?'Pago':'Pendente'}</label></td>`;
         html += `<td style="padding:6px 10px;text-align:right;font-weight:700;font-size:13px;color:#0f172a">${_reembolsoFmt(calc.total)}</td>`;
@@ -6642,7 +6650,7 @@ function renderReembolso() {
         const label = st === 'nao_vai' ? 'Justificativa' : 'Observação';
         const placeholder = st === 'nao_vai' ? 'Ex: atestado médico, viagem particular, etc.' : 'Ex: usará transporte próprio sem cobrar';
         const labelColor = st === 'nao_vai' ? '#94a3b8' : '#92400e';
-        html += `<td colspan="5" style="padding:8px 14px"><div style="display:flex;align-items:center;gap:8px"><span style="font-size:11px;color:${labelColor};font-weight:700;text-transform:uppercase;letter-spacing:0.4px;flex-shrink:0">${label}:</span><input type="text" value="${obsAtual.replace(/"/g,'&quot;')}" ${disabledAttr} onchange="_reembolsoUpdColab(${idx},'observacao',this.value)" placeholder="${placeholder}" style="flex:1;padding:6px 10px;border:1px solid #e2e8f0;border-radius:6px;font-family:Poppins;font-size:12.5px;background:white;color:#334155;font-style:italic${isFechado?';'+inputBgDis:''}"></div></td>`;
+        html += `<td colspan="6" style="padding:8px 14px"><div style="display:flex;align-items:center;gap:8px"><span style="font-size:11px;color:${labelColor};font-weight:700;text-transform:uppercase;letter-spacing:0.4px;flex-shrink:0">${label}:</span><input type="text" value="${obsAtual.replace(/"/g,'&quot;')}" ${disabledAttr} onchange="_reembolsoUpdColab(${idx},'observacao',this.value)" placeholder="${placeholder}" style="flex:1;padding:6px 10px;border:1px solid #e2e8f0;border-radius:6px;font-family:Poppins;font-size:12.5px;background:white;color:#334155;font-style:italic${isFechado?';'+inputBgDis:''}"></div></td>`;
         html += `<td style="padding:8px 14px;text-align:right;font-weight:600;font-size:13px;color:#94a3b8">—</td>`;
       }
       
@@ -6667,7 +6675,7 @@ function renderReembolso() {
     let statusPag = '';
     if (nReemb > 0) statusPag = ` · <span style="color:${totPendentes>0?'#dc2626':'#065f46'};font-weight:800">${totReembolsados}/${nReemb} pagos</span>`;
     
-    html += `<tr style="background:#faf5ff;border-top:2px solid #8b5cf6;position:sticky;bottom:0;z-index:10"><td colspan="8" style="padding:14px 16px;text-align:left;font-weight:700;color:#0f172a;background:#faf5ff">TOTAL DO ENCONTRO${resumo}${statusPag}</td><td style="padding:14px 10px;text-align:right;font-weight:800;color:#8b5cf6;font-size:15px;background:#faf5ff;position:sticky;right:0">${_reembolsoFmt(totGeral)}</td>${!isFechado?'<td style="background:#faf5ff"></td>':''}</tr>`;
+    html += `<tr style="background:#faf5ff;border-top:2px solid #8b5cf6;position:sticky;bottom:0;z-index:10"><td colspan="9" style="padding:14px 16px;text-align:left;font-weight:700;color:#0f172a;background:#faf5ff">TOTAL DO ENCONTRO${resumo}${statusPag}</td><td style="padding:14px 10px;text-align:right;font-weight:800;color:#8b5cf6;font-size:15px;background:#faf5ff;position:sticky;right:0">${_reembolsoFmt(totGeral)}</td>${!isFechado?'<td style="background:#faf5ff"></td>':''}</tr>`;
     
     html += '</tbody></table></div>';
   }
