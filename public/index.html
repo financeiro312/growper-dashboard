@@ -5842,7 +5842,8 @@ function _renderTendenciaEventos(eventos, tipo) {
 }
 
 function _initGraficoTendencia(eventos, tipo) {
-  const canvas = document.querySelector('canvas[id^="grafTend_' + tipo + '_"]');
+  const canvas = document.querySelector('canvas[id^="grafTend_' + tipo + '_"]:not(:is([data-init]))');
+  if (canvas) canvas.setAttribute('data-init', '1');
   if (!canvas || !window.Chart) return;
   const grafId = canvas.id;
   const dados = (window._graficoDataTend || {})[grafId] || [];
@@ -5905,6 +5906,127 @@ window._encFornecedorRem = function(encId, idx) {
   _reembolsoSave(data);
   renderReembolso();
 };
+
+
+// Versões INLINE (para dentro do hero — fundo escuro)
+function _renderBalancoEventoInline(evento, tipo) {
+  const esc = (s) => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const fmt = (n) => 'R$ ' + (Math.abs(Number(n)||0)).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const data = _reembolsoLoad();
+  const taxaKm = data.taxaPorKm;
+  
+  let totColab = 0, totPassagem = 0, totComb = 0, totHosp = 0, totAlug = 0;
+  if (tipo === 'encontro') {
+    (evento.colaboradores || []).forEach(col => {
+      const r = _reembolsoCalcColab(col, taxaKm);
+      totPassagem += r.passagem || 0;
+      totComb += r.combustivel || 0;
+      totHosp += r.hospedagem || 0;
+      totAlug += r.aluguel || 0;
+    });
+    totColab = totPassagem + totComb + totHosp + totAlug;
+  } else {
+    totColab = (evento.reembolsos || []).reduce((s,r) => s + (Number(r.valor)||0), 0);
+  }
+  
+  const fornecedores = evento.fornecedores || [];
+  const totForn = fornecedores.reduce((s,f) => s + (Number(f.valor)||0), 0);
+  const porTipo = {};
+  fornecedores.forEach(f => {
+    const t = f.tipo || 'Outros';
+    porTipo[t] = (porTipo[t] || 0) + (Number(f.valor)||0);
+  });
+  const totGeral = totColab + totForn;
+  
+  const grafId = 'grafBal_' + tipo + '_' + evento.id;
+  const linhas = [];
+  if (tipo === 'encontro') {
+    if (totPassagem > 0) linhas.push(['🎫 Passagem', totPassagem, '#3b82f6']);
+    if (totComb > 0) linhas.push(['🛢️ Combustível', totComb, '#f59e0b']);
+    if (totHosp > 0) linhas.push(['🏨 Hospedagem', totHosp, '#ec4899']);
+    if (totAlug > 0) linhas.push(['🚗 Aluguel veículo', totAlug, '#10b981']);
+  } else {
+    if (totColab > 0) linhas.push(['👥 Reembolsos colab.', totColab, '#3b82f6']);
+  }
+  const cores = ['#a78bfa','#c084fc','#d946ef','#e879f9','#f0abfc','#f5d0fe'];
+  Object.keys(porTipo).sort((a,b) => porTipo[b] - porTipo[a]).forEach((t, i) => {
+    linhas.push(['🏢 ' + t, porTipo[t], cores[i % cores.length]]);
+  });
+  
+  window._graficoDataBal = window._graficoDataBal || {};
+  window._graficoDataBal[grafId] = linhas;
+  
+  let html = '<div style="display:grid;grid-template-columns:1fr 1.2fr;gap:20px;align-items:center">';
+  html += `<div style="min-height:220px;position:relative"><canvas id="${grafId}"></canvas></div>`;
+  html += '<div style="font-size:12px;line-height:1.6">';
+  html += '<div style="font-size:10.5px;color:#c4b5fd;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Rateio detalhado</div>';
+  
+  if (linhas.length === 0) {
+    html += '<div style="color:#94a3b8;font-style:italic;text-align:center;padding:12px">Sem lançamentos ainda</div>';
+  } else {
+    linhas.forEach(([lbl, val, cor]) => {
+      const pct = totGeral > 0 ? (val/totGeral*100).toFixed(1) : '0.0';
+      html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px dashed rgba(255,255,255,0.1)"><span style="color:#e2e8f0"><span style="color:${cor};font-weight:900">■</span> ${lbl}</span><span style="font-weight:700;color:white">${fmt(val)} <span style="color:#94a3b8;font-weight:500;font-size:10.5px">(${pct}%)</span></span></div>`;
+    });
+  }
+  html += '</div></div>';
+  return html;
+}
+
+function _renderTendenciaEventosInline(eventos, tipo) {
+  if (!eventos || eventos.length < 2) return '';
+  const fmt = (n) => 'R$ ' + (Math.abs(Number(n)||0)).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0});
+  const data = _reembolsoLoad();
+  const taxaKm = data.taxaPorKm;
+  
+  const eventosCalc = eventos.map(ev => {
+    let totColab = 0;
+    if (tipo === 'encontro') {
+      (ev.colaboradores || []).forEach(col => {
+        const r = _reembolsoCalcColab(col, taxaKm);
+        totColab += (r.passagem||0) + (r.combustivel||0) + (r.hospedagem||0) + (r.aluguel||0);
+      });
+    } else {
+      totColab = (ev.reembolsos || []).reduce((s,r) => s + (Number(r.valor)||0), 0);
+    }
+    const totForn = (ev.fornecedores || []).reduce((s,f) => s + (Number(f.valor)||0), 0);
+    return {
+      nome: ev.nome || ev.local || 'Evento',
+      data: ev.data || '',
+      totColab, totForn,
+      total: totColab + totForn
+    };
+  }).sort((a,b) => (a.data||'').localeCompare(b.data||''));
+  
+  const grafId = 'grafTend_' + tipo + '_inline_' + Date.now();
+  const anteriores = eventosCalc.slice(0, -1);
+  const ultimo = eventosCalc[eventosCalc.length - 1];
+  const mediaAnt = anteriores.reduce((s,e) => s + e.total, 0) / anteriores.length;
+  const varPct = mediaAnt > 0 ? ((ultimo.total - mediaAnt) / mediaAnt * 100) : 0;
+  const varCor = varPct > 5 ? '#fca5a5' : (varPct < -5 ? '#86efac' : '#cbd5e1');
+  const varIcon = varPct > 5 ? '📈' : (varPct < -5 ? '📉' : '➡️');
+  
+  window._graficoDataTend = window._graficoDataTend || {};
+  window._graficoDataTend[grafId] = eventosCalc;
+  
+  let html = '<div style="display:grid;grid-template-columns:1.5fr 1fr;gap:20px;align-items:center">';
+  html += `<div style="min-height:200px;position:relative"><canvas id="${grafId}"></canvas></div>`;
+  html += `<div>
+    <div style="background:${varCor}22;border-left:3px solid ${varCor};padding:10px 12px;border-radius:6px;margin-bottom:12px">
+      <div style="font-size:10px;color:${varCor};font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Variação do último</div>
+      <div style="font-size:22px;font-weight:800;color:${varCor};margin-top:2px">${varIcon} ${varPct >= 0 ? '+' : ''}${varPct.toFixed(1)}%</div>
+      <div style="font-size:10.5px;color:#94a3b8;margin-top:2px">vs média dos ${anteriores.length} anterior(es)</div>
+    </div>
+    <div style="font-size:11px;color:#e2e8f0;line-height:1.7">
+      <div style="display:flex;justify-content:space-between"><span style="color:#94a3b8">Menor:</span><strong style="color:#86efac">${fmt(Math.min(...eventosCalc.map(e=>e.total)))}</strong></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:#94a3b8">Maior:</span><strong style="color:#fca5a5">${fmt(Math.max(...eventosCalc.map(e=>e.total)))}</strong></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:#94a3b8">Média:</span><strong>${fmt(eventosCalc.reduce((s,e)=>s+e.total,0)/eventosCalc.length)}</strong></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:#94a3b8">Total:</span><strong>${fmt(eventosCalc.reduce((s,e)=>s+e.total,0))}</strong></div>
+    </div>
+  </div>`;
+  html += '</div>';
+  return html;
+}
 
 function _renderTabsReembolso() {
   const abaEnc = window._reembolsoAba === 'encontros';
@@ -5986,6 +6108,15 @@ function _renderConfraternizacoes() {
           <div style="font-size:22px;font-weight:800;color:#fbbf24;letter-spacing:-0.5px">${fmt(totAPagar)}</div>
         </div>
       </div>
+      
+      <!-- BOTÕES ACCORDION -->
+      <div style="margin-top:20px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.1);display:flex;gap:8px;flex-wrap:wrap">
+        <button onclick="window._confMostrarBal = !window._confMostrarBal; renderReembolso()" style="background:rgba(255,255,255,0.1);color:white;border:1px solid rgba(255,255,255,0.2);padding:9px 16px;border-radius:8px;font-family:Poppins;font-weight:700;font-size:12px;cursor:pointer">${window._confMostrarBal ? '▾' : '▸'} 📊 Rateio deste evento</button>
+        <button onclick="window._confMostrarTend = !window._confMostrarTend; renderReembolso()" style="background:rgba(255,255,255,0.1);color:white;border:1px solid rgba(255,255,255,0.2);padding:9px 16px;border-radius:8px;font-family:Poppins;font-weight:700;font-size:12px;cursor:pointer" ${data.confraternizacoes.length < 2 ? 'disabled title="Precisa de pelo menos 2 confraternizações"' : ''}>${window._confMostrarTend ? '▾' : '▸'} 📈 Tendência entre eventos</button>
+      </div>
+      
+      ${window._confMostrarBal ? `<div style="margin-top:14px;background:rgba(255,255,255,0.06);border-radius:10px;padding:16px;backdrop-filter:blur(10px)">${_renderBalancoEventoInline(confAtual, 'confrat')}</div>` : ''}
+      ${window._confMostrarTend && data.confraternizacoes.length >= 2 ? `<div style="margin-top:14px;background:rgba(255,255,255,0.06);border-radius:10px;padding:16px;backdrop-filter:blur(10px)">${_renderTendenciaEventosInline(data.confraternizacoes, 'confrat')}</div>` : ''}
     </div>
   </div>`;
   
@@ -6083,13 +6214,13 @@ function _renderConfraternizacoes() {
   }
   html += '</tbody></table></div>';
   
-  // Balanço + gráfico + tendência
-  html += _renderBalancoEvento(confAtual, 'confrat');
-  html += _renderTendenciaEventos(data.confraternizacoes, 'confrat');
-  setTimeout(() => { _initGraficoBalanco(confAtual, 'confrat'); _initGraficoTendencia(data.confraternizacoes, 'confrat'); }, 100);
+  setTimeout(() => { 
+    _initGraficoBalanco(confAtual, 'confrat'); 
+    _initGraficoTendencia(data.confraternizacoes, 'confrat'); 
+  }, 100);
   
-  // ================ BALANÇO SIMPLES (mantido) ================
-  html += `<div style="background:linear-gradient(135deg,#0f172a,#1e293b);color:white;border-radius:12px;padding:20px 24px;box-shadow:0 4px 12px rgba(0,0,0,0.1);margin-top:16px">
+  // ================ BALANÇO SIMPLES (removido) ================
+  if (false) html += `<div style="background:#000">
     <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:12px">📊 RESUMO — ${esc(confAtual.nome)}</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:20px">
       <div><div style="font-size:11px;color:#94a3b8;margin-bottom:4px">👥 Reembolsos colaboradores</div><div style="font-size:20px;font-weight:800;color:#60a5fa">${fmt(totReemb)}</div></div>
@@ -6293,7 +6424,27 @@ function renderReembolso() {
             <div style="font-size:24px;font-weight:800;color:#f8fafc;letter-spacing:-0.5px">${_reembolsoFmt(totAluguel)}</div>
             <div style="font-size:10.5px;color:#94a3b8;margin-top:2px">${encontroAtual.colaboradores.filter(x=>_reembolsoStatus(x)==='reembolso'&&x.aluguel&&x.aluguel.precisa).length} colaborador(es)</div>
           </div>
+          <!-- KPI Fornecedores + Total Geral -->
+          <div>
+            <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">🏢 Fornecedores</div>
+            <div style="font-size:24px;font-weight:800;color:#f8fafc;letter-spacing:-0.5px">${_reembolsoFmt((encontroAtual.fornecedores||[]).reduce((s,f)=>s+(Number(f.valor)||0),0))}</div>
+            <div style="font-size:10.5px;color:#94a3b8;margin-top:2px">${(encontroAtual.fornecedores||[]).length} pagamento(s)</div>
+          </div>
+          <div>
+            <div style="font-size:10px;color:#c4b5fd;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:4px">💰 TOTAL GERAL</div>
+            <div style="font-size:26px;font-weight:800;color:#86efac;letter-spacing:-0.5px">${_reembolsoFmt(totGeral + (encontroAtual.fornecedores||[]).reduce((s,f)=>s+(Number(f.valor)||0),0))}</div>
+            <div style="font-size:10.5px;color:#94a3b8;margin-top:2px">colab + fornecedores</div>
+          </div>
         </div>
+        
+        <!-- BOTÕES ACCORDION: BALANÇO + TENDÊNCIA -->
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.1);display:flex;gap:8px;flex-wrap:wrap">
+          <button onclick="window._encMostrarBal = !window._encMostrarBal; renderReembolso()" style="background:rgba(255,255,255,0.1);color:white;border:1px solid rgba(255,255,255,0.2);padding:9px 16px;border-radius:8px;font-family:Poppins;font-weight:700;font-size:12px;cursor:pointer">${window._encMostrarBal ? '▾' : '▸'} 📊 Rateio deste evento</button>
+          <button onclick="window._encMostrarTend = !window._encMostrarTend; renderReembolso()" style="background:rgba(255,255,255,0.1);color:white;border:1px solid rgba(255,255,255,0.2);padding:9px 16px;border-radius:8px;font-family:Poppins;font-weight:700;font-size:12px;cursor:pointer" ${data.encontros.length < 2 ? 'disabled title="Precisa de pelo menos 2 encontros"' : ''}>${window._encMostrarTend ? '▾' : '▸'} 📈 Tendência entre eventos</button>
+        </div>
+        
+        ${window._encMostrarBal ? `<div style="margin-top:14px;background:rgba(255,255,255,0.06);border-radius:10px;padding:16px;backdrop-filter:blur(10px)">${_renderBalancoEventoInline(encontroAtual, 'encontro')}</div>` : ''}
+        ${window._encMostrarTend && data.encontros.length >= 2 ? `<div style="margin-top:14px;background:rgba(255,255,255,0.06);border-radius:10px;padding:16px;backdrop-filter:blur(10px)">${_renderTendenciaEventosInline(data.encontros, 'encontro')}</div>` : ''}
       </div>
     </div>
     
@@ -6504,16 +6655,13 @@ function renderReembolso() {
   encontroAtual.fornecedores = encontroAtual.fornecedores || [];
   html += _renderFornecedoresEncontro(encontroAtual);
   
-  // ============ BALANÇO GERAL + GRÁFICO ============
-  html += _renderBalancoEvento(encontroAtual, 'encontro');
-  
-  // ============ ANÁLISE DE TENDÊNCIA ============
-  html += _renderTendenciaEventos(data.encontros, 'encontro');
-  
   cont.innerHTML = _renderTabsReembolso() + html;
   
-  // Inicializar gráfico após inserir no DOM
-  setTimeout(() => { _initGraficoBalanco(encontroAtual, 'encontro'); _initGraficoTendencia(data.encontros, 'encontro'); }, 100);
+  // Inicializar gráficos DENTRO do hero (que já foi renderizado)
+  setTimeout(() => { 
+    _initGraficoBalanco(encontroAtual, 'encontro'); 
+    _initGraficoTendencia(data.encontros, 'encontro'); 
+  }, 100);
   
   // Sincronizar largura da barra de scroll superior com a tabela real
   setTimeout(() => {
