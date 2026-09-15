@@ -15204,8 +15204,20 @@ window._tribNovaTarefa = function() {
     document.getElementById('authGoogleBtn').style.display = 'flex';
   }
   
-  function _authAplicarSessao(sessao) {
+  async function _authAplicarSessao(sessao) {
     window._authState.usuario = sessao;
+    
+    // Antes de liberar UI, baixar dados compartilhados do Supabase
+    // (mostrar indicador de "carregando dados")
+    const loading = document.getElementById('authLoading');
+    if (loading) {
+      loading.style.display = 'block';
+      loading.textContent = '🔄 Sincronizando dados…';
+    }
+    try {
+      if (window._syncBoot) await window._syncBoot();
+    } catch (e) { console.error('[auth] sync erro:', e); }
+    
     document.body.classList.add('auth-ready');
     document.body.classList.add('role-' + sessao.nivel);
     
