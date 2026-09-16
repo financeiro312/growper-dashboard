@@ -15448,7 +15448,7 @@ window._tribNovaTarefa = function() {
     if (!ind) {
       ind = document.createElement('div');
       ind.id = '_syncInd';
-      ind.style.cssText = 'position:fixed;bottom:16px;left:80px;z-index:99;padding:6px 14px;border-radius:20px;font-family:Poppins,sans-serif;font-weight:700;font-size:11px;box-shadow:0 3px 8px rgba(0,0,0,0.15);display:flex;align-items:center;gap:6px;cursor:pointer;height:26px;box-sizing:border-box;border:1px solid transparent;transition:all 0.2s';
+      ind.style.cssText = 'position:fixed;bottom:62px;left:16px;z-index:99;padding:6px 14px;border-radius:20px;font-family:Poppins,sans-serif;font-weight:700;font-size:11px;box-shadow:0 3px 8px rgba(0,0,0,0.15);display:inline-flex;align-items:center;gap:6px;cursor:pointer;height:26px;box-sizing:border-box;border:1px solid transparent;transition:all 0.2s;width:fit-content';
       ind.onclick = () => window._syncForcarAgora();
       ind.title = 'Clique para sincronizar agora';
       document.body.appendChild(ind);
@@ -15558,7 +15558,7 @@ window._tribNovaTarefa = function() {
         if (!t) {
           t = document.createElement('div');
           t.id = '_syncToast';
-          t.style.cssText = 'position:fixed;bottom:60px;left:16px;z-index:9500;background:#0f766e;color:white;padding:10px 16px;border-radius:8px;font-family:Poppins;font-weight:600;font-size:12px;box-shadow:0 4px 12px rgba(0,0,0,0.3);cursor:pointer';
+          t.style.cssText = 'position:fixed;bottom:100px;left:16px;z-index:9500;background:#0f766e;color:white;padding:10px 16px;border-radius:8px;font-family:Poppins;font-weight:600;font-size:12px;box-shadow:0 4px 12px rgba(0,0,0,0.3);cursor:pointer';
           t.innerHTML = '🔄 Dados atualizados — clique para recarregar';
           t.onclick = () => location.reload();
           document.body.appendChild(t);
@@ -15638,4 +15638,3 @@ window._tribNovaTarefa = function() {
 
 </body>
 </html>
-
