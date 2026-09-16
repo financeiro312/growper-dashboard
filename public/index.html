@@ -4712,7 +4712,7 @@ function renderKPIs() {
   const _esc = s => String(s || '').replace(/[<>&"']/g, ch => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[ch]));
 
   // ============ Estado ============
-  if (!window._kpiV2Tab) window._kpiV2Tab = 'rentabilidade';
+  if (!window._kpiV2Tab) window._kpiV2Tab = 'home';
   
   // Inputs manuais persistidos
   const _kpiLoad = () => { try { return JSON.parse(localStorage.getItem('kpi_manual_v1') || '{}'); } catch(e) { return {}; } };
@@ -4727,44 +4727,79 @@ function renderKPIs() {
   const _def = {
     ativoCirculanteExtra: 0,      // outros ativos circulantes (estoque, adiantamentos)
     passivoCirculanteExtra: 0,    // outros passivos circulantes
-    capacMaxClientes: 40,         // capacidade máxima de clientes atendidos
-    valorEmpresaEstimado: 0,      // valor estimado empresa (Valuation)
-    numeroSocios: 3,              // Growper: Daniel P, Daniel G, João
-    dividaTotal: 0,               // dívidas totais
-    dividendosAno: 0              // dividendos distribuídos no ano
+    capacMaxClientes: 40          // capacidade máxima de clientes atendidos
   };
   Object.keys(_def).forEach(k => { if (inputs[k] === undefined) inputs[k] = _def[k]; });
   
-  // ============ Classificadores de categoria ============
-  const isImp = cat => {
-    const c = String(cat || '').toLowerCase();
-    return c.includes('imposto') || c.includes('tributári') || c.includes('simples nacional') || c.includes('das ') || c.startsWith('das') || c.includes('irrf') || c.includes('inss') || c.includes('iof');
-  };
-  const isCMV = cat => {
-    const c = String(cat || '');
-    return c.startsWith('05.') || c.startsWith('07.01');
-  };
-  const isSGA = cat => {
-    const c = String(cat || '');
-    return c.startsWith('08.') || c.startsWith('06.') || c.startsWith('09.') || c.startsWith('10.');
-  };
-  const isMaoObra = cat => {
-    const c = String(cat || '');
-    return c.startsWith('07.') || c.includes('Remuneração');
-  };
+  // ============ Classificadores CORRETOS por CATEGORIA Omie ============
+  // Baseado nas categorias reais do dashboard financeiro principal:
+  // RECEITAS: Mensalidades, Taxa Impl., Inadimplentes, Projetos, TikTok, Bonificações, Estratégia
+  // OPERAÇÃO (mão de obra direta): Remuneração Operacional PJ
+  // FORNECEDORES OPERACIONAIS (CMV): Influenciadores, Editores, Aluguel Equip. Operacionais, Softwares Operacionais
+  // INVESTIMENTOS OPERACIONAIS (reembolso cliente = CMV): Gasto Tráfego Pago Clientes, Créditos TikTok, Créditos Meta
+  // FORNECEDORES ADMIN (SGA): Aluguel, Contábeis, Advogados, Serviços Admin, Software Sist., Material, Estrutura, Treinamentos, Compra Equip.
+  // VARIÁVEIS (SGA): Prestadores Pontual, Serviços Terceiros, Telefone, Marketing, Eventos, Brindes, Premiações, Bônus
+  // IMPOSTOS: Simples Nacional, INSS, IRPJ, Taxas Municipais
+  // FORA do DRE operacional: EMPRÉSTIMOS, DISTRIBUIÇÃO DOS SÓCIOS, AJUSTES (tarifas bancárias, transferências, IOF)
+  const CAT_RECEITAS = new Set([
+    'Receita de Prestação de Serviços (Mensalidades Clientes)',
+    'Receita de Prestação de Serviços (Taxa de Implementação)',
+    'Receita de Prestação de Serviço - Taxa de Implementação',
+    'Receita de Prestação de Serviços (Mensalidade Inadimplentes)',
+    'Receita de Projetos e Consultorias',
+    'Receita de Vendas Tik Tok',
+    'Bonificações de Plataformas',
+    'Estratégia direto na conta',
+    'Estratégia recrutamento'
+  ]);
+  const CAT_IMPOSTOS = new Set(['Simples Nacional','INSS','IRPJ','Taxas Municipais']);
+  const CAT_MAO_OBRA = new Set(['Remuneração Operacional PJ']);
+  const CAT_CMV_FORNECEDOR = new Set([
+    'Influenciadores / Talentos','Editores de Vídeo',
+    'Aluguel de Equipamentos Operacionais','Softwares Operacionais'
+  ]);
+  const CAT_CMV_INVEST = new Set([
+    'Gasto com Tráfego Pago Clientes','Créditos TikTok','Créditos Meta'
+  ]);
+  const CAT_SGA_FORN = new Set([
+    'Aluguel','Serviços Administrativos','Advogados','Treinamentos e Capacitação',
+    'Honorários Contábeis','Software e Sistemas','Material de Escritório',
+    'Estrutura e Equipamentos','Compra de Equipamentos'
+  ]);
+  const CAT_SGA_VAR = new Set([
+    'Prestadores de Serviços - Pontual','Serviços de Terceiros','Telefone',
+    'Despesas Eventuais','Bônus e Premiações','Eventos e Networking',
+    'Incentivos e Bônus Prestadores','Voucher Aniversário / Datas Comemorativas',
+    'Brindes Internos (Equipe)','Marketing e Divulgação',
+    'Premiação e Incentivos para Clientes','Brindes para Clientes'
+  ]);
+  const isReceita = cat => CAT_RECEITAS.has(String(cat || '').trim());
+  const isImp = cat => CAT_IMPOSTOS.has(String(cat || '').trim());
+  const isMaoObra = cat => CAT_MAO_OBRA.has(String(cat || '').trim());
+  const isCMV = cat => { const s = String(cat || '').trim(); return CAT_MAO_OBRA.has(s) || CAT_CMV_FORNECEDOR.has(s) || CAT_CMV_INVEST.has(s); };
+  const isSGA = cat => { const s = String(cat || '').trim(); return CAT_SGA_FORN.has(s) || CAT_SGA_VAR.has(s); };
   
   // ============ Cálculos automáticos ============
-  const rowsAno = data.filter(r => String(r.mesPagto || '').startsWith(ANO));
+  // Filtrar por ano E excluir departamento Scalia (KPIs são só de Growper)
+  const rowsAno = data.filter(r => {
+    const mes = String(r.mesPagto || '');
+    if (!mes.startsWith(ANO)) return false;
+    const dep = String(r.departamento || '').toLowerCase();
+    if (dep.includes('scalia')) return false;
+    return true;
+  });
   
   let receitaBruta = 0, impostos = 0, cmv = 0, sga = 0, custoMaoObra = 0;
   rowsAno.forEach(r => {
     const v = r.valorPago || 0;
-    if (r.tipo === '1. Contas a Receber') receitaBruta += v;
-    else if (r.tipo === '2. Contas a Pagar') {
-      const cat = r.categoria;
+    const cat = r.categoria;
+    if (r.tipo === '1. Contas a Receber' && isReceita(cat)) {
+      receitaBruta += Math.abs(v);
+    } else if (r.tipo === '2. Contas a Pagar') {
       if (isImp(cat)) impostos += Math.abs(v);
       else if (isCMV(cat)) cmv += Math.abs(v);
       else if (isSGA(cat)) sga += Math.abs(v);
+      // Distribuição, Empréstimos, Ajustes NÃO entram no DRE operacional
       if (isMaoObra(cat)) custoMaoObra += Math.abs(v);
     }
   });
@@ -4830,17 +4865,6 @@ function renderKPIs() {
   const clientesAtivos = clientesAtivosSet.size;
   const aproveitamentoCapac = inputs.capacMaxClientes > 0 ? (clientesAtivos / inputs.capacMaxClientes) * 100 : 0;
   
-  // === Valuation ===
-  const fcf = ebitda; // Free Cash Flow aproximado (agência com CAPEX mínimo)
-  const ev = inputs.valorEmpresaEstimado > 0 ? (inputs.valorEmpresaEstimado + inputs.dividaTotal - Math.max(0, caixaAtual)) : 0;
-  // MVA = Valor Empresa - Capital Investido. Como não temos histórico de capital investido, usa aproximação
-  const mva = inputs.valorEmpresaEstimado > 0 ? (inputs.valorEmpresaEstimado - investimentoTotal) : 0;
-  // Lucro por Sócio (adaptação de LPA para empresa privada)
-  const lucroPorSocio = inputs.numeroSocios > 0 ? (lucroLiquido / inputs.numeroSocios) : 0;
-  // Multiplicador P/L: Valor Empresa / Lucro Líquido anual
-  const pl = (inputs.valorEmpresaEstimado > 0 && lucroLiquido > 0) ? (inputs.valorEmpresaEstimado / lucroLiquido) : 0;
-  // Dividend Yield adaptado: Dividendos distribuídos / Valor Empresa
-  const divYield = inputs.valorEmpresaEstimado > 0 ? (inputs.dividendosAno / inputs.valorEmpresaEstimado) * 100 : 0;
   
   // ============ Helper para cards de KPI ============
   const kpiCard = (icone, titulo, valor, formula, semaforo, sub, cor) => {
@@ -4926,7 +4950,6 @@ function renderKPIs() {
         ${catCard('rentabilidade', '💰', 'Rentabilidade', '#059669', '#d1fae5', _fmtPct(margemLiquida), 'Margem Líquida')}
         ${catCard('liquidez', '💧', 'Liquidez', '#0284c7', '#dbeafe', ilc.toFixed(2) + 'x', 'ILC (Liquidez Corrente)')}
         ${catCard('eficiencia', '⚡', 'Eficiência', '#d97706', '#fef3c7', produtividadeMO.toFixed(2) + 'x', 'Produtividade Mão de Obra')}
-        ${catCard('valuation', '📈', 'Valuation', '#7c3aed', '#f3e8ff', _fmtRs(fcf), 'FCF (Free Cash Flow)')}
       </div>`;
       html += '</div>';
       container.innerHTML = html;
@@ -5053,47 +5076,6 @@ function renderKPIs() {
       
       <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px 18px;font-size:12px;color:#1e3a8a">
         💡 <strong>Interpretação:</strong> Produtividade MO alta = time enxuto e eficiente. Giro CR alto = clientes pagam rápido. Aproveitamento alto = estrutura sendo bem utilizada; próximo de 100% pode indicar necessidade de expansão.
-      </div>
-    </div>`;
-  }
-  
-  // ============ TAB VALUATION ============
-  if (window._kpiV2Tab === 'valuation') {
-    const semFCF = fcf > 0 ? 'green' : 'red';
-    const semEV = ev > 0 ? 'green' : 'neutral';
-    const semMVA = mva > 0 ? 'green' : (mva === 0 ? 'neutral' : 'red');
-    const semPL = (pl > 0 && pl <= 15) ? 'green' : (pl > 15 && pl <= 25 ? 'yellow' : 'red');
-    
-    html += `<div style="background:white;border-radius:16px;padding:24px 28px;border:1px solid #e2e8f0;margin-bottom:20px">
-      <div style="margin-bottom:20px">
-        <div style="font-size:18px;font-weight:800;color:#0f172a">📈 Valuation</div>
-        <div style="font-size:12.5px;color:#64748b;margin-top:2px">Valor da empresa e retorno para sócios — insumo essencial para M&A</div>
-      </div>
-      
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:20px">
-        ${kpiCard('💵', 'FCF — Free Cash Flow', _fmtRs(fcf), 'EBITDA − CAPEX (agência: ≈ EBITDA)', semFCF, 'Fluxo de caixa disponível para acionistas')}
-        ${kpiCard('🏢', 'EV — Enterprise Value', _fmtRs(ev), 'Valor Empresa + Dívida − Caixa', semEV, ev > 0 ? 'Valor total da operação' : '⚠️ Informe o valor estimado abaixo')}
-        ${kpiCard('📊', 'MVA — Market Value Added', _fmtRs(mva), 'Valor Empresa − Capital Investido', semMVA, mva > 0 ? 'Valor gerado sobre o capital' : (inputs.valorEmpresaEstimado === 0 ? '⚠️ Informe o valor estimado' : '⚠️ Valor abaixo do capital investido'))}
-        ${kpiCard('👤', 'Lucro por Sócio', _fmtRs(lucroPorSocio), 'Lucro Líquido / Nº Sócios', 'neutral', `${inputs.numeroSocios} sócios · Adaptação privada do LPA`)}
-        ${kpiCard('💹', 'P/L — Preço/Lucro', pl > 0 ? pl.toFixed(1) + 'x' : '—', 'Valor Empresa / Lucro Líquido anual', semPL, pl > 0 ? `Payback estimado: ${pl.toFixed(1)} anos · Bom: <15x` : 'Depende de valor estimado + lucro positivo')}
-        ${kpiCard('💰', 'Dividend Yield', divYield > 0 ? _fmtPct(divYield) : '—', 'Dividendos Anuais / Valor Empresa', 'neutral', divYield > 0 ? `${_fmtRs(inputs.dividendosAno)} distribuídos em ${ANO}` : 'Informe dividendos e valor estimado')}
-      </div>
-      
-      <div style="background:#faf5ff;border:1px solid #d8b4fe;border-radius:10px;padding:16px 18px;margin-bottom:16px">
-        <div style="font-size:12px;font-weight:800;color:#6b21a8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px">💎 Estimativas para Valuation (input manual)</div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px">
-          ${inputManual('valorEmpresaEstimado', 'Valor Estimado da Empresa', inputs.valorEmpresaEstimado, 'money', 'R$')}
-          ${inputManual('numeroSocios', 'Número de Sócios', inputs.numeroSocios, 'int', 'sócios')}
-          ${inputManual('dividaTotal', 'Dívida Total', inputs.dividaTotal, 'money', 'R$')}
-          ${inputManual('dividendosAno', 'Dividendos ' + ANO, inputs.dividendosAno, 'money', 'R$')}
-        </div>
-        <div style="font-size:11.5px;color:#6b21a8;margin-top:10px;line-height:1.5">
-          💡 <strong>Valor estimado da empresa:</strong> pode ser calculado como <code style="background:white;padding:1px 6px;border-radius:3px">EBITDA × múltiplo do setor</code>. Para agências de marketing, o múltiplo comum é <strong>5x a 8x EBITDA</strong>. Sua empresa: EBITDA de ${_fmtRs(ebitda)} × 6 = <strong>${_fmtRs(ebitda * 6)}</strong> (estimativa referência).
-        </div>
-      </div>
-      
-      <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px 18px;font-size:12px;color:#1e3a8a">
-        📎 <strong>Uso em M&A:</strong> Estes indicadores compõem o dossiê de venda / captação. EV é o preço-alvo; FCF mostra capacidade de retorno; MVA valida se a empresa cria valor; P/L compara com múltiplos setoriais. Esses dados alimentam a análise do menu <strong>M&A / Investor Ready</strong>.
       </div>
     </div>`;
   }
@@ -14077,6 +14059,8 @@ function abrirMenu(section) {
   // Esconder painel de categoria
   var painel = document.getElementById('painelCat');
   if (painel) painel.style.setProperty('display', 'none', 'important');
+  // Ao clicar em KPIs (Estratégico), sempre começar na tela dos indicadores
+  if (section === 'kpis') { window._kpiV2Tab = 'home'; }
   // Chamar showSection existente (funcionamento normal das seções)
   if (typeof showSection === 'function') {
     showSection(section);
