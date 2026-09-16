@@ -4767,13 +4767,8 @@ function renderMA() {
 
 
 // ============================================================
-// KPIs FINANCEIROS v3 — Coordenador Financeiro
-// Views: v_receita_operacional, v_despesa_operacional, titulos
-// Marco zero: julho/2026
-// ============================================================
-// ============================================================
-// KPIs FINANCEIROS v4 — Modelo Enterprise (Home → Indicador)
-// Views: v_receita_operacional, v_despesa_operacional, titulos
+// KPIs FINANCEIROS v5 — Modelo Executivo (Home → Grupo → Indicador)
+// Fonte: Supabase (mesma que alimenta o Financeiro Principal — via OMIE)
 // Marco zero: julho/2026
 // ============================================================
 async function renderKPIs() {
@@ -4786,7 +4781,7 @@ async function renderKPIs() {
     container.innerHTML = `<div style="padding:60px 40px;max-width:1500px;margin:0 auto;text-align:center">
       <div style="display:inline-flex;align-items:center;gap:12px;background:white;padding:16px 24px;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.08);border:1px solid #e2e8f0">
         <span style="animation:_kpiSpin 1s linear infinite;display:inline-block;font-size:20px">🔄</span>
-        <span style="font-family:Poppins;font-weight:600;color:#334155;font-size:14px">Carregando KPIs do Supabase…</span>
+        <span style="font-family:Poppins;font-weight:600;color:#334155;font-size:14px">Carregando indicadores…</span>
       </div>
     </div><style>@keyframes _kpiSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }</style>`;
     try {
@@ -4794,9 +4789,9 @@ async function renderKPIs() {
     } catch (e) {
       container.innerHTML = `<div style="padding:40px;max-width:1500px;margin:0 auto">
         <div style="background:#fee2e2;border-left:4px solid #dc2626;padding:20px 24px;border-radius:8px">
-          <div style="font-size:14px;font-weight:800;color:#991b1b;margin-bottom:6px">❌ Erro ao carregar dados</div>
-          <div style="font-size:13px;color:#7f1d1d">${String(e.message || e).replace(/[<>&]/g,'')}</div>
-          <button onclick="window._kpiV3Dados=null; renderKPIs()" style="margin-top:12px;padding:8px 14px;background:#dc2626;color:white;border:none;border-radius:6px;font-family:Poppins;font-weight:700;cursor:pointer">Tentar novamente</button>
+          <div style="font-size:14px;font-weight:800;color:#991b1b;margin-bottom:6px">❌ Não foi possível carregar os dados</div>
+          <div style="font-size:13px;color:#7f1d1d;margin-bottom:10px">${String(e.message || e).replace(/[<>&]/g,'')}</div>
+          <button onclick="window._kpiV3Dados=null; renderKPIs()" style="padding:8px 14px;background:#dc2626;color:white;border:none;border-radius:6px;font-family:Poppins;font-weight:700;cursor:pointer">Tentar novamente</button>
         </div></div>`;
       return;
     }
@@ -4806,128 +4801,134 @@ async function renderKPIs() {
   const inputs = _kpiV3LoadInputs();
   const K = _kpiV3Calcular(D, inputs);
 
-  // Roteador de views
   const view = window._kpiV3State.view;
   if (view === 'home') _kpiV3RenderHome(container, K, inputs, D);
+  else if (view.startsWith('grupo:')) _kpiV3RenderGrupo(container, view.slice(6), K, inputs, D);
   else if (view.startsWith('ind:')) _kpiV3RenderIndicador(container, view.slice(4), K, inputs, D);
   else _kpiV3RenderHome(container, K, inputs, D);
 }
 
 // ============================================================
-// RENDER HOME — Grupos com cards clicáveis (modelo M&A)
+// DEFINIÇÃO DOS GRUPOS (usado por Home e Grupo)
 // ============================================================
-function _kpiV3RenderHome(container, K, inputs, D) {
-  const grupos = [
-    { id: 'b1', icone: '💰', cor: '#059669', corBg: '#d1fae5', titulo: 'Receita e Previsibilidade', sub: 'De onde vem o dinheiro e se cresce',
+function _kpiV3Grupos(K, inputs) {
+  return [
+    { id: 'b1', icone: '💰', cor: '#059669', corBg: '#d1fae5', titulo: 'Receita e Previsibilidade',
+      desc: 'Quanto entra por mês, se cresce, e de qual perfil de cliente vem. É o principal termômetro de saúde comercial.',
       inds: [
-        { id: 'mrr', icone: '💵', titulo: 'MRR', valor: _fmtRsCurto(K.mrr.atual), sem: K.mrr.sem, sub: K.mrr.varPct != null ? (K.mrr.varPct >= 0 ? '▲ +' : '▼ ') + K.mrr.varPct.toFixed(1) + '% MoM' : '—' },
-        { id: 'netNew', icone: '📈', titulo: 'Net New MRR', valor: _fmtSignedCurto(K.netNew.atual), sem: K.netNew.sem, sub: 'Ganho líquido este mês' },
-        { id: 'nrr', icone: '🔁', titulo: 'NRR', valor: K.nrr.atual != null ? K.nrr.atual.toFixed(0) + '%' : '—', sem: K.nrr.sem, sub: 'Base antiga vs 3 meses atrás' },
-        { id: 'ticket', icone: '🏷️', titulo: 'Ticket Médio', valor: _fmtRsCurto(K.ticket.atual), sem: K.ticket.sem, sub: 'Por cliente ativo' },
-        { id: 'faixa', icone: '📊', titulo: 'Receita por Faixa', valor: _kpiV3FaixaLider(K.faixas), sem: 'gray', sub: 'Distribuição por tier' }
+        { id: 'mrr', icone: '💵', titulo: 'MRR', desc: 'Receita mensal recorrente do último mês fechado',
+          valor: _fmtRsCurto(K.mrr.atual), sem: K.mrr.sem, sub: K.mrr.varPct != null ? (K.mrr.varPct >= 0 ? '▲ +' : '▼ ') + K.mrr.varPct.toFixed(1) + '% MoM' : 'Sem dados' },
+        { id: 'netNew', icone: '📈', titulo: 'Net New MRR', desc: 'Ganho ou perda líquida de receita recorrente no mês',
+          valor: _fmtSignedCurto(K.netNew.atual), sem: K.netNew.sem, sub: K.netNew.atual >= 0 ? 'Expansão' : 'Contração' },
+        { id: 'nrr', icone: '🔁', titulo: 'NRR', desc: 'Quanto da base antiga permanece — expansão ou contração',
+          valor: K.nrr.atual != null ? K.nrr.atual.toFixed(0) + '%' : '—', sem: K.nrr.sem, sub: 'Janela 3 meses' },
+        { id: 'ticket', icone: '🏷️', titulo: 'Ticket Médio', desc: 'Quanto cada cliente ativo paga em média por mês',
+          valor: _fmtRsCurto(K.ticket.atual), sem: K.ticket.sem, sub: 'Por cliente ativo' },
+        { id: 'faixa', icone: '📊', titulo: 'Receita por Faixa', desc: 'Distribuição da receita entre Basic → Business',
+          valor: _kpiV3FaixaLider(K.faixas), sem: 'blue', sub: 'Faixa líder' }
       ]},
-    { id: 'b2', icone: '📉', cor: '#dc2626', corBg: '#fee2e2', titulo: 'Retenção', sub: 'Quem fica, quem sai',
+    { id: 'b2', icone: '📉', cor: '#dc2626', corBg: '#fee2e2', titulo: 'Retenção',
+      desc: 'Quem fica, quem sai, e por quê. Determina se o crescimento se sustenta ou se estamos trocando clientes.',
       inds: [
-        { id: 'churnRec', icone: '💧', titulo: 'Churn de Receita', valor: K.churnRec.atual != null ? K.churnRec.atual.toFixed(1) + '%' : '—', sem: K.churnRec.sem, sub: 'MRR perdido / MRR início' },
-        { id: 'churnLogo', icone: '👥', titulo: 'Churn de Logos', valor: K.churnLogo.atual != null ? K.churnLogo.atual.toFixed(1) + '%' : '—', sem: K.churnLogo.sem, sub: 'Clientes perdidos' },
-        { id: 'churnAnt', icone: '🚨', titulo: 'Churn Antecedente', valor: '—', sem: 'gray', sub: 'Fonte não integrada' }
+        { id: 'churnRec', icone: '💧', titulo: 'Churn de Receita', desc: '% do MRR do mês anterior que sumiu',
+          valor: K.churnRec.atual != null ? K.churnRec.atual.toFixed(1) + '%' : '—', sem: K.churnRec.sem, sub: 'Meta < 5%' },
+        { id: 'churnLogo', icone: '👥', titulo: 'Churn de Logos', desc: '% de clientes que saíram no mês (número, não valor)',
+          valor: K.churnLogo.atual != null ? K.churnLogo.atual.toFixed(1) + '%' : '—', sem: K.churnLogo.sem, sub: 'Meta < 5%' },
+        { id: 'churnAnt', icone: '🚨', titulo: 'Churn Antecedente', desc: 'Sinalização de saída antes de acontecer — não integrado hoje',
+          valor: '—', sem: 'gray', sub: 'Requer integração comercial' }
       ]},
-    { id: 'b3', icone: '⚠️', cor: '#f97316', corBg: '#ffedd5', titulo: 'Risco e Caixa', sub: 'O que ameaça o resultado',
+    { id: 'b3', icone: '⚠️', cor: '#f97316', corBg: '#ffedd5', titulo: 'Risco e Caixa',
+      desc: 'O que ameaça o resultado — inadimplência, atrasos e dependência excessiva de poucos clientes.',
       inds: [
-        { id: 'inadimp', icone: '💸', titulo: 'Inadimplência', valor: K.inadimp.atual != null ? K.inadimp.atual.toFixed(1) + '%' : '—', sem: K.inadimp.sem, sub: _fmtRsCurto(K.inadimp.valorAberto) + ' em aberto' },
-        { id: 'aging', icone: '📅', titulo: 'Aging Recebíveis', valor: _fmtRsCurto(K.aging.a90_mais), sem: K.aging.a90_mais > 0 ? 'red' : 'green', sub: 'Vencido 90+ dias' },
-        { id: 'top5', icone: '🎯', titulo: 'Concentração Top 5', valor: K.top5.atual != null ? K.top5.atual.toFixed(0) + '%' : '—', sem: K.top5.sem, sub: 'Dos 5 maiores' },
-        { id: 'top10', icone: '🎯', titulo: 'Concentração Top 10', valor: K.top10.atual != null ? K.top10.atual.toFixed(0) + '%' : '—', sem: K.top10.sem, sub: 'Dos 10 maiores' }
+        { id: 'inadimp', icone: '💸', titulo: 'Inadimplência', desc: '% da receita esperada nos últimos 90d que não foi paga',
+          valor: K.inadimp.atual != null ? K.inadimp.atual.toFixed(1) + '%' : '—', sem: K.inadimp.sem, sub: _fmtRsCurto(K.inadimp.valorAberto) + ' em aberto' },
+        { id: 'aging', icone: '📅', titulo: 'Aging de Recebíveis', desc: 'Distribuição do vencido por tempo de atraso',
+          valor: _fmtRsCurto(K.aging.a90_mais), sem: K.aging.a90_mais > 0 ? 'red' : 'green', sub: '90+ dias em aberto' },
+        { id: 'top5', icone: '🎯', titulo: 'Top 5 clientes', desc: '% da receita concentrada nos 5 maiores',
+          valor: K.top5.atual != null ? K.top5.atual.toFixed(0) + '%' : '—', sem: K.top5.sem, sub: 'Meta < 30%' },
+        { id: 'top10', icone: '🎯', titulo: 'Top 10 clientes', desc: '% da receita concentrada nos 10 maiores',
+          valor: K.top10.atual != null ? K.top10.atual.toFixed(0) + '%' : '—', sem: K.top10.sem, sub: 'Meta < 45%' }
       ]},
-    { id: 'b4', icone: '💎', cor: '#7c3aed', corBg: '#f3e8ff', titulo: 'Rentabilidade e Eficiência', sub: 'Se sobra e quanto sobra',
+    { id: 'b4', icone: '💎', cor: '#7c3aed', corBg: '#f3e8ff', titulo: 'Rentabilidade e Eficiência',
+      desc: 'Se o que sobra depois de tudo é suficiente. Se o custo de aquisição faz sentido. Se o negócio escala com margem.',
       inds: [
-        { id: 'margem', icone: '💎', titulo: 'Margem Líquida', valor: K.margem.atual != null ? K.margem.atual.toFixed(1) + '%' : '—', sem: K.margem.sem, sub: 'Janela 3 meses' },
-        { id: 'takeRate', icone: '🎯', titulo: 'Take Rate', valor: K.takeRate.atual != null ? K.takeRate.atual.toFixed(1) + '%' : '—', sem: K.takeRate.sem, sub: 'MRR / Mídia gerenciada' },
-        { id: 'cac', icone: '🎣', titulo: 'CAC', valor: K.cac.atual != null ? _fmtRsCurto(K.cac.atual) : '—', sem: K.cac.sem, sub: K.cac.novos + ' novos clientes' },
-        { id: 'ltvCac', icone: '⚖️', titulo: 'LTV / CAC', valor: K.ltvCac.atual != null ? K.ltvCac.atual.toFixed(1) + 'x' : '—', sem: K.ltvCac.sem, sub: 'Retorno por real gasto' },
-        { id: 'custoDir', icone: '🏭', titulo: 'Custo Direto / Receita', valor: K.custoDireto.atual != null ? K.custoDireto.atual.toFixed(1) + '%' : '—', sem: K.custoDireto.sem, sub: 'Sem 2.01.95' }
+        { id: 'margem', icone: '💎', titulo: 'Margem Líquida', desc: 'Do que entra líquido, quanto sobra depois de todas as despesas',
+          valor: K.margem.atual != null ? K.margem.atual.toFixed(1) + '%' : '—', sem: K.margem.sem, sub: 'Janela 3m · Meta > 15%' },
+        { id: 'takeRate', icone: '🎯', titulo: 'Take Rate', desc: 'De cada R$1 de mídia gerenciada para cliente, quanto vira nossa receita',
+          valor: K.takeRate.atual != null ? K.takeRate.atual.toFixed(1) + '%' : '—', sem: K.takeRate.sem, sub: 'Meta 14-16%' },
+        { id: 'cac', icone: '🎣', titulo: 'CAC', desc: 'Quanto foi investido para conquistar cada cliente novo',
+          valor: K.cac.atual != null ? _fmtRsCurto(K.cac.atual) : '—', sem: K.cac.sem, sub: K.cac.novos + ' novos este mês' },
+        { id: 'ltvCac', icone: '⚖️', titulo: 'LTV / CAC', desc: 'Quantas vezes o custo de aquisição é recuperado',
+          valor: K.ltvCac.atual != null ? K.ltvCac.atual.toFixed(1) + 'x' : '—', sem: K.ltvCac.sem, sub: 'Meta > 3x' },
+        { id: 'custoDir', icone: '🏭', titulo: 'Custo Direto / Receita', desc: '% da receita gasta em entrega (mão de obra, produção)',
+          valor: K.custoDireto.atual != null ? K.custoDireto.atual.toFixed(1) + '%' : '—', sem: K.custoDireto.sem, sub: 'Meta < 30%' }
       ]},
-    { id: 'b5', icone: '📢', cor: '#0284c7', corBg: '#dbeafe', titulo: 'Performance de Mídia', sub: 'Como o motor de leads gira',
+    { id: 'b5', icone: '📢', cor: '#0284c7', corBg: '#dbeafe', titulo: 'Performance de Mídia',
+      desc: 'Como o motor de leads gira. Indica qualidade da entrega e retorno do investimento em tráfego.',
       inds: [
-        { id: 'cpl', icone: '💰', titulo: 'CPL Médio', valor: inputs.cplMedio > 0 ? 'R$ ' + inputs.cplMedio.toFixed(2) : '—', sem: 'gray', sub: 'Input manual' },
-        { id: 'taxaPreench', icone: '✅', titulo: 'Taxa Preenchimento', valor: inputs.taxaPreench > 0 ? inputs.taxaPreench.toFixed(1) + '%' : '—', sem: 'gray', sub: 'Input manual' },
-        { id: 'distTiers', icone: '🎖️', titulo: 'Distribuição de Tiers', valor: _kpiV3TotalTiers(inputs), sem: 'gray', sub: 'Bronze → Superstar' },
-        { id: 'cplChurn', icone: '📊', titulo: 'CPL × Churn', valor: (inputs.cplMedio > 0 && K.churnRec.atual != null) ? 'R$ ' + (inputs.cplMedio * (1 + K.churnRec.atual/100)).toFixed(2) : '—', sem: 'gray', sub: 'Indicador antecedente' }
+        { id: 'cpl', icone: '💰', titulo: 'CPL Médio', desc: 'Custo médio por lead gerado',
+          valor: inputs.cplMedio > 0 ? 'R$ ' + inputs.cplMedio.toFixed(2) : '—', sem: 'gray', sub: 'Preenchimento manual' },
+        { id: 'taxaPreench', icone: '✅', titulo: 'Taxa de Preenchimento', desc: 'Percentual de leads qualificados sobre gerados',
+          valor: inputs.taxaPreench > 0 ? inputs.taxaPreench.toFixed(1) + '%' : '—', sem: 'gray', sub: 'Preenchimento manual' },
+        { id: 'distTiers', icone: '🎖️', titulo: 'Distribuição de Tiers', desc: 'Quantos clientes em cada tier de performance',
+          valor: _kpiV3TotalTiers(inputs), sem: 'gray', sub: 'Bronze → Superstar' },
+        { id: 'cplChurn', icone: '📊', titulo: 'CPL × Churn', desc: 'Custo real de reposição quando há churn no período',
+          valor: (inputs.cplMedio > 0 && K.churnRec.atual != null) ? 'R$ ' + (inputs.cplMedio * (1 + K.churnRec.atual/100)).toFixed(2) : '—', sem: 'gray', sub: 'Indicador antecedente' }
       ]}
   ];
+}
 
-  const semCores = { green: '#10b981', yellow: '#f59e0b', red: '#dc2626', gray: '#94a3b8' };
-
+// ============================================================
+// NÍVEL 1 — HOME (5 grandes botões de grupo)
+// ============================================================
+function _kpiV3RenderHome(container, K, inputs, D) {
+  const grupos = _kpiV3Grupos(K, inputs);
   let html = `<div style="padding:20px 24px;max-width:1500px;margin:0 auto;background:#f5f5f7;min-height:100vh">
     <!-- HERO EXECUTIVO -->
-    <div style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#1e40af 100%);border-radius:20px;padding:28px 32px;margin-bottom:20px;color:white;position:relative;overflow:hidden">
+    <div style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#1e40af 100%);border-radius:20px;padding:30px 34px;margin-bottom:22px;color:white;position:relative;overflow:hidden">
       <div style="position:absolute;top:0;right:0;width:400px;height:400px;background:radial-gradient(circle,rgba(59,130,246,0.15) 0%,transparent 70%);pointer-events:none"></div>
       <div style="position:relative;z-index:1">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px">
           <div>
-            <div style="font-size:11px;color:#93c5fd;text-transform:uppercase;letter-spacing:2px;font-weight:700;margin-bottom:6px">📊 KPIs Financeiros — Coordenador Financeiro</div>
-            <h1 style="margin:0;font-size:28px;font-weight:800;letter-spacing:-1px;line-height:1.1">Growper Digital</h1>
-            <p style="margin:8px 0 0;color:#cbd5e1;font-size:13px">Mês de referência: <strong style="color:white">${K.mesRef.label}</strong> · Marco zero: julho/2026 · Última atualização: agora</p>
+            <div style="font-size:11px;color:#93c5fd;text-transform:uppercase;letter-spacing:2px;font-weight:700;margin-bottom:6px">📊 KPIs Financeiros Estratégicos</div>
+            <h1 style="margin:0;font-size:30px;font-weight:800;letter-spacing:-1px;line-height:1.1">Painel do CEO — Growper Digital</h1>
+            <p style="margin:10px 0 0;color:#cbd5e1;font-size:13.5px;line-height:1.5;max-width:700px">Leitura estratégica dos indicadores para tomada de decisão. Mês de referência: <strong style="color:white">${K.mesRef.label}</strong> · Marco zero: julho/2026.</p>
           </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start">
-            <button onclick="_kpiV3AbrirManual()" style="background:rgba(255,255,255,0.1);color:white;border:1px solid rgba(255,255,255,0.25);padding:10px 16px;border-radius:8px;font-family:Poppins;font-weight:700;font-size:12.5px;cursor:pointer;display:flex;align-items:center;gap:6px">📖 Manual de Leitura</button>
-            <button onclick="window._kpiV3Dados=null; renderKPIs()" title="Recarregar dados" style="background:rgba(255,255,255,0.1);color:white;border:1px solid rgba(255,255,255,0.25);padding:10px 14px;border-radius:8px;font-family:Poppins;font-weight:700;font-size:12.5px;cursor:pointer">🔄</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button onclick="_kpiV3AbrirManual()" style="background:rgba(255,255,255,0.1);color:white;border:1px solid rgba(255,255,255,0.25);padding:10px 16px;border-radius:8px;font-family:Poppins;font-weight:700;font-size:12.5px;cursor:pointer">📖 Manual de Leitura</button>
+            <button onclick="window._kpiV3Dados=null; renderKPIs()" title="Recarregar" style="background:rgba(255,255,255,0.1);color:white;border:1px solid rgba(255,255,255,0.25);padding:10px 14px;border-radius:8px;font-family:Poppins;font-weight:700;font-size:12.5px;cursor:pointer">🔄</button>
           </div>
-        </div>
-        
-        <!-- KPIs headline no hero -->
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:24px;margin-top:24px;padding-top:20px;border-top:1px solid rgba(255,255,255,0.1)">
-          <div><div style="font-size:10px;color:#93c5fd;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">MRR</div><div style="font-size:24px;font-weight:800;color:#10b981;letter-spacing:-0.5px">${_fmtRsCurto(K.mrr.atual)}</div><div style="font-size:11px;color:#94a3b8;margin-top:2px">${K.mrr.varPct != null ? (K.mrr.varPct >= 0 ? '▲ +' : '▼ ') + K.mrr.varPct.toFixed(1) + '%' : '—'}</div></div>
-          <div><div style="font-size:10px;color:#93c5fd;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">Margem Líquida</div><div style="font-size:24px;font-weight:800;color:${K.margem.atual >= 15 ? '#10b981' : (K.margem.atual >= 10 ? '#fbbf24' : '#ef4444')};letter-spacing:-0.5px">${K.margem.atual != null ? K.margem.atual.toFixed(1) + '%' : '—'}</div><div style="font-size:11px;color:#94a3b8;margin-top:2px">Meta > 15%</div></div>
-          <div><div style="font-size:10px;color:#93c5fd;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">Churn Receita</div><div style="font-size:24px;font-weight:800;color:${K.churnRec.atual <= 5 ? '#10b981' : (K.churnRec.atual <= 8 ? '#fbbf24' : '#ef4444')};letter-spacing:-0.5px">${K.churnRec.atual != null ? K.churnRec.atual.toFixed(1) + '%' : '—'}</div><div style="font-size:11px;color:#94a3b8;margin-top:2px">Meta < 5%</div></div>
-          <div><div style="font-size:10px;color:#93c5fd;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">Inadimplência</div><div style="font-size:24px;font-weight:800;color:${K.inadimp.atual <= 3 ? '#10b981' : (K.inadimp.atual <= 5 ? '#fbbf24' : '#ef4444')};letter-spacing:-0.5px">${K.inadimp.atual != null ? K.inadimp.atual.toFixed(1) + '%' : '—'}</div><div style="font-size:11px;color:#94a3b8;margin-top:2px">${_fmtRsCurto(K.inadimp.valorAberto)} vencido</div></div>
-          <div><div style="font-size:10px;color:#93c5fd;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">Concentração Top 5</div><div style="font-size:24px;font-weight:800;color:${K.top5.atual <= 30 ? '#10b981' : (K.top5.atual <= 40 ? '#fbbf24' : '#ef4444')};letter-spacing:-0.5px">${K.top5.atual != null ? K.top5.atual.toFixed(0) + '%' : '—'}</div><div style="font-size:11px;color:#94a3b8;margin-top:2px">Meta < 30%</div></div>
-          <div><div style="font-size:10px;color:#93c5fd;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">LTV / CAC</div><div style="font-size:24px;font-weight:800;color:${K.ltvCac.atual >= 3 ? '#10b981' : (K.ltvCac.atual >= 1 ? '#fbbf24' : '#ef4444')};letter-spacing:-0.5px">${K.ltvCac.atual != null ? K.ltvCac.atual.toFixed(1) + 'x' : '—'}</div><div style="font-size:11px;color:#94a3b8;margin-top:2px">Meta > 3x</div></div>
         </div>
       </div>
     </div>
     
-    <!-- INSTRUÇÃO -->
-    <div style="background:white;border:1px solid #e2e8f0;border-radius:12px;padding:14px 18px;margin-bottom:18px;display:flex;align-items:center;gap:12px">
-      <div style="width:34px;height:34px;background:#dbeafe;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px">💡</div>
-      <div style="flex:1;font-size:12.5px;color:#334155;line-height:1.5"><strong style="color:#0f172a">Como usar:</strong> os KPIs estão agrupados abaixo por área de decisão. Clique em qualquer indicador para abrir a página com evolução histórica, fonte de dados, passos do cálculo e as perguntas que você deve saber responder.</div>
-    </div>`;
+    <div style="font-size:11px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;padding:0 4px">Áreas de análise</div>`;
 
-  // Grupos com cards
+  // 5 botões grandes de grupo
   grupos.forEach(g => {
-    html += `<div style="background:white;border:1px solid #e2e8f0;border-radius:14px;margin-bottom:16px;overflow:hidden">
-      <div style="padding:16px 22px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:14px;background:linear-gradient(180deg,#fafafa,white)">
-        <div style="width:44px;height:44px;background:${g.corBg};border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px">${g.icone}</div>
-        <div style="flex:1">
-          <div style="font-size:16px;font-weight:800;color:#0f172a">${g.titulo}</div>
-          <div style="font-size:12px;color:#64748b;margin-top:1px">${g.sub}</div>
-        </div>
-        <div style="font-size:10.5px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">${g.inds.length} indicadores</div>
-      </div>
-      <div style="padding:16px 18px;display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px">`;
-    
-    g.inds.forEach(ind => {
-      const semCor = semCores[ind.sem];
-      html += `<div onclick="_kpiV3IrPara('ind:${ind.id}')" 
-        style="background:white;border:1px solid #e2e8f0;border-left:3px solid ${semCor};border-radius:10px;padding:14px 16px;cursor:pointer;transition:all 0.15s"
-        onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 16px rgba(0,0,0,0.08)';this.style.borderColor='${g.cor}'"
-        onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='none';this.style.borderColor='#e2e8f0'">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <div style="display:flex;align-items:center;gap:6px">
-            <span style="font-size:14px">${ind.icone}</span>
-            <span style="font-size:11px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:0.3px">${ind.titulo}</span>
+    // Extrair 2-3 KPIs preview do grupo
+    const previewInds = g.inds.slice(0, 4);
+    html += `<div onclick="_kpiV3IrPara('grupo:${g.id}')"
+      style="background:white;border:1px solid #e2e8f0;border-left:5px solid ${g.cor};border-radius:16px;padding:24px 28px;margin-bottom:14px;cursor:pointer;transition:all 0.2s;position:relative;overflow:hidden"
+      onmouseover="this.style.transform='translateY(-3px)';this.style.boxShadow='0 12px 32px rgba(0,0,0,0.1)';this.style.borderColor='${g.cor}'"
+      onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='none';this.style.borderLeftColor='${g.cor}';this.style.borderTopColor='#e2e8f0';this.style.borderRightColor='#e2e8f0';this.style.borderBottomColor='#e2e8f0'">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap">
+        <div style="display:flex;gap:18px;flex:1;min-width:280px">
+          <div style="width:64px;height:64px;background:${g.corBg};border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:30px;flex-shrink:0">${g.icone}</div>
+          <div style="flex:1">
+            <div style="font-size:20px;font-weight:800;color:#0f172a;letter-spacing:-0.3px">${g.titulo}</div>
+            <div style="font-size:13px;color:#64748b;margin-top:4px;line-height:1.5;max-width:600px">${g.desc}</div>
+            <div style="font-size:11px;color:${g.cor};font-weight:800;margin-top:10px;letter-spacing:0.5px;text-transform:uppercase">${g.inds.length} indicadores · Clique para abrir →</div>
           </div>
-          <span style="width:8px;height:8px;background:${semCor};border-radius:50%"></span>
         </div>
-        <div style="font-size:22px;font-weight:800;color:${semCor};letter-spacing:-0.5px;line-height:1;margin-bottom:4px">${ind.valor}</div>
-        <div style="font-size:11px;color:#64748b">${ind.sub}</div>
-        <div style="border-top:1px solid #f1f5f9;margin-top:10px;padding-top:8px;display:flex;justify-content:space-between;align-items:center">
-          <span style="font-size:10.5px;color:${g.cor};font-weight:800;letter-spacing:0.3px">VER DETALHES</span>
-          <span style="color:${g.cor};font-size:14px">→</span>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end">
+          ${previewInds.map(ind => `<div style="background:#fafafa;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;min-width:100px;text-align:center">
+            <div style="font-size:9.5px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.3px">${ind.titulo}</div>
+            <div style="font-size:15px;font-weight:800;color:${_kpiV3Cor(ind.sem)};margin-top:2px">${ind.valor}</div>
+          </div>`).join('')}
         </div>
-      </div>`;
-    });
-    html += `</div></div>`;
+      </div>
+    </div>`;
   });
 
   html += '</div>';
@@ -4935,152 +4936,193 @@ function _kpiV3RenderHome(container, K, inputs, D) {
 }
 
 // ============================================================
-// RENDER INDICADOR — Página individual completa
+// NÍVEL 2 — GRUPO (mostra os indicadores do grupo escolhido)
+// ============================================================
+function _kpiV3RenderGrupo(container, grupoId, K, inputs, D) {
+  const grupos = _kpiV3Grupos(K, inputs);
+  const g = grupos.find(x => x.id === grupoId);
+  if (!g) { window._kpiV3State.view = 'home'; renderKPIs(); return; }
+
+  let html = `<div style="padding:20px 24px;max-width:1500px;margin:0 auto;background:#f5f5f7;min-height:100vh">
+    <!-- Breadcrumb + Voltar -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <button onclick="_kpiV3Voltar()" style="background:white;border:1px solid #cbd5e1;color:#334155;padding:9px 14px;border-radius:8px;font-family:Poppins;font-weight:700;font-size:12.5px;cursor:pointer">← Voltar às áreas</button>
+      <div style="font-size:11.5px;color:#64748b">KPIs Financeiros · <strong>${g.titulo}</strong></div>
+    </div>
+    
+    <!-- Hero do grupo -->
+    <div style="background:white;border:1px solid #e2e8f0;border-radius:16px;padding:26px 30px;margin-bottom:18px;position:relative;overflow:hidden">
+      <div style="position:absolute;top:0;left:0;width:5px;height:100%;background:${g.cor}"></div>
+      <div style="display:flex;gap:18px;align-items:flex-start">
+        <div style="width:60px;height:60px;background:${g.corBg};border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:30px">${g.icone}</div>
+        <div style="flex:1">
+          <div style="font-size:26px;font-weight:800;color:#0f172a;letter-spacing:-0.5px">${g.titulo}</div>
+          <p style="margin:8px 0 0;font-size:13.5px;color:#475569;line-height:1.6;max-width:800px">${g.desc}</p>
+          <div style="font-size:11px;color:${g.cor};font-weight:800;margin-top:10px;letter-spacing:0.5px;text-transform:uppercase">${g.inds.length} indicadores nesta área</div>
+        </div>
+      </div>
+    </div>
+    
+    <div style="font-size:11px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;padding:0 4px">Escolha um indicador para ler em detalhe</div>
+    
+    <!-- Cards dos indicadores do grupo -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px">`;
+  
+  g.inds.forEach(ind => {
+    const semCor = _kpiV3Cor(ind.sem);
+    html += `<div onclick="_kpiV3IrPara('ind:${ind.id}')"
+      style="background:white;border:1px solid #e2e8f0;border-top:4px solid ${semCor};border-radius:12px;padding:20px 22px;cursor:pointer;transition:all 0.15s"
+      onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 20px rgba(0,0,0,0.08)';this.style.borderTopColor='${g.cor}'"
+      onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='none';this.style.borderTopColor='${semCor}'">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:22px">${ind.icone}</span>
+          <span style="font-size:14px;color:#0f172a;font-weight:800">${ind.titulo}</span>
+        </div>
+        <span style="width:10px;height:10px;background:${semCor};border-radius:50%;margin-top:6px"></span>
+      </div>
+      <div style="font-size:32px;font-weight:800;color:${semCor};letter-spacing:-0.8px;line-height:1;margin-bottom:6px">${ind.valor}</div>
+      <div style="font-size:11.5px;color:#64748b;margin-bottom:10px">${ind.sub}</div>
+      <div style="font-size:12px;color:#475569;line-height:1.5;padding-top:10px;border-top:1px solid #f1f5f9;margin-top:4px">${ind.desc}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px">
+        <span style="font-size:10.5px;color:${g.cor};font-weight:800;letter-spacing:0.3px;text-transform:uppercase">Abrir leitura</span>
+        <span style="color:${g.cor};font-size:16px">→</span>
+      </div>
+    </div>`;
+  });
+
+  html += '</div></div>';
+  container.innerHTML = html;
+}
+
+// ============================================================
+// NÍVEL 3 — INDICADOR (página de detalhe com LEITURA EXECUTIVA)
 // ============================================================
 function _kpiV3RenderIndicador(container, id, K, inputs, D) {
   const def = _kpiV3IndDefs(id, K, inputs, D);
   if (!def) { window._kpiV3State.view = 'home'; renderKPIs(); return; }
-
-  const semCores = { green: '#10b981', yellow: '#f59e0b', red: '#dc2626', gray: '#94a3b8' };
-  const cor = semCores[def.semaforo] || semCores.gray;
+  const cor = _kpiV3Cor(def.semaforo);
   const confiabCor = { 'ALTA': '#10b981', 'MÉDIA': '#f59e0b', 'PROVISÓRIA': '#f97316', 'INDISPONÍVEL': '#dc2626', 'MANUAL': '#8b5cf6' }[String(def.confiab || '').split(' ')[0]] || '#94a3b8';
 
   let html = `<div style="padding:20px 24px;max-width:1500px;margin:0 auto;background:#f5f5f7;min-height:100vh">
     <!-- Breadcrumb + Voltar -->
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <button onclick="_kpiV3Voltar()" style="background:white;border:1px solid #cbd5e1;color:#334155;padding:9px 14px;border-radius:8px;font-family:Poppins;font-weight:700;font-size:12.5px;cursor:pointer;display:flex;align-items:center;gap:6px">← Voltar aos indicadores</button>
+      <div style="display:flex;gap:8px">
+        <button onclick="_kpiV3Voltar()" style="background:white;border:1px solid #cbd5e1;color:#334155;padding:9px 14px;border-radius:8px;font-family:Poppins;font-weight:700;font-size:12.5px;cursor:pointer">← Áreas</button>
+        <button onclick="_kpiV3IrPara('grupo:${def.grupoId}')" style="background:white;border:1px solid #cbd5e1;color:#334155;padding:9px 14px;border-radius:8px;font-family:Poppins;font-weight:700;font-size:12.5px;cursor:pointer">↩ ${def.grupo}</button>
+      </div>
       <div style="font-size:11.5px;color:#64748b">KPIs Financeiros · <strong>${def.grupo}</strong> · ${def.titulo}</div>
     </div>
     
     <!-- Hero do indicador -->
-    <div style="background:white;border:1px solid #e2e8f0;border-radius:16px;padding:28px 32px;margin-bottom:16px;position:relative;overflow:hidden">
+    <div style="background:white;border:1px solid #e2e8f0;border-radius:16px;padding:30px 34px;margin-bottom:16px;position:relative;overflow:hidden">
       <div style="position:absolute;top:0;left:0;width:6px;height:100%;background:${cor}"></div>
       <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:20px">
-        <div style="flex:1;min-width:300px">
-          <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
-            <div style="width:44px;height:44px;background:${cor}15;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px">${def.icone}</div>
+        <div style="flex:1;min-width:340px">
+          <div style="display:flex;align-items:center;gap:14px;margin-bottom:8px">
+            <div style="width:50px;height:50px;background:${cor}15;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:26px">${def.icone}</div>
             <div>
               <div style="font-size:10.5px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:0.8px">${def.grupo}</div>
-              <div style="font-size:22px;font-weight:800;color:#0f172a;letter-spacing:-0.5px">${def.titulo}</div>
+              <div style="font-size:26px;font-weight:800;color:#0f172a;letter-spacing:-0.5px">${def.titulo}</div>
             </div>
           </div>
-          <p style="margin:12px 0 0;font-size:13px;color:#475569;line-height:1.6;max-width:600px">${def.descricao}</p>
+          <p style="margin:14px 0 0;font-size:14px;color:#334155;line-height:1.7;max-width:700px">${def.descricao}</p>
         </div>
         <div style="text-align:right">
-          <div style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px">Valor atual — ${K.mesRef.label}</div>
-          <div style="font-size:44px;font-weight:800;color:${cor};letter-spacing:-1px;line-height:1">${def.valor}</div>
-          ${def.subvalor ? `<div style="font-size:12.5px;color:#334155;margin-top:6px">${def.subvalor}</div>` : ''}
-          <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px;flex-wrap:wrap">
-            <span style="background:${cor}15;color:${cor};padding:4px 10px;border-radius:6px;font-size:10.5px;font-weight:800;text-transform:uppercase">${def.metaTag}</span>
-            <span style="background:${confiabCor};color:white;padding:4px 10px;border-radius:6px;font-size:10.5px;font-weight:800;text-transform:uppercase">${def.confiab}</span>
+          <div style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px">Valor atual · ${K.mesRef.label}</div>
+          <div style="font-size:48px;font-weight:800;color:${cor};letter-spacing:-1.5px;line-height:1">${def.valor}</div>
+          ${def.subvalor ? `<div style="font-size:13px;color:#334155;margin-top:8px">${def.subvalor}</div>` : ''}
+          <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;flex-wrap:wrap">
+            <span style="background:${cor}15;color:${cor};padding:5px 12px;border-radius:6px;font-size:10.5px;font-weight:800;text-transform:uppercase">${def.metaTag}</span>
+            <span style="background:${confiabCor};color:white;padding:5px 12px;border-radius:6px;font-size:10.5px;font-weight:800;text-transform:uppercase">${def.confiab}</span>
           </div>
         </div>
       </div>
     </div>
     
     <!-- Evolução histórica -->
-    ${def.serie && def.serie.length > 0 ? `<div style="background:white;border:1px solid #e2e8f0;border-radius:14px;padding:20px 24px;margin-bottom:16px">
+    ${def.serie && def.serie.length > 0 ? `<div style="background:white;border:1px solid #e2e8f0;border-radius:14px;padding:22px 26px;margin-bottom:16px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
         <div>
           <div style="font-size:11px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:0.5px">📈 Evolução histórica</div>
-          <div style="font-size:15px;font-weight:800;color:#0f172a;margin-top:2px">${def.serieTitulo || 'Últimos meses'}</div>
+          <div style="font-size:16px;font-weight:800;color:#0f172a;margin-top:2px">${def.serieTitulo || 'Últimos meses'}</div>
         </div>
         <div style="font-size:11px;color:#64748b">Marco zero: julho/2026</div>
       </div>
       ${_kpiV3ChartLinha(def.serie, cor, def.serieFmt || 'money')}
     </div>` : ''}
     
-    <!-- Perguntas do CEO -->
-    <div style="background:white;border:1px solid #e2e8f0;border-radius:14px;padding:20px 24px;margin-bottom:16px">
-      <div style="margin-bottom:16px">
-        <div style="font-size:11px;color:#dc2626;font-weight:800;text-transform:uppercase;letter-spacing:0.5px">👔 Perguntas que o CEO vai fazer</div>
-        <div style="font-size:15px;font-weight:800;color:#0f172a;margin-top:2px">E onde ver a resposta</div>
+    <!-- LEITURA EXECUTIVA (texto interpretativo) -->
+    <div style="background:white;border:1px solid #e2e8f0;border-radius:14px;padding:24px 28px;margin-bottom:16px">
+      <div style="margin-bottom:18px">
+        <div style="font-size:11px;color:#dc2626;font-weight:800;text-transform:uppercase;letter-spacing:0.5px">🎯 Leitura Executiva</div>
+        <div style="font-size:17px;font-weight:800;color:#0f172a;margin-top:2px">O que este número está dizendo</div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr;gap:14px">
-        ${def.perguntas.map(p => `<div style="background:#fafafa;border:1px solid #e2e8f0;border-radius:10px;padding:16px 18px">
-          <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:10px">
-            <div style="width:26px;height:26px;background:#0f172a;color:white;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0">?</div>
-            <div style="font-size:13.5px;font-weight:700;color:#0f172a;line-height:1.4">${p.pergunta}</div>
-          </div>
-          <div style="font-size:12.5px;color:#334155;line-height:1.6;padding-left:38px">${p.resposta}</div>
-          ${p.visual ? `<div style="margin-top:12px;padding-left:38px">${p.visual}</div>` : ''}
+      <div style="display:flex;flex-direction:column;gap:16px">
+        ${def.leitura.map(secao => `<div>
+          <div style="font-size:13px;font-weight:800;color:${cor};text-transform:uppercase;letter-spacing:0.3px;margin-bottom:8px">${secao.titulo}</div>
+          <div style="font-size:14px;color:#334155;line-height:1.7">${secao.texto}</div>
+          ${secao.visual ? `<div style="margin-top:14px">${secao.visual}</div>` : ''}
         </div>`).join('')}
       </div>
     </div>
     
-    <!-- Fonte de dados -->
-    <div style="background:white;border:1px solid #e2e8f0;border-radius:14px;padding:20px 24px;margin-bottom:16px">
-      <div style="margin-bottom:14px">
-        <div style="font-size:11px;color:#059669;font-weight:800;text-transform:uppercase;letter-spacing:0.5px">🔌 Fonte de dados</div>
-        <div style="font-size:15px;font-weight:800;color:#0f172a;margin-top:2px">De onde vem este número</div>
+    <!-- De onde vem este número (SEM query SQL) -->
+    <div style="background:white;border:1px solid #e2e8f0;border-radius:14px;padding:22px 26px;margin-bottom:16px">
+      <div style="margin-bottom:16px">
+        <div style="font-size:11px;color:#059669;font-weight:800;text-transform:uppercase;letter-spacing:0.5px">🔌 De onde vem este número</div>
+        <div style="font-size:16px;font-weight:800;color:#0f172a;margin-top:2px">Origem e forma de cálculo</div>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-bottom:14px">
-        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px 14px">
-          <div style="font-size:10px;color:#166534;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Sistema de Origem</div>
-          <div style="font-size:13px;color:#0f172a;font-weight:700">${def.fonte.origem}</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:16px">
+        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:14px 16px">
+          <div style="font-size:10px;color:#166534;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Sistema de origem</div>
+          <div style="font-size:14px;color:#0f172a;font-weight:700">${def.fonteOrigem}</div>
         </div>
-        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px 14px">
-          <div style="font-size:10px;color:#1e40af;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Banco de dados</div>
-          <div style="font-size:13px;color:#0f172a;font-weight:700">Supabase → ${def.fonte.tabela}</div>
+        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px 16px">
+          <div style="font-size:10px;color:#1e40af;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Base de referência</div>
+          <div style="font-size:14px;color:#0f172a;font-weight:700">${def.fonteBase}</div>
         </div>
-        <div style="background:#faf5ff;border:1px solid #d8b4fe;border-radius:8px;padding:12px 14px">
-          <div style="font-size:10px;color:#6b21a8;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Frequência</div>
-          <div style="font-size:13px;color:#0f172a;font-weight:700">${def.fonte.freq}</div>
+        <div style="background:#faf5ff;border:1px solid #d8b4fe;border-radius:10px;padding:14px 16px">
+          <div style="font-size:10px;color:#6b21a8;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Atualização</div>
+          <div style="font-size:14px;color:#0f172a;font-weight:700">${def.fonteFreq}</div>
         </div>
       </div>
-      <div style="background:#0f172a;border-radius:10px;padding:14px 16px;overflow-x:auto">
-        <div style="font-size:10px;color:#94a3b8;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Query SQL</div>
-        <pre style="margin:0;font-family:'Courier New',monospace;font-size:11.5px;color:#e2e8f0;line-height:1.5;white-space:pre-wrap">${def.fonte.query}</pre>
+      <div style="background:#fafafa;border-left:4px solid ${cor};border-radius:0 10px 10px 0;padding:16px 20px">
+        <div style="font-size:11px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Como o cálculo é feito</div>
+        <div style="font-size:13.5px;color:#334155;line-height:1.7">${def.fonteExpl}</div>
       </div>
     </div>
     
-    <!-- Como foi elaborado -->
-    <div style="background:white;border:1px solid #e2e8f0;border-radius:14px;padding:20px 24px;margin-bottom:16px">
-      <div style="margin-bottom:14px">
-        <div style="font-size:11px;color:#7c3aed;font-weight:800;text-transform:uppercase;letter-spacing:0.5px">🧮 Como foi elaborado</div>
-        <div style="font-size:15px;font-weight:800;color:#0f172a;margin-top:2px">Fórmula e passo a passo</div>
-      </div>
-      <div style="background:#faf5ff;border:1px solid #d8b4fe;border-radius:10px;padding:14px 18px;margin-bottom:14px">
-        <div style="font-size:10.5px;color:#6b21a8;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Fórmula</div>
-        <div style="font-size:14px;color:#0f172a;font-weight:700;font-family:'Courier New',monospace">${def.formula}</div>
-      </div>
-      <div>
-        <div style="font-size:11px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">Passo a passo</div>
-        <div style="display:flex;flex-direction:column;gap:10px">
-          ${def.passos.map((p, i) => `<div style="display:flex;align-items:flex-start;gap:12px">
-            <div style="width:26px;height:26px;background:${cor};color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0">${i+1}</div>
-            <div style="font-size:13px;color:#334155;line-height:1.6;padding-top:3px">${p}</div>
-          </div>`).join('')}
-        </div>
-      </div>
-    </div>
-    
-    <!-- Armadilhas + Meta + Input Manual -->
+    <!-- Meta + Cuidados na leitura -->
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px;margin-bottom:16px">
-      <div style="background:white;border:1px solid #e2e8f0;border-radius:12px;padding:18px 20px">
-        <div style="font-size:11px;color:#f59e0b;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">⚠️ Armadilhas</div>
-        <ul style="margin:0;padding-left:18px;font-size:13px;color:#334155;line-height:1.7">${def.armadilhas.map(a => `<li>${a}</li>`).join('')}</ul>
+      <div style="background:white;border:1px solid #e2e8f0;border-radius:12px;padding:20px 22px">
+        <div style="font-size:11px;color:#0284c7;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px">🎯 Meta e faixas</div>
+        <div style="font-size:13.5px;color:#334155;line-height:1.7">${def.metaTexto}</div>
       </div>
-      <div style="background:white;border:1px solid #e2e8f0;border-radius:12px;padding:18px 20px">
-        <div style="font-size:11px;color:#0284c7;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">🎯 Meta e sinais</div>
-        <div style="font-size:13px;color:#334155;line-height:1.7">${def.metaTexto}</div>
+      <div style="background:white;border:1px solid #e2e8f0;border-radius:12px;padding:20px 22px">
+        <div style="font-size:11px;color:#f59e0b;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px">⚠️ Cuidados na leitura</div>
+        <ul style="margin:0;padding-left:18px;font-size:13.5px;color:#334155;line-height:1.7">${def.armadilhas.map(a => `<li style="margin-bottom:6px">${a}</li>`).join('')}</ul>
       </div>
     </div>
     
-    ${def.inputManual ? `<div style="background:white;border:2px dashed #cbd5e1;border-radius:12px;padding:18px 20px;margin-bottom:16px">
-      <div style="font-size:11px;color:#7c3aed;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">✏️ Entrada manual necessária</div>
-      <label style="font-size:12.5px;color:#334155;display:block;margin-bottom:6px">${def.inputManual.label}</label>
+    ${def.inputManual ? `<div style="background:white;border:2px dashed #cbd5e1;border-radius:12px;padding:20px 22px;margin-bottom:16px">
+      <div style="font-size:11px;color:#7c3aed;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px">✏️ Preenchimento manual</div>
+      <div style="font-size:12.5px;color:#64748b;margin-bottom:10px">Este indicador ainda depende de informação manual até integração automática ser construída.</div>
+      <label style="font-size:12.5px;color:#334155;display:block;margin-bottom:6px;font-weight:700">${def.inputManual.label}</label>
       <input type="number" value="${def.inputManual.valor || ''}" onchange="_kpiV3SetInput('${def.inputManual.campo}', this.value)" min="0" step="0.01"
-        style="width:100%;max-width:320px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;font-family:Poppins;font-size:14px;font-weight:700" placeholder="0">
+        style="width:100%;max-width:340px;padding:11px 14px;border:1px solid #cbd5e1;border-radius:8px;font-family:Poppins;font-size:14px;font-weight:700" placeholder="0">
     </div>` : ''}
   </div>`;
-
   container.innerHTML = html;
 }
 
 // ============================================================
-// HELPERS DE APRESENTAÇÃO
+// HELPERS
 // ============================================================
+function _kpiV3Cor(sem) {
+  return { green: '#10b981', yellow: '#f59e0b', red: '#dc2626', gray: '#94a3b8', blue: '#0284c7' }[sem] || '#94a3b8';
+}
+
 function _fmtRsCurto(v) {
   if (v == null || isNaN(v)) return '—';
   const abs = Math.abs(v);
@@ -5104,96 +5146,70 @@ function _kpiV3TotalTiers(i) {
   return t > 0 ? t + ' clientes' : '—';
 }
 
-// Chart de linha SVG
+// Chart linha SVG
 function _kpiV3ChartLinha(serie, cor, formato) {
-  const w = 1000, h = 220, mL = 60, mR = 20, mT = 20, mB = 40;
+  const w = 1000, h = 240, mL = 70, mR = 30, mT = 24, mB = 46;
   const inW = w - mL - mR, inH = h - mT - mB;
   const vals = serie.map(s => s.valor);
   const min = Math.min(...vals, 0);
   const max = Math.max(...vals, 1);
   const range = max - min || 1;
-  const xStep = inW / Math.max(1, serie.length - 1);
+  const xStep = serie.length > 1 ? inW / (serie.length - 1) : 0;
   const points = serie.map((s, i) => `${mL + i * xStep},${mT + inH - ((s.valor - min) / range) * inH}`).join(' ');
   const areaPath = `M ${mL},${mT + inH} L ${points.split(' ').join(' L ')} L ${mL + (serie.length-1) * xStep},${mT + inH} Z`;
   const fmt = v => formato === 'pct' ? v.toFixed(1) + '%' : (formato === 'int' ? v.toFixed(0) : _fmtRsCurto(v));
-  
-  // Ticks Y (4 níveis)
   const ticks = [0, 0.33, 0.67, 1].map(t => min + t * range);
   const yGrid = ticks.map(t => {
     const y = mT + inH - ((t - min) / range) * inH;
     return `<line x1="${mL}" y1="${y}" x2="${w-mR}" y2="${y}" stroke="#f1f5f9" stroke-width="1"/>
-            <text x="${mL - 8}" y="${y+4}" text-anchor="end" fill="#94a3b8" font-size="10" font-family="Poppins">${fmt(t)}</text>`;
+            <text x="${mL - 10}" y="${y+4}" text-anchor="end" fill="#94a3b8" font-size="10.5" font-family="Poppins">${fmt(t)}</text>`;
   }).join('');
-  
   return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block">
     ${yGrid}
-    <path d="${areaPath}" fill="${cor}" fill-opacity="0.08"/>
-    <polyline points="${points}" fill="none" stroke="${cor}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="${areaPath}" fill="${cor}" fill-opacity="0.1"/>
+    <polyline points="${points}" fill="none" stroke="${cor}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
     ${serie.map((s, i) => {
       const x = mL + i * xStep;
       const y = mT + inH - ((s.valor - min) / range) * inH;
-      return `<circle cx="${x}" cy="${y}" r="4" fill="white" stroke="${cor}" stroke-width="2.5"/>
-              <text x="${x}" y="${h - 22}" text-anchor="middle" fill="#64748b" font-size="10" font-family="Poppins" font-weight="700">${s.label}</text>
-              <text x="${x}" y="${h - 8}" text-anchor="middle" fill="#334155" font-size="10.5" font-family="Poppins" font-weight="600">${fmt(s.valor)}</text>`;
+      return `<circle cx="${x}" cy="${y}" r="5" fill="white" stroke="${cor}" stroke-width="3"/>
+              <text x="${x}" y="${h - 24}" text-anchor="middle" fill="#64748b" font-size="10.5" font-family="Poppins" font-weight="700">${s.label}</text>
+              <text x="${x}" y="${h - 8}" text-anchor="middle" fill="#334155" font-size="11" font-family="Poppins" font-weight="600">${fmt(s.valor)}</text>`;
     }).join('')}
   </svg>`;
 }
 
-// Barras horizontais para breakdown
 function _kpiV3Breakdown(items, cor) {
   const max = Math.max(...items.map(i => i.valor), 1);
-  return `<div style="display:flex;flex-direction:column;gap:8px">
+  return `<div style="display:flex;flex-direction:column;gap:10px">
     ${items.map(i => `<div>
-      <div style="display:flex;justify-content:space-between;font-size:11.5px;color:#334155;margin-bottom:3px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:#334155;margin-bottom:4px">
         <span style="font-weight:700">${i.label}</span>
         <span style="font-weight:700;color:${cor}">${i.display || _fmtRsCurto(i.valor)}</span>
       </div>
-      <div style="height:8px;background:#f1f5f9;border-radius:4px;overflow:hidden">
-        <div style="height:100%;background:${cor};width:${(i.valor/max*100).toFixed(0)}%;border-radius:4px"></div>
+      <div style="height:10px;background:#f1f5f9;border-radius:5px;overflow:hidden">
+        <div style="height:100%;background:${cor};width:${(i.valor/max*100).toFixed(0)}%;border-radius:5px"></div>
       </div>
     </div>`).join('')}
   </div>`;
 }
 
-// Ranking (lista numerada)
 function _kpiV3Ranking(items, cor) {
   return `<div style="display:flex;flex-direction:column;gap:8px">
-    ${items.map((i, idx) => `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:white;border:1px solid #e2e8f0;border-radius:8px">
-      <div style="width:22px;height:22px;background:${idx < 3 ? cor : '#e2e8f0'};color:${idx < 3 ? 'white' : '#334155'};border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800">${idx+1}</div>
-      <div style="flex:1;font-size:12px;color:#334155;font-weight:600">${i.label}</div>
-      <div style="font-size:12px;font-weight:700;color:${cor}">${i.display}</div>
+    ${items.map((i, idx) => `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:white;border:1px solid #e2e8f0;border-radius:8px">
+      <div style="width:24px;height:24px;background:${idx < 3 ? cor : '#e2e8f0'};color:${idx < 3 ? 'white' : '#334155'};border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:800">${idx+1}</div>
+      <div style="flex:1;font-size:12.5px;color:#334155;font-weight:600">${i.label}</div>
+      <div style="font-size:12.5px;font-weight:800;color:${cor}">${i.display}</div>
     </div>`).join('')}
   </div>`;
 }
 
-// Gauge de meta
-function _kpiV3Gauge(atual, meta, cor, formato) {
-  const pct = Math.max(0, Math.min(100, (atual / meta) * 100));
-  const fmt = v => formato === 'pct' ? v.toFixed(1) + '%' : _fmtRsCurto(v);
-  return `<div style="display:flex;align-items:center;gap:16px">
-    <div style="flex:1">
-      <div style="display:flex;justify-content:space-between;font-size:11px;color:#64748b;margin-bottom:4px">
-        <span>Atual: <strong style="color:${cor}">${fmt(atual)}</strong></span>
-        <span>Meta: <strong>${fmt(meta)}</strong></span>
-      </div>
-      <div style="height:12px;background:#f1f5f9;border-radius:6px;overflow:hidden">
-        <div style="height:100%;background:linear-gradient(90deg,${cor}80,${cor});width:${pct}%;border-radius:6px"></div>
-      </div>
-      <div style="font-size:11px;color:#64748b;margin-top:4px">${pct.toFixed(0)}% da meta</div>
-    </div>
-  </div>`;
-}
-
 // ============================================================
-// DEFINIÇÕES POR INDICADOR
+// DEFINIÇÕES POR INDICADOR (com LEITURA EXECUTIVA em prosa)
 // ============================================================
 function _kpiV3IndDefs(id, K, inputs, D) {
-  const semCores = { green: '#10b981', yellow: '#f59e0b', red: '#dc2626', gray: '#94a3b8' };
-  // cor local — mapeada pelo semáforo do indicador quando conhecido; fallback verde
-  const _corDo = sem => semCores[sem] || semCores.green;
-  const fmtPct = v => v != null && !isNaN(v) ? v.toFixed(1) + '%' : '—';
   const meses6 = _kpiV3UltimosMeses(K.mesRef.key, 6);
   const mesesLabels = m => ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'][parseInt(m.split('-')[1]) - 1];
+  const _cor = sem => _kpiV3Cor(sem);
 
   // === MRR ===
   if (id === 'mrr') {
@@ -5207,72 +5223,62 @@ function _kpiV3IndDefs(id, K, inputs, D) {
       { label: 'Master (R$ 5.500)', valor: K.faixas.master },
       { label: 'Business (R$ 6.500)', valor: K.faixas.business }
     ].filter(f => f.valor > 0);
+    const varTxt = K.mrr.varPct != null ? (K.mrr.varPct >= 0 ? 'cresceu ' : 'caiu ') + Math.abs(K.mrr.varPct).toFixed(1) + '%' : 'não tem comparação';
     return {
-      icone: '💵', grupo: 'Receita e Previsibilidade', titulo: 'MRR — Monthly Recurring Revenue',
-      descricao: 'Receita recorrente que entra todo mês pelas mensalidades contratadas. É o indicador mais importante para saber se o negócio está crescendo, estável ou encolhendo. Muda com novos contratos, cancelamentos e upgrade/downgrade de faixa.',
-      valor: _fmtRsCurto(K.mrr.atual), subvalor: K.mrr.varPct != null ? (K.mrr.varPct >= 0 ? '▲ +' : '▼ ') + K.mrr.varPct.toFixed(1) + '% vs mês anterior' : '',
+      icone: '💵', grupo: 'Receita e Previsibilidade', grupoId: 'b1', titulo: 'MRR — Receita Mensal Recorrente',
+      descricao: 'A soma de todas as mensalidades pagas no mês. Representa a receita previsível que entra todo mês pelo contrato recorrente — o motor principal do negócio. Excluída a taxa de implementação e receitas extraordinárias.',
+      valor: _fmtRsCurto(K.mrr.atual), subvalor: K.mrr.varPct != null ? (K.mrr.varPct >= 0 ? '▲ +' : '▼ ') + K.mrr.varPct.toFixed(1) + '% vs mês anterior' : 'Sem comparação',
       semaforo: K.mrr.sem, confiab: 'ALTA', metaTag: 'Meta > +3% MoM',
-      metaTexto: 'Objetivo: crescimento de <strong>≥ 3% ao mês</strong> vs mês anterior. Verde ≥ 3%, amarelo entre 0-3%, vermelho quando cai. Alerta acionado quando cai 2 meses seguidos.',
+      metaTexto: 'A referência esperada é <strong>crescimento de pelo menos 3% ao mês</strong> vs o mês anterior. Verde quando ≥ 3%, amarelo entre 0-3%, vermelho quando cai. Se cair dois meses seguidos, é sinal para revisar comercial e retenção.',
       serie, serieTitulo: 'MRR mensal (últimos 6 meses)', serieFmt: 'money',
-      formula: 'SUM(valor_pago) do último mês fechado, filtrado por categoria 01.01',
-      fonte: { origem: 'OMIE (Contas a Receber)', tabela: 'v_receita_operacional', freq: 'Diária (sync OMIE)',
-        query: `SELECT SUM(valor_pago) AS mrr\nFROM v_receita_operacional\nWHERE categoria_codigo LIKE '01.01%'\n  AND TO_CHAR(data_pagto,'YYYY-MM') = '${K.mesRef.key}';` },
-      passos: [
-        'Filtrar movimentos financeiros do tipo <strong>1. Contas a Receber</strong> na tabela <code>movimentos_financeiros</code>',
-        'Aplicar view <code>v_movimentos_deduplicados</code> para descartar movimentos "previsão" que já viraram baixa efetiva (evita contagem dupla do OMIE)',
-        'Filtrar por prefixo de categoria <code>01.01%</code> (receita operacional principal — mensalidades)',
-        'Restringir ao mês de referência (<strong>' + K.mesRef.label + '</strong> — último mês fechado)',
-        'Somar <code>valor_pago</code> agrupado por mês',
-        'Comparar com o mês anterior para calcular variação percentual (MoM)'
+      leitura: [
+        { titulo: 'Como interpretar este número', texto: `O MRR fechou o mês em <strong>${_fmtRsCurto(K.mrr.atual)}</strong> e ${varTxt} em relação ao mês anterior. Este é o volume de dinheiro que entra <strong>previsivelmente</strong> todo mês pelo contrato com clientes — não inclui projetos pontuais, implantações ou receitas extraordinárias. É o número mais importante para saber se o negócio está crescendo.` },
+        { titulo: 'O que está por trás desse movimento', texto: `Quando o MRR sobe, uma das três coisas aconteceu: (1) entraram clientes novos, (2) clientes existentes subiram de faixa, ou (3) parte da base atrasada regularizou pagamento. Quando cai, ou saíram clientes (churn), ou clientes rebaixaram faixa (downgrade), ou houve atraso concentrado. A distribuição atual da receita por faixa está mostrada abaixo — a faixa <strong>${_kpiV3FaixaLider(K.faixas)}</strong> lidera hoje.`,
+          visual: faixasBar.length > 0 ? `<div style="background:#fafafa;border:1px solid #e2e8f0;border-radius:10px;padding:16px 18px">${_kpiV3Breakdown(faixasBar, '#059669')}</div>` : '' },
+        { titulo: 'Contexto do mercado', texto: 'Em agências digitais com modelo recorrente, considera-se saudável o crescimento consistente entre 3% e 8% ao mês. Acima de 10% é excelente mas geralmente insustentável por muitos meses. Abaixo de 3% por mais de dois meses seguidos indica saturação do canal comercial ou concorrência ganhando espaço.' },
+        { titulo: 'Quando agir', texto: `Se o MRR cair sem explicação óbvia (churn concentrado, sazonalidade), a primeira ação é olhar o <strong>Aging de Recebíveis</strong>: pode ser só atraso de pagamento, não perda real. Depois, cruzar com <strong>Churn de Receita</strong> — se este subiu junto, é perda estrutural. Se o MRR cresce mas o Ticket Médio cai, a base está diluindo em faixas menores.` }
       ],
+      fonteOrigem: 'OMIE (Contas a Receber)',
+      fonteBase: 'A mesma base que alimenta o menu Financeiro Principal',
+      fonteFreq: 'Diária (sync do OMIE)',
+      fonteExpl: 'O número vem direto do <strong>OMIE</strong> — sistema onde o financeiro registra todos os pagamentos recebidos. Para chegar ao MRR, o dashboard filtra apenas as categorias marcadas como <em>Receita de Prestação de Serviços (Mensalidade)</em>, remove valores duplicados que o OMIE gera por questão de previsão/baixa efetiva, e soma tudo do último mês fechado. É a mesma origem que aparece na coluna "Receitas Operacionais" do menu Financeiro Principal.',
       armadilhas: [
-        'Mês corrente NUNCA conta — usar sempre o último mês fechado',
-        'Taxa de implementação (01.02) NÃO entra no MRR — só mensalidade recorrente',
-        'Rendimentos de aplicação e ajustes de conciliação (id_titulo=0) já são filtrados pela view'
-      ],
-      perguntas: [
-        { pergunta: 'Por que o MRR mudou este mês?', resposta: 'Olhe a variação vs mês anterior. Se positiva, ganhamos base ou clientes subiram de faixa. Se negativa, cruzar com o Churn de Receita (mesma diferença = cancelamento; diferença menor = downgrade de faixa).',
-          visual: `<div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px"><div style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;margin-bottom:10px">Composição atual por faixa</div>${_kpiV3Breakdown(faixasBar, '#059669')}</div>` },
-        { pergunta: 'Qual faixa está puxando o crescimento (ou queda)?', resposta: 'A faixa com maior peso hoje define a resiliência do MRR. Se cai a Basic mas cresce a Master, é sinal de qualificação da base. Se ao contrário, base migrando para faixa menor = risco.',
-          visual: `<div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px"><div style="font-size:11.5px;color:#334155;line-height:1.6">Faixa líder: <strong>${_kpiV3FaixaLider(K.faixas)}</strong> · Faixa em queda: acompanhar próximos meses</div></div>` },
-        { pergunta: 'Estamos crescendo no ritmo esperado?', resposta: 'Meta é 3% ao mês. Nos últimos 6 meses, quantos foram acima disso? Se menos da metade, o negócio está estagnando.',
-          visual: _kpiV3Gauge(K.mrr.varPct || 0, 3, _corDo(K.mrr.sem), 'pct') },
-        { pergunta: 'A queda pode ser só atraso de pagamento?', resposta: 'Sim, e frequentemente é. Revalidar no dia 5 do mês seguinte quando as baixas fecham. Se persistir, é churn real.' }
+        'O mês corrente <strong>nunca</strong> é usado — pode não ter fechado ainda',
+        'Taxa de implementação (contratos novos) não conta no MRR — só a mensalidade recorrente',
+        'Cliente que atrasa e paga no mês seguinte inflaciona o mês seguinte artificialmente'
       ]
     };
   }
-  
+
   // === Net New MRR ===
   if (id === 'netNew') {
     const mrrPorMes = _kpiV3AgruparPorMes(D.receita.filter(r => (r.categoria_codigo || '').startsWith('01.01')));
-    const serie = meses6.map((m, i) => {
+    const serie = meses6.map(m => {
       const ant = _kpiV3MesAnterior(m);
       return { label: mesesLabels(m), valor: (mrrPorMes[m] || 0) - (mrrPorMes[ant] || 0) };
     });
+    const sinal = K.netNew.atual >= 0 ? 'expandimos' : 'contraímos';
     return {
-      icone: '📈', grupo: 'Receita e Previsibilidade', titulo: 'Net New MRR',
-      descricao: 'Receita recorrente líquida adicionada no mês. Considera novos clientes, expansões, downgrades e cancelamentos. É a métrica mais direta do vetor de crescimento — se está positiva, a base está expandindo; se negativa, encolhendo.',
-      valor: _fmtSignedCurto(K.netNew.atual), subvalor: K.netNew.atual >= 0 ? 'Ganho líquido este mês' : 'Perda líquida este mês',
+      icone: '📈', grupo: 'Receita e Previsibilidade', grupoId: 'b1', titulo: 'Net New MRR',
+      descricao: 'A diferença entre o MRR deste mês e o do mês anterior. Mostra o vetor de crescimento em uma única linha — se está positivo, a base recorrente está expandindo. Se negativo, encolhendo.',
+      valor: _fmtSignedCurto(K.netNew.atual), subvalor: K.netNew.atual >= 0 ? 'Expansão líquida no mês' : 'Contração líquida no mês',
       semaforo: K.netNew.sem, confiab: 'MÉDIA (2 meses fechados)', metaTag: 'Sempre positivo',
-      metaTexto: 'Objetivo: <strong>sempre positivo</strong>, ideal ≥ +5% do MRR base. Verde quando > 0, vermelho quando < 0. Alerta: negativo por 2 meses seguidos.',
+      metaTexto: 'A referência esperada é <strong>sempre positivo</strong>, idealmente ≥ 5% do MRR base. Verde quando > 0, amarelo se zerado, vermelho quando negativo. Dois meses seguidos negativos é um sinal claro de que o comercial está sem tração ou o churn está corroendo mais rápido que as vendas.',
       serie, serieTitulo: 'Net New MRR mensal', serieFmt: 'money',
-      formula: 'MRR do mês N − MRR do mês N−1',
-      fonte: { origem: 'OMIE (Contas a Receber)', tabela: 'v_receita_operacional', freq: 'Mensal',
-        query: `WITH m AS (\n  SELECT TO_CHAR(data_pagto,'YYYY-MM') mes, SUM(valor_pago) mrr\n  FROM v_receita_operacional\n  WHERE categoria_codigo LIKE '01.01%'\n  GROUP BY 1\n)\nSELECT mes, mrr - LAG(mrr) OVER (ORDER BY mes) net_new FROM m;` },
-      passos: [
-        'Calcular MRR do mês N e MRR do mês N−1 usando a mesma regra do indicador MRR',
-        'Subtrair: Net New = MRR(N) − MRR(N−1)',
-        'Se positivo, adicionamos receita líquida no mês. Se negativo, perdemos'
+      leitura: [
+        { titulo: 'Como interpretar este número', texto: `Este mês <strong>${sinal}</strong> a receita recorrente em <strong>${_fmtSignedCurto(K.netNew.atual)}</strong>. É a soma líquida do que ganhamos (novos contratos + upgrades) menos o que perdemos (cancelamentos + downgrades). Se este número é próximo de zero por vários meses, o comercial está apenas repondo o que sai — não estamos crescendo.` },
+        { titulo: 'O que está por trás', texto: `Ver o Net New junto com o Churn de Receita é fundamental. Se Net New é grande e Churn é grande também, temos um "balde furado" — muitas vendas apenas compensam muitos cancelamentos. Se Net New é positivo e Churn é baixo, é crescimento real e saudável. Este mês entraram <strong>${K.cac.novos} clientes novos</strong>.` },
+        { titulo: 'Contexto do mercado', texto: 'No mercado SaaS, o "quick ratio" (razão entre expansão e contração) é o indicador de qualidade do crescimento. Acima de 4x significa que para cada R$1 que sai, entram R$4. Abaixo de 1x é sinal de queima operacional — a empresa perde base mesmo enquanto vende.' },
+        { titulo: 'Quando agir', texto: 'Se Net New está negativo mas Inadimplência subiu junto, pode ser só atraso — validar no dia 5 do mês seguinte. Se está negativo por 2 meses consecutivos com Inadimplência estável, é churn real: freio no comercial e foco em retenção antes de gastar mais em aquisição.' }
       ],
+      fonteOrigem: 'OMIE (Contas a Receber)',
+      fonteBase: 'MRR do mês atual e do anterior',
+      fonteFreq: 'Mensal',
+      fonteExpl: 'É simplesmente a subtração <strong>MRR do mês N</strong> menos <strong>MRR do mês N−1</strong>. Se este mês o MRR foi R$ 400k e o anterior foi R$ 380k, o Net New é +R$ 20k. Ambos os valores vêm da mesma view do OMIE que gera o MRR — sem cálculo adicional.',
       armadilhas: [
-        'Pode ficar temporariamente negativo por atrasos de pagamento — validar no mês seguinte',
-        'Se o mês anterior teve valor concentrado (março 2026 = R$ 836k), o Net New oscila artificialmente',
-        'Não confundir com "clientes novos": Net New é receita líquida, não headcount'
-      ],
-      perguntas: [
-        { pergunta: 'De onde veio o crescimento?', resposta: 'Cruzar com Churn de Receita: se Net New > Churn, a expansão vem de novos contratos. Se Net New próximo do Churn, estamos apenas repondo baixas.' },
-        { pergunta: 'Foi expansão real ou reversão de atraso?', resposta: 'Se o mês anterior teve inadimplência alta e o Net New pulou, provavelmente foi só recuperação. Cruzar com Aging.' },
-        { pergunta: 'Quantos clientes novos entraram este mês?', resposta: `Este mês entraram <strong>${K.cac.novos} novos clientes</strong>. Divida por eles para saber o ticket médio de aquisição.` }
+        'Pode ficar temporariamente negativo por atrasos que serão recuperados no mês seguinte',
+        'Se um mês teve receita concentrada (ex: pagamentos retroativos), o Net New oscila artificialmente',
+        'Não confundir com "clientes novos" — Net New é sobre valor, não headcount'
       ]
     };
   }
@@ -5280,30 +5286,26 @@ function _kpiV3IndDefs(id, K, inputs, D) {
   // === NRR ===
   if (id === 'nrr') {
     return {
-      icone: '🔁', grupo: 'Receita e Previsibilidade', titulo: 'NRR — Net Revenue Retention',
-      descricao: 'Mede quanto da receita da base antiga sobreviveu (contando expansões, downgrades e cancelamentos). É o principal indicador de saúde de retenção — no benchmark SaaS, acima de 100% significa que a base cresce sozinha sem clientes novos.',
+      icone: '🔁', grupo: 'Receita e Previsibilidade', grupoId: 'b1', titulo: 'NRR — Retenção de Receita',
+      descricao: 'Mede quanto da receita da base antiga sobreviveu — contando expansões, downgrades e cancelamentos, mas ignorando clientes novos. É o principal indicador de qualidade da retenção.',
       valor: K.nrr.atual != null ? K.nrr.atual.toFixed(0) + '%' : '—', subvalor: 'Janela: últimos 3 meses',
-      semaforo: K.nrr.sem, confiab: 'MÉDIA (janela 3m — provisória até out/2026)', metaTag: 'Meta > 100%',
-      metaTexto: 'Objetivo: <strong>> 100%</strong> (base cresce sozinha). Verde ≥ 100%, amarelo 90-100%, vermelho < 90%. Só será plenamente confiável com janela 12m a partir de julho/2027.',
+      semaforo: K.nrr.sem, confiab: 'MÉDIA (provisória até jul/2027)', metaTag: 'Meta > 100%',
+      metaTexto: 'A referência esperada é <strong>acima de 100%</strong>, o que significa que a base antiga cresce sozinha sem depender de novos clientes. Verde ≥ 100%, amarelo entre 90-100%, vermelho abaixo de 90%. Só será plenamente confiável com janela de 12 meses a partir de julho/2027.',
       serie: null,
-      formula: '(Receita atual da base antiga / Receita antiga da mesma base) × 100',
-      fonte: { origem: 'OMIE (Contas a Receber)', tabela: 'v_receita_operacional', freq: 'Mensal',
-        query: `WITH base_antiga AS (\n  SELECT DISTINCT cliente_codigo\n  FROM v_receita_operacional\n  WHERE categoria_codigo LIKE '01.01%'\n    AND TO_CHAR(data_pagto,'YYYY-MM') = '${_kpiV3MesAnterior(_kpiV3MesAnterior(_kpiV3MesAnterior(K.mesRef.key)))}'\n),\nreceita_hoje AS (\n  SELECT SUM(v.valor_pago) rec\n  FROM v_receita_operacional v JOIN base_antiga b USING (cliente_codigo)\n  WHERE TO_CHAR(v.data_pagto,'YYYY-MM') = '${K.mesRef.key}'\n),\nreceita_ontem AS (\n  SELECT SUM(v.valor_pago) rec\n  FROM v_receita_operacional v JOIN base_antiga b USING (cliente_codigo)\n  WHERE TO_CHAR(v.data_pagto,'YYYY-MM') = '${_kpiV3MesAnterior(_kpiV3MesAnterior(_kpiV3MesAnterior(K.mesRef.key)))}'\n)\nSELECT (SELECT rec FROM receita_hoje) / NULLIF((SELECT rec FROM receita_ontem),0) * 100 AS nrr;` },
-      passos: [
-        'Identificar todos os clientes que estavam ativos há 3 meses (base antiga)',
-        'Somar quanto essa mesma base paga <strong>hoje</strong>',
-        'Somar quanto essa mesma base pagava <strong>há 3 meses</strong>',
-        'Dividir hoje / há 3 meses × 100'
+      leitura: [
+        { titulo: 'Como interpretar este número', texto: `O NRR está em <strong>${K.nrr.atual != null ? K.nrr.atual.toFixed(0) + '%' : 'aguardando dados'}</strong>. Este número responde uma pergunta simples: dos clientes que tínhamos há 3 meses, quanto eles pagam hoje comparado ao que pagavam antes? Se é 110%, a base antiga expandiu 10%. Se é 85%, encolheu 15%.` },
+        { titulo: 'O que está por trás', texto: 'O NRR combina três forças em um número: <strong>expansão</strong> (upgrades e upsell), <strong>contração</strong> (downgrades) e <strong>churn</strong> (cancelamentos). Ele isola o comportamento da base existente do ruído dos novos contratos. Se está acima de 100%, o negócio cresce mesmo se o comercial parar de vender. Se está abaixo, precisamos vender só para manter o tamanho.' },
+        { titulo: 'Contexto do mercado', texto: 'Em SaaS B2B saudável, NRR ≥ 110% é considerado excelente. Em agências digitais com clientes de menor ticket como Growper, 100-105% já é sinal de boa saúde. Empresas como HubSpot e Snowflake operam entre 115-125% e são referências de retenção.' },
+        { titulo: 'Quando agir', texto: 'NRR abaixo de 90% por dois meses seguidos é sinal de deterioração da base — priorizar CS (Customer Success) sobre novas vendas. Acima de 110% consistentemente indica que é o momento de escalar comercial: cada cliente adquirido gera retorno crescente sozinho.' }
       ],
+      fonteOrigem: 'OMIE (Contas a Receber)',
+      fonteBase: 'Cruzamento por cliente do MRR de hoje vs 3 meses atrás',
+      fonteFreq: 'Mensal',
+      fonteExpl: 'Primeiro identificamos quais clientes existiam há 3 meses. Depois calculamos quanto eles pagavam naquela época e quanto pagam hoje. O NRR é essa divisão × 100. Se um cliente sumiu, entra como zero no numerador. Se um novo entrou, é ignorado (só olhamos a base antiga). Como a Growper tem marco zero em julho/2026, esta janela é limitada a 3 meses até termos histórico suficiente para janela padrão de 12 meses.',
       armadilhas: [
-        'Janela curta (3m) = mais volátil. Janela 12m só a partir de jul/2027',
-        'Base antiga precisa ser estabilizada — se marco zero é jul/2026, NRR só é confiável de out/2026 em diante',
-        'Cliente que estava atrasado e agora pagou aumenta artificialmente o NRR'
-      ],
-      perguntas: [
-        { pergunta: 'A base está expandindo sozinha?', resposta: K.nrr.atual >= 100 ? 'Sim. Clientes antigos estão gastando mais hoje do que gastavam antes — expansão orgânica.' : (K.nrr.atual >= 90 ? 'Estável. Nem expandindo nem contraindo significativamente.' : 'Não. Base antiga está encolhendo — churn ou downgrade dominando.') },
-        { pergunta: 'Devo confiar plenamente neste número?', resposta: 'Ainda não. A janela é 3m provisória. NRR robusto exige 12m de histórico limpo, disponível apenas em julho/2027.' },
-        { pergunta: 'Como comparar com o mercado?', resposta: 'SaaS B2B saudável: NRR ≥ 110%. Marketing digital com clientes de menor ticket: 100-105% já é bom.' }
+        'Janela de 3 meses é volátil — um único cliente grande que saiu ou entrou balança o número',
+        'Base antiga precisa ser estabilizada; NRR só é plenamente confiável a partir de julho/2027',
+        'Cliente que estava atrasado e agora pagou aumenta artificialmente o número'
       ]
     };
   }
@@ -5314,29 +5316,26 @@ function _kpiV3IndDefs(id, K, inputs, D) {
     const cliMes = _kpiV3ClientesPorMes(D.receita.filter(r => (r.categoria_codigo || '').startsWith('01.01')));
     const serie = meses6.map(m => ({ label: mesesLabels(m), valor: cliMes[m] && cliMes[m].size > 0 ? (mrrPorMes[m] || 0) / cliMes[m].size : 0 }));
     return {
-      icone: '🏷️', grupo: 'Receita e Previsibilidade', titulo: 'Ticket Médio Recorrente',
-      descricao: 'Quanto cada cliente ativo paga em média por mês. Mostra o mix da base — sobe quando mais clientes migram para faixas maiores (Master, Business), cai quando entram muitos novos em faixas menores ou há downgrade em massa.',
-      valor: _fmtRsCurto(K.ticket.atual), subvalor: K.ticket.varPct != null ? (K.ticket.varPct >= 0 ? '▲ +' : '▼ ') + K.ticket.varPct.toFixed(1) + '% MoM' : '',
+      icone: '🏷️', grupo: 'Receita e Previsibilidade', grupoId: 'b1', titulo: 'Ticket Médio Recorrente',
+      descricao: 'Quanto cada cliente ativo paga em média por mês. Mostra a qualidade do mix da base — sobe quando mais clientes migram para faixas maiores, cai quando entram muitos novos em faixas menores ou há downgrades em massa.',
+      valor: _fmtRsCurto(K.ticket.atual), subvalor: K.ticket.varPct != null ? (K.ticket.varPct >= 0 ? '▲ +' : '▼ ') + K.ticket.varPct.toFixed(1) + '% MoM' : 'Sem comparação',
       semaforo: K.ticket.sem, confiab: 'ALTA', metaTag: 'Tendência crescente',
-      metaTexto: 'Objetivo: <strong>tendência crescente</strong> ao longo do tempo. Verde quando sobe MoM, amarelo estável, vermelho cair 3 meses seguidos.',
+      metaTexto: 'A referência esperada é <strong>tendência crescente</strong> ao longo do tempo. Verde quando sobe MoM, amarelo estável, vermelho se cair por 3 meses seguidos. Ticket estagnado significa que a estratégia comercial atrai sempre o mesmo perfil de cliente.',
       serie, serieTitulo: 'Ticket Médio mensal', serieFmt: 'money',
-      formula: 'MRR do mês / Clientes ativos recorrentes no mês',
-      fonte: { origem: 'OMIE (Contas a Receber)', tabela: 'v_receita_operacional', freq: 'Mensal',
-        query: `SELECT SUM(valor_pago) / NULLIF(COUNT(DISTINCT cliente_codigo),0) AS ticket_medio\nFROM v_receita_operacional\nWHERE categoria_codigo LIKE '01.01%'\n  AND TO_CHAR(data_pagto,'YYYY-MM') = '${K.mesRef.key}';` },
-      passos: [
-        'Somar todas as mensalidades pagas no mês (MRR)',
-        'Contar clientes distintos que pagaram no mês',
-        'Dividir MRR pelo número de clientes'
+      leitura: [
+        { titulo: 'Como interpretar este número', texto: `O ticket médio atual é <strong>${_fmtRsCurto(K.ticket.atual)}</strong>. É o valor que, em média, cada cliente ativo paga por mês. Referência: se você tem 100 clientes e MRR de R$ 300k, o ticket médio é R$ 3.000 (aproximadamente faixa Plus).` },
+        { titulo: 'O que está por trás', texto: `A faixa líder em receita hoje é <strong>${_kpiV3FaixaLider(K.faixas)}</strong>. Se ticket médio sobe consistentemente, uma das três coisas está acontecendo: (1) upsell efetivo movendo clientes existentes para faixas maiores, (2) comercial atraindo clientes de perfil maior, ou (3) desligamento dos clientes menores (Basic) reduzindo o denominador. Se cai, geralmente é entrada de clientes novos em faixas de entrada ou downgrades por pressão de custo.` },
+        { titulo: 'Contexto do mercado', texto: 'Em agências que atendem PME, o crescimento saudável do ticket médio é 5-8% ao ano. Crescimento rápido acima de 15% ao ano geralmente indica reposicionamento estratégico (subir de segmento) ou redução do público-alvo. Ambos são movimentos válidos, mas conscientes.' },
+        { titulo: 'Quando agir', texto: 'Se ticket sobe rápido mas quantidade de clientes cai, atenção — pode estar perdendo base pequena que é a fonte de crescimento futuro. Se ticket cai mas quantidade cresce, ok se o CAC também cair proporcionalmente. Sempre olhar junto com a distribuição de faixas.' }
       ],
+      fonteOrigem: 'OMIE (Contas a Receber)',
+      fonteBase: 'MRR dividido pelo número de clientes distintos ativos no mês',
+      fonteFreq: 'Mensal',
+      fonteExpl: 'Somamos toda a receita de mensalidades do mês (MRR) e contamos quantos clientes distintos pagaram alguma mensalidade neste mês. A divisão entre os dois é o ticket médio. É a mesma base que alimenta o MRR — só que dividida pela quantidade de clientes.',
       armadilhas: [
-        'Cliente novo com desconto de implantação puxa para baixo — considerar isolar esses casos',
-        'Se muitos clientes atrasam, ticket parece maior no mês seguinte (recuperação inflada)',
-        'Faixa é inferida pelo valor pago — não é a faixa contratada real (que está no Solaris)'
-      ],
-      perguntas: [
-        { pergunta: 'A qualidade da base está melhorando?', resposta: `Ticket médio hoje é ${_fmtRsCurto(K.ticket.atual)}. Se aumentar mês a mês, sim. Se cair, pode ser onda de novos em faixas baixas ou downgrades.` },
-        { pergunta: 'Estamos atraindo clientes maiores?', resposta: `Cruzar com Net New MRR: se Net New sobe rápido e Ticket também, sim. Se Net New sobe mas Ticket cai, estamos ganhando volume mas qualidade cai.` },
-        { pergunta: 'Qual faixa domina hoje?', resposta: `<strong>${_kpiV3FaixaLider(K.faixas)}</strong> lidera em receita este mês.` }
+        'Cliente novo com desconto de implantação puxa o ticket para baixo temporariamente',
+        'Se muitos clientes atrasam, o ticket parece maior no mês seguinte por conta da recuperação',
+        'A "faixa" mostrada é inferida pelo valor pago — a faixa contratual real está no Solaris'
       ]
     };
   }
@@ -5344,41 +5343,38 @@ function _kpiV3IndDefs(id, K, inputs, D) {
   // === Receita por Faixa ===
   if (id === 'faixa') {
     const items = [
-      { label: 'Basic (R$ 1.500)', valor: K.faixas.basic },
-      { label: 'Starter (R$ 2.000)', valor: K.faixas.starter },
-      { label: 'Plus (R$ 3.000)', valor: K.faixas.plus },
-      { label: 'Premium (R$ 4.500)', valor: K.faixas.premium },
-      { label: 'Master (R$ 5.500)', valor: K.faixas.master },
-      { label: 'Business (R$ 6.500)', valor: K.faixas.business },
-      { label: 'Outros / Custom', valor: K.faixas.outros }
+      { label: 'Basic (R$ 1.500/mês)', valor: K.faixas.basic },
+      { label: 'Starter (R$ 2.000/mês)', valor: K.faixas.starter },
+      { label: 'Plus (R$ 3.000/mês)', valor: K.faixas.plus },
+      { label: 'Premium (R$ 4.500/mês)', valor: K.faixas.premium },
+      { label: 'Master (R$ 5.500/mês)', valor: K.faixas.master },
+      { label: 'Business (R$ 6.500/mês)', valor: K.faixas.business },
+      { label: 'Outros / Personalizado', valor: K.faixas.outros }
     ].filter(f => f.valor > 0);
     const total = items.reduce((s, i) => s + i.valor, 0);
-    items.forEach(i => i.display = _fmtRsCurto(i.valor) + ' (' + (i.valor/total*100).toFixed(0) + '%)');
+    items.forEach(i => i.display = _fmtRsCurto(i.valor) + ' (' + (total > 0 ? (i.valor/total*100).toFixed(0) : 0) + '%)');
     return {
-      icone: '📊', grupo: 'Receita e Previsibilidade', titulo: 'Receita por Faixa',
-      descricao: 'Distribuição da receita mensal recorrente entre as faixas de contrato (Basic → Business). A faixa é inferida pelo valor mensal pago. Concentração em faixas baixas = risco alto de churn; concentração em faixas altas = ticket forte mas dependência de poucos.',
-      valor: _kpiV3FaixaLider(K.faixas), subvalor: 'Faixa líder em receita',
-      semaforo: 'gray', confiab: 'MÉDIA (inferência por valor)', metaTag: 'Diversificação',
-      metaTexto: 'Objetivo: <strong>diversificação equilibrada</strong>. Alerta quando > 40% concentrado em Basic + Starter (base frágil) ou > 60% em uma única faixa.',
+      icone: '📊', grupo: 'Receita e Previsibilidade', grupoId: 'b1', titulo: 'Receita por Faixa',
+      descricao: 'Distribuição da receita mensal recorrente entre as faixas de contrato (Basic → Business). Mostra o perfil da base e ajuda a identificar riscos de concentração em faixas de menor valor.',
+      valor: _kpiV3FaixaLider(K.faixas), subvalor: total > 0 ? 'Faixa líder em receita' : 'Sem receita registrada',
+      semaforo: total > 0 ? 'blue' : 'gray', confiab: 'MÉDIA (inferência por valor)', metaTag: 'Diversificação',
+      metaTexto: 'A referência esperada é <strong>diversificação equilibrada</strong>. Sinal de alerta quando mais de 40% está concentrado em Basic + Starter (base frágil, alto churn potencial) ou mais de 60% em uma única faixa (dependência excessiva).',
       serie: null,
-      formula: 'SUM(valor_pago) por cliente, classificado em faixa por banda de valor',
-      fonte: { origem: 'OMIE (Contas a Receber)', tabela: 'v_receita_operacional', freq: 'Mensal',
-        query: `SELECT\n  CASE\n    WHEN pago BETWEEN 1350 AND 1650 THEN 'Basic'\n    WHEN pago BETWEEN 1800 AND 2200 THEN 'Starter'\n    WHEN pago BETWEEN 2700 AND 3300 THEN 'Plus'\n    WHEN pago BETWEEN 4050 AND 4950 THEN 'Premium'\n    WHEN pago BETWEEN 4950 AND 6050 THEN 'Master'\n    WHEN pago BETWEEN 5850 AND 7150 THEN 'Business'\n    ELSE 'Outros'\n  END AS faixa,\n  SUM(pago) AS total\nFROM (\n  SELECT cliente_codigo, SUM(valor_pago) AS pago\n  FROM v_receita_operacional\n  WHERE categoria_codigo LIKE '01.01%'\n    AND TO_CHAR(data_pagto,'YYYY-MM') = '${K.mesRef.key}'\n  GROUP BY cliente_codigo\n) x GROUP BY 1;` },
-      passos: [
-        'Somar por cliente o valor pago em mensalidades no mês',
-        'Classificar cada cliente em uma faixa pela banda de valor (Basic ±10%, Starter ±10% etc.)',
-        'Agregar receita total por faixa'
+      leitura: [
+        { titulo: 'Como interpretar este número', texto: total > 0 ? `A faixa <strong>${_kpiV3FaixaLider(K.faixas)}</strong> é a que mais gera receita hoje. A distribuição completa está no gráfico abaixo. Faixas maiores (Master, Business) representam receita mais estável e ticket alto. Faixas menores (Basic, Starter) representam volume e potencial de expansão futura.` : 'Ainda não há receita registrada nas categorias 01.01 (mensalidades) para o mês fechado. Aguardando processamento dos pagamentos.',
+          visual: items.length > 0 ? `<div style="background:#fafafa;border:1px solid #e2e8f0;border-radius:10px;padding:16px 18px">${_kpiV3Breakdown(items, '#059669')}</div>` : '' },
+        { titulo: 'O que está por trás', texto: 'A faixa é <strong>inferida pelo valor</strong> pago no mês, não pela faixa contratual real (que está no Solaris). Se um cliente Master (R$ 5.500) pagou proporcional por meio mês (R$ 2.750), aparece em "Outros". Cliente que ganhou desconto também pode ir para "Outros". Essa é uma limitação da inferência atual.' },
+        { titulo: 'Contexto do mercado', texto: 'Em agências saudáveis, a distribuição costuma seguir uma curva: 40-50% em faixas médias (Plus, Premium), 25-30% em faixas altas (Master, Business), 15-20% em Starter, e Basic sendo porta de entrada com 5-10%. Quando Basic ultrapassa 25%, o modelo pode estar competindo por preço e não por valor.' },
+        { titulo: 'Quando agir', texto: 'Se a faixa Basic cresce mais rápido que as demais, o comercial está trazendo público mais barato — ok se for parte da estratégia, ruim se for por falta de qualificação. Se as faixas altas concentram > 50%, atenção ao risco de perder um cliente grande (ver Concentração Top 5).' }
       ],
+      fonteOrigem: 'OMIE (Contas a Receber)',
+      fonteBase: 'Valor pago por cada cliente no mês, classificado em bandas',
+      fonteFreq: 'Mensal',
+      fonteExpl: 'Somamos por cliente o valor pago em mensalidades no mês. Depois classificamos cada cliente em uma faixa pela banda de valor: Basic entre R$ 1.350-1.650, Starter entre R$ 1.800-2.200, e assim por diante. Cliente com valor fora dessas bandas cai em "Outros". A receita total de cada faixa é a soma dos clientes classificados nela.',
       armadilhas: [
-        'Cliente com desconto proporcional cai fora das bandas → vai para "Outros"',
-        'Cliente com pagamento parcial no mês pode ficar em faixa errada',
-        'A faixa contratual real está no Solaris — esta é uma inferência pela receita observada'
-      ],
-      perguntas: [
-        { pergunta: 'Qual faixa gera mais receita?', resposta: `<strong>${_kpiV3FaixaLider(K.faixas)}</strong> lidera. Se a faixa mais alta domina, ticket forte. Se a mais baixa domina, atenção ao risco de churn.`,
-          visual: `<div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px">${_kpiV3Breakdown(items, '#059669')}</div>` },
-        { pergunta: 'A base está segura?', resposta: 'Se > 40% está em Basic + Starter, atenção — essas faixas têm churn mais alto historicamente. Se > 60% concentrado numa faixa, dependência excessiva.' },
-        { pergunta: 'Vale acelerar upgrade?', resposta: 'Se Ticket Médio subindo + faixas altas crescendo em % = comercial está fazendo upsell bem. Se ao contrário = necessário treinamento comercial em faixas maiores.' }
+        'Cliente que paga proporcional (meio mês, por exemplo) cai fora das bandas → vai para "Outros"',
+        'Cliente com desconto proporcional também pode ir para "Outros"',
+        'A faixa real contratada está no Solaris — esta é uma aproximação pela receita observada'
       ]
     };
   }
@@ -5386,31 +5382,26 @@ function _kpiV3IndDefs(id, K, inputs, D) {
   // === Churn de Receita ===
   if (id === 'churnRec') {
     return {
-      icone: '💧', grupo: 'Retenção', titulo: 'Churn de Receita',
-      descricao: 'Percentual do MRR do mês anterior que foi perdido no mês seguinte. Combina cancelamentos e downgrades por valor. É o principal termômetro de saúde da base — meta agressiva < 5%, tolerável até 8%.',
-      valor: fmtPct(K.churnRec.atual), subvalor: 'MRR do mês anterior que sumiu',
+      icone: '💧', grupo: 'Retenção', grupoId: 'b2', titulo: 'Churn de Receita',
+      descricao: 'Percentual do MRR do mês anterior que foi perdido no mês seguinte por cancelamentos e downgrades. É o principal termômetro de saúde da retenção.',
+      valor: K.churnRec.atual != null ? K.churnRec.atual.toFixed(1) + '%' : '—', subvalor: 'Do MRR do mês anterior que sumiu',
       semaforo: K.churnRec.sem, confiab: 'MÉDIA (base fechada a partir de out/2026)', metaTag: 'Meta < 5%',
-      metaTexto: 'Objetivo: <strong>< 5%</strong> mensal. Verde ≤ 5%, amarelo 5-8%, vermelho > 8%. Alerta: > 10% um único mês.',
+      metaTexto: 'A referência esperada é <strong>abaixo de 5%</strong> mensal. Verde ≤ 5%, amarelo entre 5-8%, vermelho acima de 8%. Um único mês acima de 10% já é sinal de alerta forte.',
       serie: null,
-      formula: '(MRR dos clientes que pararam / MRR do início do mês) × 100',
-      fonte: { origem: 'OMIE (Contas a Receber)', tabela: 'v_receita_operacional', freq: 'Mensal',
-        query: `WITH ativos_ontem AS (\n  SELECT DISTINCT cliente_codigo FROM v_receita_operacional\n  WHERE categoria_codigo LIKE '01.01%'\n    AND TO_CHAR(data_pagto,'YYYY-MM') = '${_kpiV3MesAnterior(K.mesRef.key)}'\n),\nativos_hoje AS (\n  SELECT DISTINCT cliente_codigo FROM v_receita_operacional\n  WHERE categoria_codigo LIKE '01.01%'\n    AND TO_CHAR(data_pagto,'YYYY-MM') = '${K.mesRef.key}'\n),\nperdidos AS (\n  SELECT cliente_codigo FROM ativos_ontem\n  EXCEPT SELECT cliente_codigo FROM ativos_hoje\n)\nSELECT\n  (SELECT SUM(valor_pago) FROM v_receita_operacional v JOIN perdidos p USING(cliente_codigo)\n     WHERE TO_CHAR(v.data_pagto,'YYYY-MM') = '${_kpiV3MesAnterior(K.mesRef.key)}')\n  / NULLIF((SELECT SUM(valor_pago) FROM v_receita_operacional\n     WHERE categoria_codigo LIKE '01.01%'\n       AND TO_CHAR(data_pagto,'YYYY-MM') = '${_kpiV3MesAnterior(K.mesRef.key)}'),0)\n  * 100 AS churn_receita_pct;` },
-      passos: [
-        'Identificar clientes que pagaram no mês anterior (base de comparação)',
-        'Identificar clientes que pagaram no mês de referência',
-        'Encontrar quem estava na base anterior e NÃO está na atual (perdidos)',
-        'Somar quanto esses clientes perdidos pagavam no mês anterior',
-        'Dividir pelo MRR total do mês anterior e multiplicar por 100'
+      leitura: [
+        { titulo: 'Como interpretar este número', texto: K.churnRec.atual != null ? `O churn de receita está em <strong>${K.churnRec.atual.toFixed(1)}%</strong>. Isso significa que de cada R$100 que a base pagava no mês anterior, R$${K.churnRec.atual.toFixed(1)} sumiram este mês por cancelamento ou downgrade. Em um MRR de R$ 400k, isso equivale a aproximadamente R$ ${(400000 * K.churnRec.atual / 100).toFixed(0)} perdidos.` : 'Aguardando dois meses fechados para calcular. A partir de out/2026 este indicador se torna plenamente confiável.' },
+        { titulo: 'O que está por trás', texto: 'Churn nunca acontece por acaso. As causas mais comuns são: (1) cliente parou de ver valor no serviço, (2) mudou de estratégia interna e não precisa mais, (3) foi capturado pela concorrência, (4) teve problemas financeiros. As duas primeiras são responsabilidade da Growper — as duas últimas são fatores externos. Sem entrevista de saída (exit interview), não conseguimos separar esses grupos.' },
+        { titulo: 'Contexto do mercado', texto: 'Em SaaS PME, churn mensal saudável fica entre 2-5%. Acima de 8% costuma significar problema estrutural — proposta de valor não sustenta o preço ou onboarding não engaja. Em segmentos B2C, tolerância chega a 10%. Growper opera com PME no automotivo, onde 3-5% é referência de excelência.' },
+        { titulo: 'Quando agir', texto: 'Churn acima de 5% por 2 meses seguidos exige investigação: quem saiu (faixa, tempo de casa, segmento), por quê, e se há padrão. Se está concentrado em clientes de menos de 3 meses, o problema é onboarding. Se em clientes com mais de 12 meses, é fadiga de valor. Cruzar com Churn de Logos para saber se sumiram muitos pequenos ou poucos grandes.' }
       ],
+      fonteOrigem: 'OMIE (Contas a Receber)',
+      fonteBase: 'Cruzamento por cliente do mês atual vs o mês anterior',
+      fonteFreq: 'Mensal',
+      fonteExpl: 'Identificamos todos os clientes que pagaram alguma mensalidade no mês anterior. Depois vemos quais deles NÃO pagaram no mês de referência (perdidos). Somamos quanto esses perdidos pagavam anteriormente e dividimos pelo MRR total do mês anterior. Multiplicamos por 100 para virar percentual.',
       armadilhas: [
-        'Cliente pode estar só atrasado — recalcular no mês seguinte pode reverter',
-        'Cliente que paga bimestralmente aparece como churnado — filtrar padrão de pagamento',
-        'Se a base é pequena, um único cliente grande pode elevar muito o churn'
-      ],
-      perguntas: [
-        { pergunta: 'Foi cancelamento ou só atraso?', resposta: 'Aguardar dia 5 do mês seguinte quando as baixas fecham. Se persistir, é churn real. Cruzar com Inadimplência: se ela subiu junto, é mais atraso do que perda.' },
-        { pergunta: 'Perdemos clientes grandes ou pequenos?', resposta: 'Cruzar com Churn de Logos: se Churn Receita > Churn Logos, saíram clientes grandes (ticket alto). Se Churn Receita < Churn Logos, saíram muitos pequenos.' },
-        { pergunta: 'Estamos batendo a meta?', resposta: K.churnRec.atual != null ? (K.churnRec.atual <= 5 ? `Sim (${K.churnRec.atual.toFixed(1)}% ≤ 5%).` : `Não (${K.churnRec.atual.toFixed(1)}% > 5%). Investigar perfil dos que saíram.`) : 'Ainda sem dados suficientes.' }
+        'Cliente pode estar só atrasado, não perdido — validar no dia 5 do mês seguinte',
+        'Cliente com pagamento bimestral aparece como churnado no mês vazio (falso positivo)',
+        'Base pequena faz o indicador oscilar muito com um único cliente grande'
       ]
     };
   }
@@ -5418,29 +5409,26 @@ function _kpiV3IndDefs(id, K, inputs, D) {
   // === Churn de Logos ===
   if (id === 'churnLogo') {
     return {
-      icone: '👥', grupo: 'Retenção', titulo: 'Churn de Logos',
-      descricao: 'Percentual do número de clientes ativos que saíram no mês. Complementar ao Churn de Receita — a comparação entre os dois diz se saíram clientes grandes ou pequenos.',
-      valor: fmtPct(K.churnLogo.atual), subvalor: 'Clientes perdidos vs mês anterior',
+      icone: '👥', grupo: 'Retenção', grupoId: 'b2', titulo: 'Churn de Logos',
+      descricao: 'Percentual do número de clientes ativos que saíram no mês. Complementar ao Churn de Receita — comparar os dois indica se saíram clientes grandes ou pequenos.',
+      valor: K.churnLogo.atual != null ? K.churnLogo.atual.toFixed(1) + '%' : '—', subvalor: 'Da base de clientes ativos',
       semaforo: K.churnLogo.sem, confiab: 'MÉDIA', metaTag: 'Meta < 5%',
-      metaTexto: 'Objetivo: <strong>< 5%</strong> mensal. Verde ≤ 5%, amarelo 5-8%, vermelho > 8%.',
+      metaTexto: 'A referência esperada é <strong>abaixo de 5%</strong> mensal. Verde ≤ 5%, amarelo entre 5-8%, vermelho acima de 8%. O diagnóstico completo vem da comparação com o Churn de Receita.',
       serie: null,
-      formula: '(Clientes perdidos no mês / Clientes ativos início do mês) × 100',
-      fonte: { origem: 'OMIE', tabela: 'v_receita_operacional', freq: 'Mensal',
-        query: `WITH a AS (SELECT COUNT(DISTINCT cliente_codigo) n FROM v_receita_operacional WHERE categoria_codigo LIKE '01.01%' AND TO_CHAR(data_pagto,'YYYY-MM') = '${_kpiV3MesAnterior(K.mesRef.key)}'),\np AS (SELECT COUNT(DISTINCT cliente_codigo) n FROM v_receita_operacional v1\n  WHERE categoria_codigo LIKE '01.01%'\n    AND TO_CHAR(data_pagto,'YYYY-MM') = '${_kpiV3MesAnterior(K.mesRef.key)}'\n    AND NOT EXISTS (SELECT 1 FROM v_receita_operacional v2 WHERE v2.cliente_codigo = v1.cliente_codigo AND v2.categoria_codigo LIKE '01.01%' AND TO_CHAR(v2.data_pagto,'YYYY-MM') = '${K.mesRef.key}'))\nSELECT p.n * 100.0 / NULLIF(a.n,0) FROM a, p;` },
-      passos: [
-        'Contar clientes distintos que pagaram no mês anterior',
-        'Contar quantos desses NÃO pagaram no mês de referência (perdidos)',
-        'Perdidos / Ativos anterior × 100'
+      leitura: [
+        { titulo: 'Como interpretar este número', texto: K.churnLogo.atual != null ? `Perdemos <strong>${K.churnLogo.atual.toFixed(1)}%</strong> da base de clientes ativos este mês. Se a base era de 150, isso corresponde a aproximadamente ${Math.round(150 * K.churnLogo.atual / 100)} clientes.` : 'Aguardando dois meses fechados para cálculo.' },
+        { titulo: 'O que está por trás', texto: (K.churnRec.atual != null && K.churnLogo.atual != null) ? (K.churnRec.atual > K.churnLogo.atual ? `Churn de Receita (${K.churnRec.atual.toFixed(1)}%) está acima do Churn de Logos (${K.churnLogo.atual.toFixed(1)}%). Isso significa que os clientes que saíram eram <strong>maiores que a média</strong> — perdemos ticket alto.` : `Churn de Logos (${K.churnLogo.atual.toFixed(1)}%) está acima do Churn de Receita (${K.churnRec.atual.toFixed(1)}%). Isso significa que os clientes que saíram eram <strong>menores que a média</strong> — perdemos volume, não valor.`) : 'Comparação com Churn de Receita ficará disponível quando ambos tiverem dados fechados.' },
+        { titulo: 'Contexto do mercado', texto: 'Em geral, Churn de Logos e Churn de Receita são próximos quando a base é homogênea. Grandes divergências entre eles indicam segmentação: se Logos sobe rápido e Receita não, muitos clientes pequenos estão saindo (talvez fim do free trial ou faixa Basic). Se Receita sobe rápido e Logos não, é churn de conta grande — muito mais grave.' },
+        { titulo: 'Quando agir', texto: 'Se Churn de Logos sobe consistentemente com base estável ou crescente de receita, o problema é qualidade do funil comercial (entram e saem rápido). Se sobe com receita caindo, é deterioração geral da proposta de valor.' }
       ],
+      fonteOrigem: 'OMIE (Contas a Receber)',
+      fonteBase: 'Contagem de clientes distintos no mês atual vs anterior',
+      fonteFreq: 'Mensal',
+      fonteExpl: 'Contamos quantos clientes distintos pagaram alguma mensalidade no mês anterior. Depois vemos quantos desses não pagaram no mês de referência (perdidos). O churn é: perdidos ÷ ativos do mês anterior × 100.',
       armadilhas: [
-        'Não distingue "cliente que era grande" de "cliente que era pequeno" — usar junto com Churn de Receita',
-        'Cliente com pagamento bimestral cai fora',
-        'Pequenas bases fazem o indicador oscilar muito'
-      ],
-      perguntas: [
-        { pergunta: 'Perdemos muitos ou poucos?', resposta: K.churnLogo.atual != null ? `${K.churnLogo.atual.toFixed(1)}% da base saiu.` : 'Sem dados.' },
-        { pergunta: 'Saíram clientes grandes ou pequenos?', resposta: (K.churnRec.atual != null && K.churnLogo.atual != null) ? (K.churnRec.atual > K.churnLogo.atual ? 'Grandes — Churn Receita maior que Churn Logos.' : 'Pequenos — Churn Logos maior que Churn Receita.') : 'Aguardar comparação.' },
-        { pergunta: 'Qual perfil está saindo?', resposta: 'Cruzar com Receita por Faixa. Se faixa Basic caiu mais, o problema é retenção de clientes pequenos.' }
+        'Não distingue cliente grande de cliente pequeno — sempre olhar junto com Churn de Receita',
+        'Cliente que paga bimestralmente aparece falso positivo no mês vazio',
+        'Bases pequenas fazem o indicador oscilar drasticamente'
       ]
     };
   }
@@ -5448,30 +5436,26 @@ function _kpiV3IndDefs(id, K, inputs, D) {
   // === Churn Antecedente ===
   if (id === 'churnAnt') {
     return {
-      icone: '🚨', grupo: 'Retenção', titulo: 'Churn Antecedente',
-      descricao: 'Percentual de clientes que sinalizaram saída ANTES de parar de pagar — pedido de cancelamento, downgrade solicitado, reclamação formal. É o único indicador antecedente de churn, permitindo agir antes da perda. Hoje NÃO ESTÁ INTEGRADO.',
-      valor: '—', subvalor: 'Fonte não configurada',
-      semaforo: 'gray', confiab: 'INDISPONÍVEL', metaTag: 'Requer CRM',
-      metaTexto: 'Objetivo: quando integrado, <strong>< 3%</strong>. Hoje precisa que o comercial registre sinalizações no CRM (não implementado).',
+      icone: '🚨', grupo: 'Retenção', grupoId: 'b2', titulo: 'Churn Antecedente',
+      descricao: 'Percentual de clientes que sinalizaram intenção de saída antes de parar de pagar — pedido de cancelamento, downgrade solicitado, reclamação formal. É o único indicador antecedente de churn.',
+      valor: '—', subvalor: 'Fonte não configurada hoje',
+      semaforo: 'gray', confiab: 'INDISPONÍVEL', metaTag: 'Requer sistema CRM',
+      metaTexto: 'A referência esperada, quando integrado, será <strong>abaixo de 3%</strong>. Hoje o indicador não está disponível porque depende do comercial registrar as sinalizações em um sistema — que ainda não foi construído.',
       serie: null,
-      formula: 'N/A — dependente de campo "sinalizou_cancelamento" em sistema comercial',
-      fonte: { origem: 'CRM / Comercial (NÃO INTEGRADO)', tabela: 'sinalizacoes_churn (não existe)', freq: 'A definir',
-        query: `-- Estrutura sugerida quando implementar:\nSELECT COUNT(*) FILTER (WHERE sinalizou_cancelamento) * 100.0\n     / NULLIF(COUNT(*), 0) AS churn_antecedente_pct\nFROM sinalizacoes_churn\nWHERE mes_ref = '${K.mesRef.key}';` },
-      passos: [
-        'Precisa: registro no comercial (Bruna) de cada sinalização',
-        'Criar tabela <code>sinalizacoes_churn</code> no Supabase',
-        'Campos: cliente_codigo, data_sinalizacao, tipo (cancelamento, downgrade, reclamação), motivo',
-        'Popular via formulário/registro no dashboard'
+      leitura: [
+        { titulo: 'Como interpretar este número', texto: 'Este indicador ainda não é medido. Ele mostraria quantos clientes já <strong>avisaram</strong> que vão sair (por email, ligação com CS, redução de faixa) antes de efetivamente pararem de pagar. É o único termômetro que permite agir <strong>antes</strong> da perda.' },
+        { titulo: 'Por que é importante', texto: 'Todos os outros indicadores de churn são "espelho retrovisor" — mostram o que já aconteceu. O churn antecedente é o para-brisa: permite ver o que vai acontecer com 30-60 dias de antecedência. Empresas maduras usam isso para acionar tentativas de retenção antes da perda ser inevitável.' },
+        { titulo: 'Como implementar', texto: 'A construção passa por três etapas: (1) Bruna registra cada sinalização de saída (email do cliente, redução solicitada) em um formulário no dashboard; (2) Um novo endpoint no Supabase armazena essas sinalizações; (3) Este card puxa os dados e calcula o percentual sobre a base ativa. É trabalho de comercial + engenharia, alinhamento necessário.' },
+        { titulo: 'Enquanto não temos', texto: 'Continuamos operando com Churn de Receita e Churn de Logos como termômetros — mas apenas retrospectivos. Não há como estimar churn futuro com precisão até que este indicador seja construído.' }
       ],
+      fonteOrigem: 'Não integrado (requer CRM ou registro comercial)',
+      fonteBase: 'Nenhuma disponível hoje',
+      fonteFreq: 'A definir quando implementado',
+      fonteExpl: 'Nem o OMIE (financeiro) nem o Solaris (mídia) capturam a intenção de saída de um cliente — apenas o resultado (pagamento ou não). Para termos churn antecedente, a Bruna (comercial) precisa registrar cada sinalização de saída em uma planilha ou formulário. Depois, esses registros seriam movidos para uma tabela no Supabase, e este card puxaria automaticamente.',
       armadilhas: [
-        'Depende 100% da disciplina do comercial em registrar',
-        'Sem processo, indicador vira ficção',
-        'Considerar automatizar por gatilhos (queda de uso, ticket aberto)'
-      ],
-      perguntas: [
-        { pergunta: 'Por que não temos este indicador?', resposta: 'Porque nem OMIE (financeiro) nem Solaris (mídia) capturam intenção de saída. Precisamos alimentar isso do comercial.' },
-        { pergunta: 'Qual valor de ter?', resposta: 'Ver o churn 30-60 dias antes dele acontecer. Permite negociação preventiva. Sem isso, só reagimos.' },
-        { pergunta: 'Como implementar?', resposta: 'Fase 1: campo no CRM (ou planilha) que Bruna preenche. Fase 2: sync automático para Supabase. Fase 3: card aqui puxa dado.' }
+        'Depende 100% da disciplina do comercial em registrar sinalizações',
+        'Sem processo estruturado, o indicador vira ficção — melhor não medir do que medir errado',
+        'Considerar automação por gatilhos (queda de uso, ticket aberto no suporte) para reduzir dependência humana'
       ]
     };
   }
@@ -5479,30 +5463,26 @@ function _kpiV3IndDefs(id, K, inputs, D) {
   // === Inadimplência ===
   if (id === 'inadimp') {
     return {
-      icone: '💸', grupo: 'Risco e Caixa', titulo: 'Inadimplência',
-      descricao: 'Percentual da receita esperada nos últimos 90 dias que ainda não foi paga. Diferente de churn: cliente pode ainda pagar. Ideal < 3%, tolerável até 5%, crítico acima disso.',
-      valor: fmtPct(K.inadimp.atual), subvalor: _fmtRsCurto(K.inadimp.valorAberto) + ' vencido em aberto',
+      icone: '💸', grupo: 'Risco e Caixa', grupoId: 'b3', titulo: 'Inadimplência',
+      descricao: 'Percentual da receita esperada nos últimos 90 dias que ainda não foi paga. Diferente de churn — o cliente ainda pode pagar, mas o dinheiro não entrou no prazo.',
+      valor: K.inadimp.atual != null ? K.inadimp.atual.toFixed(1) + '%' : '—', subvalor: _fmtRsCurto(K.inadimp.valorAberto) + ' vencido em aberto',
       semaforo: K.inadimp.sem, confiab: 'ALTA', metaTag: 'Meta < 3%',
-      metaTexto: 'Objetivo: <strong>< 3%</strong>. Verde ≤ 3%, amarelo 3-5%, vermelho > 5%. Cruzar SEMPRE com comercial antes de considerar perda — pode ser negociação.',
+      metaTexto: 'A referência esperada é <strong>abaixo de 3%</strong>. Verde ≤ 3%, amarelo entre 3-5%, vermelho acima de 5%. Cruzar sempre com o comercial antes de considerar como perda — pode ser negociação em andamento.',
       serie: null,
-      formula: '(SUM(vencido não pago) / SUM(esperado últimos 90d)) × 100',
-      fonte: { origem: 'OMIE (títulos abertos)', tabela: 'titulos', freq: 'Snapshot atual',
-        query: `SELECT\n  SUM(valor_documento) FILTER (WHERE status='Não' AND data_vencimento < CURRENT_DATE) * 100.0\n  / NULLIF(SUM(valor_documento) FILTER (WHERE data_vencimento >= CURRENT_DATE - INTERVAL '90 days' AND data_vencimento <= CURRENT_DATE), 0)\n  AS inadimplencia_pct\nFROM titulos\nWHERE tipo = '1. Contas a Receber' AND cancelado = FALSE;` },
-      passos: [
-        'Filtrar todos os títulos de Contas a Receber não cancelados',
-        'Somar valor dos que estão vencidos (data_vencimento < hoje) e não pagos (status = Não)',
-        'Somar valor total esperado nos últimos 90 dias (vencidos e não vencidos)',
-        'Dividir e multiplicar por 100'
+      leitura: [
+        { titulo: 'Como interpretar este número', texto: K.inadimp.atual != null ? `A inadimplência está em <strong>${K.inadimp.atual.toFixed(1)}%</strong>, o que corresponde a <strong>${_fmtRsCurto(K.inadimp.valorAberto)}</strong> em títulos vencidos e ainda não pagos.` : 'Aguardando dados de títulos.' },
+        { titulo: 'O que está por trás', texto: 'Inadimplência não é o mesmo que perda. Cliente que atrasa 5 dias e paga é normalidade. Cliente que atrasa 60 dias e paga é problema de fluxo mas não de cliente. Cliente que atrasa 90+ dias e não responde é candidato a perda real. A distribuição por faixa de atraso está no card "Aging de Recebíveis".' },
+        { titulo: 'Contexto do mercado', texto: 'Em agências digitais, inadimplência entre 2-4% é considerada normal — sempre há clientes com problemas pontuais. Acima de 5% consistente indica ou critério de crédito frouxo (aceitando cliente que não deveria) ou política de cobrança fraca. Abaixo de 1% é sinal excelente mas pode indicar base muito conservadora.' },
+        { titulo: 'Quando agir', texto: 'Ordem de ação: (1) verificar se são clientes em negociação — não é perda, é fluxo; (2) para clientes de 31-60d, cobrança ativa e pessoal (não automática); (3) para 90+d, decisão comercial: negociar acordo com desconto ou baixar contabilmente. Se a inadimplência sobe consistente, revisar processo de aprovação de novos contratos.' }
       ],
+      fonteOrigem: 'OMIE (títulos)',
+      fonteBase: 'Todos os títulos de Contas a Receber ainda em aberto',
+      fonteFreq: 'Snapshot em tempo real',
+      fonteExpl: 'Olhamos todos os títulos de Contas a Receber que estão marcados como não cancelados. Somamos o valor daqueles cujo vencimento já passou e que ainda estão com status "não pago". Comparamos com o valor total que era esperado nos últimos 90 dias. A divisão dá o percentual.',
       armadilhas: [
-        'Pode ser só renegociação em andamento, não perda',
-        'Cliente que sempre atrasa 5 dias sobe/desce o indicador artificialmente',
-        'Cruzar com comercial antes de considerar baixa'
-      ],
-      perguntas: [
-        { pergunta: 'Quanto está em aberto e há quanto tempo?', resposta: `Total vencido: <strong>${_fmtRsCurto(K.inadimp.valorAberto)}</strong>. Ver a página de Aging para detalhamento por faixa de atraso.` },
-        { pergunta: 'É um problema estrutural?', resposta: K.inadimp.atual > 5 ? 'Sim. Acima da tolerância. Revisar critério de crédito para novos clientes ou política de cobrança.' : (K.inadimp.atual > 3 ? 'Atenção. Dentro da tolerância mas próximo do limite.' : 'Não. Dentro do saudável.') },
-        { pergunta: 'Como recuperar?', resposta: 'Aging na faixa 0-30d = cobrança automática. 31-60d = contato personalizado. 61-90d = negociação. 90+ = jurídico ou baixa.' }
+        'Pode ser só renegociação em andamento — não é perda',
+        'Cliente que sempre atrasa 5 dias infla e deflaciona o indicador artificialmente',
+        'Cruzar sempre com comercial antes de considerar como baixa contábil'
       ]
     };
   }
@@ -5510,39 +5490,35 @@ function _kpiV3IndDefs(id, K, inputs, D) {
   // === Aging ===
   if (id === 'aging') {
     const items = [
-      { label: 'A vencer / até 30d', valor: K.aging.a0_30, display: _fmtRsCurto(K.aging.a0_30) },
+      { label: 'A vencer / até 30 dias', valor: K.aging.a0_30, display: _fmtRsCurto(K.aging.a0_30) },
       { label: 'Vencido 31-60 dias', valor: K.aging.a31_60, display: _fmtRsCurto(K.aging.a31_60) },
       { label: 'Vencido 61-90 dias', valor: K.aging.a61_90, display: _fmtRsCurto(K.aging.a61_90) },
       { label: 'Vencido 90+ dias', valor: K.aging.a90_mais, display: _fmtRsCurto(K.aging.a90_mais) }
     ];
     const totAberto = items.reduce((s, i) => s + i.valor, 0);
+    const sem = K.aging.a90_mais > 0 ? (K.aging.a90_mais > totAberto * 0.1 ? 'red' : 'yellow') : 'green';
     return {
-      icone: '📅', grupo: 'Risco e Caixa', titulo: 'Aging de Recebíveis',
-      descricao: 'Distribuição dos títulos em aberto por faixa de atraso. Diagnóstico da inadimplência: se está tudo em 0-30d, é normalidade. Se acumula em 90+, é problema estrutural que precisa de baixa contábil.',
+      icone: '📅', grupo: 'Risco e Caixa', grupoId: 'b3', titulo: 'Aging de Recebíveis',
+      descricao: 'Distribuição dos títulos em aberto por tempo de atraso. Se está tudo em 0-30d é normalidade. Se acumula em 90+d é problema estrutural.',
       valor: _fmtRsCurto(totAberto), subvalor: 'Total em aberto (todas as faixas)',
-      semaforo: K.aging.a90_mais > 0 ? (K.aging.a90_mais > totAberto * 0.1 ? 'red' : 'yellow') : 'green',
-      confiab: 'ALTA', metaTag: '90%+ em 0-30d',
-      metaTexto: 'Objetivo: <strong>> 90% na faixa 0-30d</strong>. Alerta quando > 10% acumulado em 90+d.',
+      semaforo: sem, confiab: 'ALTA', metaTag: '> 90% em 0-30d',
+      metaTexto: 'A referência esperada é ter <strong>mais de 90% do total em aberto na faixa de 0-30 dias</strong>. Alerta quando mais de 10% do total está acumulado em 90+d — recuperação nessa faixa é muito difícil.',
       serie: null,
-      formula: 'SUM(valor_documento) agrupado por faixa de (CURRENT_DATE − data_vencimento)',
-      fonte: { origem: 'OMIE (títulos)', tabela: 'titulos', freq: 'Snapshot atual',
-        query: `SELECT\n  CASE\n    WHEN data_vencimento >= CURRENT_DATE THEN 'A vencer'\n    WHEN data_vencimento >= CURRENT_DATE - 30 THEN '0-30d'\n    WHEN data_vencimento >= CURRENT_DATE - 60 THEN '31-60d'\n    WHEN data_vencimento >= CURRENT_DATE - 90 THEN '61-90d'\n    ELSE '90+ dias'\n  END AS faixa,\n  SUM(valor_documento) AS total\nFROM titulos\nWHERE tipo = '1. Contas a Receber' AND cancelado = FALSE AND status = 'Não'\nGROUP BY 1;` },
-      passos: [
-        'Filtrar títulos abertos (status = Não) e não cancelados',
-        'Calcular diferença entre hoje e a data de vencimento',
-        'Agrupar em faixas: a vencer, 0-30d, 31-60d, 61-90d, 90+d',
-        'Somar valor de documento por faixa'
+      leitura: [
+        { titulo: 'Como interpretar este número', texto: `Há hoje <strong>${_fmtRsCurto(totAberto)}</strong> em títulos abertos. Desses, <strong>${_fmtRsCurto(K.aging.a90_mais)}</strong> estão em atraso de mais de 90 dias — a faixa mais crítica, com menor probabilidade de recuperação.`,
+          visual: `<div style="background:#fafafa;border:1px solid #e2e8f0;border-radius:10px;padding:16px 18px">${_kpiV3Breakdown(items, '#f97316')}</div>` },
+        { titulo: 'O que está por trás', texto: 'Cada faixa tem uma taxa de recuperação diferente. Nos últimos 30 dias, 90%+ costuma ser recuperado com um simples lembrete. Em 31-60d cai para 70-80% com contato pessoal. Em 61-90d fica em torno de 40-50% com negociação. Em 90+d, menos de 20% é recuperado — o resto vira baixa contábil.' },
+        { titulo: 'Contexto do mercado', texto: 'A regra prática do mercado B2B: cada mês que um título atrasa reduz a probabilidade de recebimento em ~30%. Por isso, cobrança preventiva (5 dias antes do vencimento) e cobrança nos primeiros 30 dias têm ROI muito maior do que cobrança tardia.' },
+        { titulo: 'Quando agir', texto: 'Prioridade de ação: (1) 31-60d — cobrança pessoal por WhatsApp, sem fricção, pode virar 80% de recuperação; (2) 61-90d — proposta de acordo (parcelamento, pequeno desconto); (3) 90+d — decisão executiva sobre baixa ou judicial. Recuperar 31-60d é 10x mais barato que 90+d.' }
       ],
+      fonteOrigem: 'OMIE (títulos abertos)',
+      fonteBase: 'Títulos de Contas a Receber com status "não pago"',
+      fonteFreq: 'Snapshot em tempo real',
+      fonteExpl: 'Pegamos todos os títulos de Contas a Receber ainda em aberto e não cancelados. Para cada um, calculamos quantos dias já se passaram desde o vencimento. Agrupamos em quatro faixas: a vencer, 0-30 dias vencido, 31-60, 61-90, 90+. A soma do valor em cada faixa dá a distribuição.',
       armadilhas: [
-        'Título em 90+d muitas vezes já foi baixado internamente pelo comercial',
-        'Cruzar com histórico antes de considerar como perda',
-        'Sazonalidade: dezembro sempre tem aging pior'
-      ],
-      perguntas: [
-        { pergunta: 'Como se distribui o vencido?', resposta: 'Ver breakdown abaixo — quanto está em cada faixa.',
-          visual: `<div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px">${_kpiV3Breakdown(items, '#f97316')}</div>` },
-        { pergunta: 'O que está em 90+d é recuperável?', resposta: K.aging.a90_mais > 0 ? `<strong>${_fmtRsCurto(K.aging.a90_mais)}</strong> em 90+d. Se > 6 meses, considerar baixa. Se < 6 meses, agressão de cobrança + oferta de acordo.` : 'Nada em 90+d — situação saudável.' },
-        { pergunta: 'Onde priorizar?', resposta: 'Recuperar 31-60d é mais barato que recuperar 90+d. Foco máximo nesta faixa antes de deteriorar.' }
+        'Título em 90+ dias muitas vezes já foi baixado internamente pelo comercial mas não no OMIE',
+        'Sazonalidade: dezembro sempre tem aging pior por causa das férias',
+        'Cruzar com histórico antes de considerar como perda'
       ]
     };
   }
@@ -5551,7 +5527,6 @@ function _kpiV3IndDefs(id, K, inputs, D) {
   if (id === 'top5' || id === 'top10') {
     const isTop5 = id === 'top5';
     const cutoff = isTop5 ? 5 : 10;
-    // ranking de clientes últimos 3m
     const mesRef = K.mesRef.key;
     const m1 = _kpiV3MesAnterior(mesRef);
     const m2 = _kpiV3MesAnterior(m1);
@@ -5564,40 +5539,36 @@ function _kpiV3IndDefs(id, K, inputs, D) {
       }
     });
     const ranking = Object.entries(perCli).sort((a,b) => b[1] - a[1]).slice(0, cutoff)
-      .map(([cli, v]) => ({ label: 'Cliente ' + cli, valor: v, display: _fmtRsCurto(v) }));
+      .map(([cli, v], idx) => ({ label: 'Cliente #' + (idx+1) + ' (código: ' + cli + ')', valor: v, display: _fmtRsCurto(v) }));
     const alvo = isTop5 ? K.top5 : K.top10;
     return {
-      icone: '🎯', grupo: 'Risco e Caixa', titulo: `Concentração — Top ${cutoff} clientes`,
-      descricao: `Percentual da receita total dos últimos 3 meses que vem dos ${cutoff} maiores clientes. Alta concentração = alto risco: perder um cliente grande pode desestabilizar o mês inteiro.`,
-      valor: fmtPct(alvo.atual), subvalor: `Dos ${cutoff} maiores em receita`,
+      icone: '🎯', grupo: 'Risco e Caixa', grupoId: 'b3', titulo: `Concentração — Top ${cutoff}`,
+      descricao: `Percentual da receita total dos últimos 3 meses que vem dos ${cutoff} maiores clientes. Alta concentração significa alto risco — perder um cliente grande pode desestabilizar todo o mês.`,
+      valor: alvo.atual != null ? alvo.atual.toFixed(0) + '%' : '—', subvalor: `Dos ${cutoff} maiores em receita`,
       semaforo: alvo.sem, confiab: 'ALTA', metaTag: isTop5 ? 'Meta < 30%' : 'Meta < 45%',
-      metaTexto: isTop5 ? 'Objetivo: <strong>Top 5 < 30%</strong>. Verde ≤ 30%, amarelo 30-40%, vermelho > 40%. Alta concentração = risco existencial.' : 'Objetivo: <strong>Top 10 < 45%</strong>. Verde ≤ 45%, amarelo 45-60%, vermelho > 60%.',
+      metaTexto: isTop5 ? 'A referência esperada é <strong>abaixo de 30%</strong>. Verde ≤ 30%, amarelo entre 30-40%, vermelho acima de 40%. Concentração alta é risco existencial — perder o maior cliente arruína o mês.' : 'A referência esperada é <strong>abaixo de 45%</strong>. Verde ≤ 45%, amarelo entre 45-60%, vermelho acima de 60%. Mesma lógica do Top 5, aplicada aos 10 maiores.',
       serie: null,
-      formula: `SUM(top ${cutoff} clientes últimos 3m) / SUM(total últimos 3m) × 100`,
-      fonte: { origem: 'OMIE', tabela: 'v_receita_operacional', freq: 'Mensal (janela móvel 3m)',
-        query: `WITH ranking AS (\n  SELECT cliente_codigo, SUM(valor_pago) AS receita\n  FROM v_receita_operacional\n  WHERE TO_CHAR(data_pagto,'YYYY-MM') IN ('${mesRef}','${m1}','${m2}')\n  GROUP BY cliente_codigo\n  ORDER BY receita DESC\n)\nSELECT\n  (SELECT SUM(receita) FROM (SELECT * FROM ranking LIMIT ${cutoff}) t) * 100.0\n  / NULLIF((SELECT SUM(receita) FROM ranking), 0) AS concentracao_pct;` },
-      passos: [
-        'Somar receita por cliente nos últimos 3 meses (janela móvel)',
-        `Ordenar decrescente e pegar os ${cutoff} maiores`,
-        `Soma dos ${cutoff} maiores / total × 100`
+      leitura: [
+        { titulo: 'Como interpretar este número', texto: alvo.atual != null ? `Os ${cutoff} maiores clientes concentram <strong>${alvo.atual.toFixed(0)}%</strong> da receita dos últimos 3 meses. Isso significa que, se algum deles cancelar, uma parte significativa do MRR desaparece de uma vez.` : 'Aguardando dados.',
+          visual: ranking.length > 0 ? `<div style="background:#fafafa;border:1px solid #e2e8f0;border-radius:10px;padding:16px 18px">${_kpiV3Ranking(ranking, '#f97316')}</div>` : '' },
+        { titulo: 'O que está por trás', texto: `Alta concentração pode indicar duas coisas muito diferentes: (1) crescimento saudável para o topo — bons clientes gastando mais; ou (2) base pequena erosionada — sobrando só os grandes porque os médios saíram. A leitura correta vem de olhar junto com o Churn e o Ticket Médio.` },
+        { titulo: 'Contexto do mercado', texto: `A regra prática do mercado B2B: nenhum cliente único deve representar mais de 15-20% do total. Nenhum Top 5 deve passar de 40%. Nenhum Top 10 deve passar de 60%. Empresas de venture backed geralmente exigem concentração muito menor do que empresas familiares (que toleram até 50% em um único cliente).` },
+        { titulo: 'Quando agir', texto: `Se a concentração está subindo mês a mês, duas ações imediatas: (1) intensificar comercial para trazer novos clientes de porte médio (reduzir concentração relativa); (2) trabalhar retenção dos Top 5 — CS dedicado, relacionamento com decisor. Nunca demitir um grande — sempre <strong>diluir</strong> a concentração crescendo por cima.` }
       ],
+      fonteOrigem: 'OMIE (Contas a Receber)',
+      fonteBase: `Ranking de clientes por receita nos últimos 3 meses`,
+      fonteFreq: 'Mensal (janela móvel de 3 meses)',
+      fonteExpl: `Somamos por cliente toda a receita registrada nos últimos 3 meses. Ordenamos do maior para o menor. Pegamos os ${cutoff} maiores. Somamos quanto esses ${cutoff} representam. Dividimos pelo total geral. Multiplicamos por 100.`,
       armadilhas: [
-        'Sobe se a base cai mesmo que o topo não cresça — não é sempre sinal de dependência crescente',
-        'Cliente fora do top que cresce pode reduzir a concentração — nem sempre é ruim',
-        'Um cliente sazonal (paga trimestralmente) infla a janela onde caiu o pagamento'
-      ],
-      perguntas: [
-        { pergunta: `Quem são os ${cutoff} maiores?`, resposta: 'Ver ranking abaixo. Se algum representa > 15% sozinho, é vulnerabilidade sistêmica.',
-          visual: `<div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px">${_kpiV3Ranking(ranking, '#f97316')}</div>` },
-        { pergunta: 'Estamos diversificando?', resposta: 'Comparar Top 5 e Top 10 mês a mês. Se ambos caem = base crescendo saudável. Se ambos sobem = dependência crescente.' },
-        { pergunta: 'Devo demitir algum grande?', resposta: 'Nunca. Deve trabalhar para adicionar NOVOS grandes ou expandir médios. Reduzir dependência crescendo, não cortando.' }
+        'Sobe se a base cai mesmo sem o topo crescer — nem sempre indica dependência crescente',
+        'Cliente que paga trimestralmente infla a janela onde caiu o pagamento',
+        'Comparar sempre a variação mês a mês, não apenas o valor absoluto'
       ]
     };
   }
 
   // === Margem Líquida ===
   if (id === 'margem') {
-    // Série da margem últimos 6 meses
     const serie = meses6.map(m => {
       const rec = D.receita.filter(r => (r.data_pagto || '').slice(0,7) === m).reduce((s,r) => s + Number(r.valor_pago || 0), 0);
       const imp = D.despesa.filter(d => (d.data_pagto || '').slice(0,7) === m && d.grupo_dre === 'IMPOSTOS').reduce((s,r) => s + Number(r.valor_pago || 0), 0);
@@ -5605,7 +5576,6 @@ function _kpiV3IndDefs(id, K, inputs, D) {
       const rl = rec - imp;
       return { label: mesesLabels(m), valor: rl > 0 ? ((rl - desp) / rl * 100) : 0 };
     });
-    // Breakdown de despesas
     const gruposDesp = {};
     D.despesa.forEach(d => {
       const mes = (d.data_pagto || '').slice(0,7);
@@ -5615,32 +5585,27 @@ function _kpiV3IndDefs(id, K, inputs, D) {
     });
     const breakdownDesp = Object.entries(gruposDesp).sort((a,b) => b[1] - a[1]).map(([g, v]) => ({ label: g, valor: v, display: _fmtRsCurto(v) }));
     return {
-      icone: '💎', grupo: 'Rentabilidade e Eficiência', titulo: 'Margem Líquida',
-      descricao: 'Percentual da receita líquida (receita − impostos) que sobra depois de todas as despesas operacionais. É o principal termômetro de rentabilidade. Janela 3 meses para suavizar sazonalidade.',
-      valor: fmtPct(K.margem.atual), subvalor: `Receita Líquida: ${_fmtRsCurto(K.margem.receita)} · Despesa: ${_fmtRsCurto(K.margem.despesa)}`,
+      icone: '💎', grupo: 'Rentabilidade e Eficiência', grupoId: 'b4', titulo: 'Margem Líquida',
+      descricao: 'Percentual da receita líquida (receita menos impostos) que sobra depois de todas as despesas operacionais. É o principal termômetro de rentabilidade. Janela de 3 meses para suavizar sazonalidade.',
+      valor: K.margem.atual != null ? K.margem.atual.toFixed(1) + '%' : '—', subvalor: `Receita Líquida: ${_fmtRsCurto(K.margem.receita)} · Despesa: ${_fmtRsCurto(K.margem.despesa)}`,
       semaforo: K.margem.sem, confiab: 'ALTA', metaTag: 'Meta > 15%',
-      metaTexto: 'Objetivo: <strong>> 15%</strong>. Verde ≥ 15%, amarelo 10-15%, vermelho < 10%. Em agências digitais saudáveis: 15-20% é normal.',
+      metaTexto: 'A referência esperada é <strong>acima de 15%</strong>. Verde ≥ 15%, amarelo entre 10-15%, vermelho abaixo de 10%. Em agências digitais saudáveis, 15-20% é normal. Abaixo de 10% indica modelo em desequilíbrio.',
       serie, serieTitulo: 'Margem Líquida mensal (%)', serieFmt: 'pct',
-      formula: '(Receita Líquida − Todas Despesas Op. exceto Impostos) / Receita Líquida × 100',
-      fonte: { origem: 'OMIE', tabela: 'v_receita_operacional + v_despesa_operacional', freq: 'Mensal',
-        query: `WITH r AS (\n  SELECT SUM(valor_pago) AS receita FROM v_receita_operacional\n  WHERE TO_CHAR(data_pagto,'YYYY-MM') IN ('${K.mesRef.key}','${_kpiV3MesAnterior(K.mesRef.key)}','${_kpiV3MesAnterior(_kpiV3MesAnterior(K.mesRef.key))}')\n), i AS (\n  SELECT SUM(valor_pago) AS imp FROM v_despesa_operacional\n  WHERE grupo_dre = 'IMPOSTOS'\n    AND TO_CHAR(data_pagto,'YYYY-MM') IN ('${K.mesRef.key}','${_kpiV3MesAnterior(K.mesRef.key)}','${_kpiV3MesAnterior(_kpiV3MesAnterior(K.mesRef.key))}')\n), d AS (\n  SELECT SUM(valor_pago) AS desp FROM v_despesa_operacional\n  WHERE grupo_dre != 'IMPOSTOS'\n    AND TO_CHAR(data_pagto,'YYYY-MM') IN ('${K.mesRef.key}','${_kpiV3MesAnterior(K.mesRef.key)}','${_kpiV3MesAnterior(_kpiV3MesAnterior(K.mesRef.key))}')\n)\nSELECT ((r.receita - i.imp) - d.desp) / NULLIF((r.receita - i.imp), 0) * 100 AS margem_pct\nFROM r, i, d;` },
-      passos: [
-        'Somar receita operacional (v_receita_operacional) dos últimos 3 meses',
-        'Somar impostos (v_despesa_operacional, grupo IMPOSTOS)',
-        'Receita Líquida = Receita − Impostos',
-        'Somar todas as outras despesas operacionais (não-impostos)',
-        '(Receita Líquida − Despesas) / Receita Líquida × 100'
+      leitura: [
+        { titulo: 'Como interpretar este número', texto: `A margem líquida está em <strong>${K.margem.atual != null ? K.margem.atual.toFixed(1) + '%' : '—'}</strong>. Isso significa que de cada R$100 de receita líquida (já descontando impostos), sobram R$${K.margem.atual != null ? K.margem.atual.toFixed(0) : '—'} depois de pagar tudo (pessoal, custo direto, administrativo, etc.). Este é o "resultado" antes da distribuição para os sócios.` },
+        { titulo: 'O que está por trás', texto: 'A composição das despesas mostra onde a receita está indo. Nos últimos 3 meses, as maiores categorias foram estas:',
+          visual: breakdownDesp.length > 0 ? `<div style="background:#fafafa;border:1px solid #e2e8f0;border-radius:10px;padding:16px 18px">${_kpiV3Breakdown(breakdownDesp, '#7c3aed')}</div>` : '' },
+        { titulo: 'Contexto do mercado', texto: 'Agências digitais operam tipicamente com margem líquida entre 10-25%. Agências grandes maduras chegam a 20-30% por conta de escala. Startups em crescimento sacrificam margem por market share — algumas operam 5-10% ou negativas por estratégia. Growper, sendo uma agência estabelecida com base recorrente, deveria mirar 15-20%.' },
+        { titulo: 'Quando agir', texto: 'Se a margem está baixa, a ordem de análise é: (1) Impostos são fixos em relação ao regime — pouco a fazer; (2) Pessoal é a maior conta — analisar produtividade por analista (Receita/analista); (3) Custo Direto — se cresce mais rápido que a receita, operação não escala; (4) Administrativo — se sobe sem justificativa, cortar. Nunca cortar antes de entender causa.' }
       ],
+      fonteOrigem: 'OMIE (Contas a Receber e Contas a Pagar)',
+      fonteBase: 'Mesmo cálculo do DRE do menu Financeiro Principal',
+      fonteFreq: 'Mensal (janela 3m)',
+      fonteExpl: 'Somamos a receita operacional dos últimos 3 meses. Subtraímos os impostos pagos no mesmo período (chegando à receita líquida). Depois somamos todas as outras despesas operacionais (pessoal, custo direto, administrativo, comercial, financeiro, eventuais) — mas <strong>excluímos</strong> distribuição de lucros para sócios e devolução de empréstimos, pois esses não são custos operacionais. A margem é (Receita Líquida − Despesas) ÷ Receita Líquida × 100.',
       armadilhas: [
-        'Sazonalidade mensal alta — sempre janela 3m',
-        'Impostos são pagos na data do movimento, não gerados — pode causar picos',
-        'Não inclui distribuição de sócios (2.09) nem devolução de empréstimos'
-      ],
-      perguntas: [
-        { pergunta: 'Onde está indo a receita?', resposta: 'Ver breakdown das despesas nos últimos 3 meses. Impostos e Pessoal costumam dominar.',
-          visual: `<div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px">${_kpiV3Breakdown(breakdownDesp, '#7c3aed')}</div>` },
-        { pergunta: 'Estamos na meta?', resposta: K.margem.atual >= 15 ? 'Sim, acima da meta 15%.' : (K.margem.atual >= 10 ? 'Não. Entre 10-15%, precisa atenção.' : 'Não. Abaixo de 10%, situação crítica.') },
-        { pergunta: 'Como aumentar?', resposta: '1) Aumentar ticket (upsell); 2) Reduzir custo direto sem afetar entrega; 3) Escalar receita sem escalar administrativo. Cortar impostos é ilusão — depende do regime.' }
+        'Sazonalidade mensal alta — usar sempre janela 3m para suavizar',
+        'Impostos são pagos na data do evento, não na competência — podem gerar picos',
+        'Não inclui distribuição de sócios (que é aplicação do lucro, não despesa)'
       ]
     };
   }
@@ -5648,29 +5613,26 @@ function _kpiV3IndDefs(id, K, inputs, D) {
   // === Take Rate ===
   if (id === 'takeRate') {
     return {
-      icone: '🎯', grupo: 'Rentabilidade e Eficiência', titulo: 'Take Rate',
-      descricao: 'De cada R$1 de mídia gerenciada para clientes, quanto vira receita da Growper. Indicador exclusivo de agências que gerenciam verba de terceiros. Faixa saudável para lead gen: 14-16%.',
-      valor: K.takeRate.atual != null ? K.takeRate.atual.toFixed(1) + '%' : '—', subvalor: K.takeRate.subvalor,
+      icone: '🎯', grupo: 'Rentabilidade e Eficiência', grupoId: 'b4', titulo: 'Take Rate',
+      descricao: 'De cada R$1 de mídia gerenciada para clientes, quanto vira receita da Growper. Indicador exclusivo de agências que gerenciam verba de terceiros. Referência do setor de lead gen: 14-16%.',
+      valor: K.takeRate.atual != null ? K.takeRate.atual.toFixed(1) + '%' : '—', subvalor: K.takeRate.subvalor || 'Informe a verba de mídia abaixo',
       semaforo: K.takeRate.sem, confiab: 'MÉDIA (input manual)', metaTag: 'Faixa 14-16%',
-      metaTexto: 'Objetivo: <strong>14-16%</strong>. Verde nesta faixa, amarelo 12-14% ou 16-18%, vermelho < 12% ou > 18% (fora do padrão do setor).',
+      metaTexto: 'A referência esperada é <strong>entre 14% e 16%</strong>. Verde nesta faixa, amarelo em 12-14% ou 16-18%, vermelho abaixo de 12% ou acima de 18% (fora do padrão do setor).',
       serie: null,
-      formula: 'MRR / Verba de mídia gerenciada × 100',
-      fonte: { origem: 'MRR: OMIE · Mídia: Solaris (manual)', tabela: 'MRR: v_receita_operacional', freq: 'Mensal',
-        query: `-- MRR: automático via view\n-- Verba de mídia: input manual no card abaixo (integração Solaris pendente)\nSELECT ${_fmtRsCurto(K.mrr.atual).replace('R$ ','').replace(/[k.MB]/g,'')} / verba_midia * 100 AS take_rate;` },
-      passos: [
-        'MRR: calculado automaticamente pela view v_receita_operacional',
-        'Verba de mídia gerenciada: informar manualmente no campo abaixo (até integração Solaris)',
-        'Take Rate = MRR / Verba × 100'
+      leitura: [
+        { titulo: 'Como interpretar este número', texto: K.takeRate.atual != null ? `O take rate está em <strong>${K.takeRate.atual.toFixed(1)}%</strong>. Isso significa que, do total de mídia que a Growper gerencia para os clientes, cada R$100 investido em anúncios gera R$${K.takeRate.atual.toFixed(1)} de receita para a Growper.` : 'Preencha abaixo a verba de mídia gerenciada este mês para calcular.' },
+          { titulo: 'O que está por trás', texto: 'O take rate depende de dois fatores: (1) o preço médio da mensalidade cobrada (nossa parte) e (2) o volume de mídia que o cliente investe (denominador). Se clientes começam a investir mais em mídia sem aumentar a mensalidade, o take rate cai. Se conseguimos cobrar success fee ou serviços extras, o take rate sobe.' },
+        { titulo: 'Contexto do mercado', texto: 'Em agências de lead gen no automotivo, o take rate típico fica entre 14-18%. Abaixo de 12% indica que estamos cobrando pouco pela gestão (ou clientes estão inflando mídia). Acima de 20% pode ser sinal de que clientes estão investindo pouco em mídia — o que compromete o resultado deles e nossa retenção.' },
+        { titulo: 'Quando agir', texto: 'Take rate caindo é sinal de alerta: clientes estão gastando mais em mídia sem que ganhemos proporcionalmente. Ações: cobrar success fee em resultados extraordinários, criar pacotes de otimização como serviço adicional, revisar tabela de faixas por volume de mídia gerenciada.' }
       ],
+      fonteOrigem: 'MRR do OMIE + verba de mídia manual',
+      fonteBase: 'Mensalidade recebida ÷ verba de mídia informada',
+      fonteFreq: 'Mensal (manual)',
+      fonteExpl: 'O MRR vem automaticamente do OMIE (mesma fonte do menu Financeiro Principal). A verba de mídia gerenciada, no entanto, está no Solaris — sistema que não temos integração automática ainda. Por isso é informada manualmente aqui todo mês. O cálculo é simplesmente MRR ÷ verba de mídia × 100.',
       armadilhas: [
-        'Cliente com mídia altíssima e mensalidade proporcional baixa dilui o take rate',
-        'Sem integração Solaris, dado depende de disciplina no preenchimento manual',
-        'Alguns clientes não têm mídia gerenciada — considerar segmentar'
-      ],
-      perguntas: [
-        { pergunta: 'Estamos na faixa saudável?', resposta: K.takeRate.atual != null ? (K.takeRate.atual >= 14 && K.takeRate.atual <= 16 ? 'Sim.' : 'Não, fora da faixa 14-16%.') : 'Preencha a verba de mídia abaixo para calcular.' },
-        { pergunta: 'Como aumentar sem perder cliente?', resposta: 'Empacotar serviços de otimização junto com a gestão de mídia. Cobrar success fee em resultados extraordinários.' },
-        { pergunta: 'Quando terá dado automático?', resposta: 'Quando a integração via API do Solaris for construída — MCPs de chat não são acessíveis do browser.' }
+        'Cliente com mídia altíssima e mensalidade proporcionalmente baixa dilui o take rate',
+        'Sem integração automática com Solaris, o dado depende da disciplina de preenchimento',
+        'Alguns clientes não têm mídia gerenciada pela Growper — considerar excluí-los do denominador'
       ],
       inputManual: { campo: 'verbaMidiaGerenciada', label: 'Verba de mídia gerenciada este mês (R$)', valor: inputs.verbaMidiaGerenciada }
     };
@@ -5679,29 +5641,26 @@ function _kpiV3IndDefs(id, K, inputs, D) {
   // === CAC ===
   if (id === 'cac') {
     return {
-      icone: '🎣', grupo: 'Rentabilidade e Eficiência', titulo: 'CAC — Custo de Aquisição de Cliente',
-      descricao: 'Quanto foi investido em comercial e marketing (2.02) para conquistar cada cliente novo no mês. NUNCA inclui repasse de mídia dos clientes (2.01.95). Meta: recuperar em ≤ 3 ticket médios.',
+      icone: '🎣', grupo: 'Rentabilidade e Eficiência', grupoId: 'b4', titulo: 'CAC — Custo de Aquisição',
+      descricao: 'Quanto foi investido em comercial e marketing para conquistar cada cliente novo no mês. Nunca inclui repasse de mídia dos próprios clientes — isso é dinheiro deles, não custo nosso.',
       valor: K.cac.atual != null ? _fmtRsCurto(K.cac.atual) : '—', subvalor: K.cac.novos + ' clientes novos este mês',
       semaforo: K.cac.sem, confiab: 'MÉDIA', metaTag: 'CAC < 3× Ticket',
-      metaTexto: `Objetivo: <strong>CAC < 3 × Ticket Médio</strong> (recuperação em 3 meses). Verde se < 3×, amarelo 3-6×, vermelho > 6×. Ticket atual: ${_fmtRsCurto(K.ticket.atual)} → CAC ideal < ${_fmtRsCurto(K.ticket.atual * 3)}.`,
+      metaTexto: `A referência esperada é <strong>CAC menor que 3 vezes o Ticket Médio</strong>, o que significa recuperação em 3 meses de mensalidade. Verde se < 3×, amarelo 3-6×, vermelho > 6×. Com o ticket atual em ${_fmtRsCurto(K.ticket.atual)}, o CAC ideal seria abaixo de ${_fmtRsCurto(K.ticket.atual * 3)}.`,
       serie: null,
-      formula: '(Despesas 2.02) / Nº de clientes novos no mês',
-      fonte: { origem: 'OMIE', tabela: 'v_despesa_operacional + v_receita_operacional', freq: 'Mensal',
-        query: `WITH gasto AS (\n  SELECT SUM(valor_pago) AS comercial FROM v_despesa_operacional\n  WHERE categoria_codigo LIKE '02.02%'\n    AND TO_CHAR(data_pagto,'YYYY-MM') = '${K.mesRef.key}'\n),\nnovos AS (\n  SELECT COUNT(DISTINCT cliente_codigo) AS n FROM v_receita_operacional\n  WHERE categoria_codigo LIKE '01.01%'\n    AND cliente_codigo IN (\n      SELECT cliente_codigo FROM v_receita_operacional\n      WHERE categoria_codigo LIKE '01.01%'\n      GROUP BY cliente_codigo\n      HAVING MIN(TO_CHAR(data_pagto,'YYYY-MM')) = '${K.mesRef.key}'\n    )\n)\nSELECT gasto.comercial / NULLIF(novos.n, 0) AS cac FROM gasto, novos;` },
-      passos: [
-        'Somar despesas de vendas e marketing (categoria 02.02 — inclui marketing, eventos, comissões, brindes)',
-        'Identificar clientes cujo PRIMEIRO pagamento em 01.01 aconteceu no mês de referência',
-        'Dividir gasto pelo número de novos'
+      leitura: [
+        { titulo: 'Como interpretar este número', texto: K.cac.atual != null ? `O CAC deste mês foi <strong>${_fmtRsCurto(K.cac.atual)}</strong> — quanto gastamos em comercial e marketing dividido pelos <strong>${K.cac.novos}</strong> clientes novos que entraram no período.` : `Sem novos clientes este mês ou aguardando dados. Foram identificados ${K.cac.novos} novos.` },
+        { titulo: 'O que está por trás', texto: 'CAC alto geralmente vem de três causas: (1) canal com baixa conversão (muito investimento em mídia própria com poucas vendas); (2) ciclo comercial longo (custos acumulados enquanto o lead demora a fechar); (3) mês atípico com pouca venda mas custos fixos altos (comercial, ferramentas). O primeiro caso é problema estrutural. Os outros dois podem ser sazonais.' },
+        { titulo: 'Contexto do mercado', texto: 'Em SaaS PME, o benchmark é CAC recuperado em 12 meses. Em agências digitais com mensalidade recorrente, 3-6 meses é considerado saudável. Canais com CAC menor: indicação/referral (< R$ 500), parcerias (< R$ 1.000). Canais com CAC maior: mídia paga própria (R$ 2.000-5.000), eventos (R$ 3.000+).' },
+        { titulo: 'Quando agir', texto: 'Se o CAC está alto e o LTV/CAC ainda é bom, ok — investimento tem retorno. Se o CAC está alto e LTV/CAC é ruim (< 1x), stop imediato no comercial e foco em retenção. Canal mais barato historicamente é indicação — vale investir em programa de referral e NPS.' }
       ],
+      fonteOrigem: 'OMIE (categorias 2.02 comercial + primeiros pagamentos)',
+      fonteBase: 'Despesas de venda e marketing ÷ clientes cujo 1º pagamento é do mês',
+      fonteFreq: 'Mensal',
+      fonteExpl: 'Somamos toda despesa da categoria 2.02 (Vendas e Marketing) paga no mês — inclui marketing digital, eventos, comissões, brindes. Contamos quantos clientes tiveram o <strong>primeiro pagamento</strong> em 01.01 (mensalidade) neste mês — esses são os "novos". A divisão dá o CAC. <strong>Importante:</strong> nunca incluímos a categoria 2.01.95 (repasse de mídia do cliente), pois é dinheiro do cliente que só passa pela conta.',
       armadilhas: [
-        '<strong>NUNCA</strong> incluir 2.01.95 (repasse de mídia cliente) — é dinheiro do cliente, não custo nosso',
-        '"Cliente novo" precisa ter no mínimo 2 meses de histórico para eliminar falsos (atrasados)',
-        'Comercial que fecha em novembro paga em dezembro — pode gerar delay de atribuição'
-      ],
-      perguntas: [
-        { pergunta: 'Vale a pena adquirir novos?', resposta: K.ltvCac.atual != null && K.ltvCac.atual >= 3 ? `Sim. LTV/CAC ${K.ltvCac.atual.toFixed(1)}x > 3.` : `Ver LTV/CAC — se < 1x, freio no comercial e foco em retenção.` },
-        { pergunta: 'Quanto tempo para recuperar?', resposta: K.cac.atual != null && K.ticket.atual > 0 ? `${(K.cac.atual / K.ticket.atual).toFixed(1)} meses de mensalidade para pagar o CAC.` : '—' },
-        { pergunta: 'Como reduzir?', resposta: 'Referral (indicação) é o menor CAC. Investir em NPS + programa de indicação. Marketing digital próprio tem CAC alto — usar como complemento, não único canal.' }
+        '<strong>Nunca</strong> incluir 2.01.95 (repasse de mídia cliente) — não é custo nosso',
+        '"Cliente novo" precisa ter pelo menos 2 meses de histórico para eliminar falsos (atrasados)',
+        'Comercial que fecha em novembro pode pagar em dezembro — pode gerar delay de atribuição'
       ]
     };
   }
@@ -5709,102 +5668,96 @@ function _kpiV3IndDefs(id, K, inputs, D) {
   // === LTV:CAC ===
   if (id === 'ltvCac') {
     return {
-      icone: '⚖️', grupo: 'Rentabilidade e Eficiência', titulo: 'LTV / CAC',
-      descricao: 'Quantas vezes o custo de aquisição de um cliente é recuperado ao longo da vida dele. Referência SaaS: > 3x é saudável, > 5x é excelente, < 1x é insustentável.',
+      icone: '⚖️', grupo: 'Rentabilidade e Eficiência', grupoId: 'b4', titulo: 'LTV / CAC',
+      descricao: 'Quantas vezes o custo de aquisição de um cliente é recuperado ao longo da vida dele. Referência do setor SaaS: acima de 3 vezes é saudável, acima de 5 é excelente, abaixo de 1 é insustentável.',
       valor: K.ltvCac.atual != null ? K.ltvCac.atual.toFixed(1) + 'x' : '—', subvalor: 'Retorno estimado por real gasto em CAC',
-      semaforo: K.ltvCac.sem, confiab: 'PROVISÓRIA até jan/2027', metaTag: 'Meta > 3x',
-      metaTexto: 'Objetivo: <strong>> 3x</strong>. Verde ≥ 3x, amarelo 1-3x, vermelho < 1x. Provisório até termos 6m de churn estabilizado.',
+      semaforo: K.ltvCac.sem, confiab: 'PROVISÓRIA (até jan/2027)', metaTag: 'Meta > 3x',
+      metaTexto: 'A referência esperada é <strong>acima de 3x</strong>. Verde ≥ 3x, amarelo entre 1-3x, vermelho abaixo de 1x. Este número é provisório até termos 6 meses de dados de churn estabilizado — antes disso o LTV oscila muito.',
       serie: null,
-      formula: 'LTV / CAC · LTV = Ticket Médio × (1 / Churn) × Margem Bruta',
-      fonte: { origem: 'Derivado', tabela: 'CAC + Ticket + Churn Rec + Margem', freq: 'Mensal',
-        query: `-- Cálculo composto no aplicativo:\n-- LTV = Ticket × (1/Churn_decimal) × Margem_bruta_aprox\n-- LTV/CAC = LTV / CAC\nSELECT\n  ${_fmtRsCurto(K.ticket.atual).replace('R$ ','').replace(/[kM]/g,'')} * (1 / ${K.churnRec.atual != null ? (K.churnRec.atual/100).toFixed(3) : 'NULL'})\n    * ${K.margem.atual != null ? ((100 + K.margem.atual) / 200).toFixed(3) : '0.5'}\n    / ${K.cac.atual != null ? K.cac.atual : 'NULL'} AS ltv_cac;` },
-      passos: [
-        'Calcular Ticket Médio Recorrente',
-        'Calcular Churn de Receita (decimal — divide por 100)',
-        'Margem bruta ≈ (100 + Margem Líquida) / 200 (proxy conservador)',
-        'LTV = Ticket × (1 / Churn) × Margem Bruta',
-        'LTV / CAC'
+      leitura: [
+        { titulo: 'Como interpretar este número', texto: K.ltvCac.atual != null ? `O LTV/CAC está em <strong>${K.ltvCac.atual.toFixed(1)}x</strong>. Isso significa que cada R$1 investido para adquirir um cliente retorna aproximadamente R$${K.ltvCac.atual.toFixed(1)} ao longo do tempo de vida do cliente na base.` : 'Aguardando dados de CAC e Churn para calcular.' },
+        { titulo: 'O que está por trás', texto: 'O LTV depende de três coisas: <strong>ticket médio</strong> (quanto cada cliente paga), <strong>tempo de casa</strong> (inverso do churn), e <strong>margem bruta</strong> (quanto do ticket é lucro). Se churn é alto, LTV cai; se ticket é baixo, LTV cai; se custo direto é alto, LTV cai. Os três precisam trabalhar juntos.' },
+        { titulo: 'Contexto do mercado', texto: 'Referências do SaaS B2B: LTV/CAC ≥ 3 é considerado o mínimo aceitável. HubSpot opera em torno de 4x. Salesforce em 5-6x. Startups em fase de crescimento podem operar em 1-2x temporariamente enquanto ganham market share. Abaixo de 1x é queima de dinheiro — não é escalável.' },
+        { titulo: 'Quando agir', texto: 'Se LTV/CAC ≥ 3 e crescendo, hora de investir mais em aquisição — é o momento de escalar comercial. Se está entre 1-3, cauteloso: melhorar antes de escalar. Abaixo de 1, freio total no comercial: focar em segurar churn e aumentar ticket antes de gastar mais em aquisição.' }
       ],
+      fonteOrigem: 'Derivado (CAC + Ticket + Churn + Margem)',
+      fonteBase: 'Cálculo composto dos outros indicadores',
+      fonteFreq: 'Mensal (revisado)',
+      fonteExpl: 'É um cálculo composto: primeiro estimamos o LTV como <strong>Ticket × (1 ÷ Churn de Receita) × Margem Bruta aproximada</strong>. Isso dá o valor médio que um cliente gera enquanto está na base. Depois dividimos pelo CAC. O resultado é quantas vezes o custo é recuperado.',
       armadilhas: [
-        'LTV oscila enquanto Churn não estabiliza — requer 6m de dados limpos',
-        'Se Churn é zero num mês, LTV vira infinito — cap em 100x na visualização',
-        'Margem bruta usada é proxy — real precisa breakdown de custo direto por cliente'
-      ],
-      perguntas: [
-        { pergunta: 'Devemos investir mais em aquisição?', resposta: K.ltvCac.atual != null ? (K.ltvCac.atual >= 3 ? `Sim. LTV/CAC ${K.ltvCac.atual.toFixed(1)}x — cada real gasto retorna R$ ${K.ltvCac.atual.toFixed(1)}.` : `Não. Antes, reduzir Churn e aumentar Ticket.`) : 'Aguardar dados de Churn estabilizarem.' },
-        { pergunta: 'É um indicador confiável hoje?', resposta: 'Não plenamente. Provisório até jan/2027 (6m de Churn limpo). Use com desconto até lá.' },
-        { pergunta: 'Como aumentar?', resposta: '1) Reduzir Churn (mais impacto); 2) Aumentar Ticket via upsell; 3) Reduzir CAC via referral/inbound.' }
+        'LTV oscila muito enquanto o Churn não estabilizar — requer 6 meses de dados limpos',
+        'Se o Churn é zero em algum mês, o LTV vira infinito matematicamente (limitamos em 100x na visualização)',
+        'A margem bruta usada é uma aproximação — o cálculo real precisaria breakdown de custo direto por cliente'
       ]
     };
   }
 
-  // === Custo Direto sobre Receita ===
+  // === Custo Direto ===
   if (id === 'custoDir') {
     return {
-      icone: '🏭', grupo: 'Rentabilidade e Eficiência', titulo: 'Custo Direto sobre Receita',
-      descricao: 'Percentual da receita líquida gasto com custo direto de entrega (mão de obra operacional, produção, editores, influenciadores). Exclui 2.01.95 (repasse de mídia cliente).',
-      valor: fmtPct(K.custoDireto.atual), subvalor: `Custo direto: ${_fmtRsCurto(K.custoDireto.valor)} (janela 3m, exclui 2.01.95)`,
+      icone: '🏭', grupo: 'Rentabilidade e Eficiência', grupoId: 'b4', titulo: 'Custo Direto sobre Receita',
+      descricao: 'Percentual da receita líquida gasto com custo direto de entrega (mão de obra operacional, produção, editores, influenciadores). Exclui o repasse de mídia dos clientes.',
+      valor: K.custoDireto.atual != null ? K.custoDireto.atual.toFixed(1) + '%' : '—', subvalor: `Custo direto: ${_fmtRsCurto(K.custoDireto.valor)} (janela 3m)`,
       semaforo: K.custoDireto.sem, confiab: 'ALTA', metaTag: 'Meta < 30%',
-      metaTexto: 'Objetivo: <strong>< 30%</strong>. Verde ≤ 30%, amarelo 30-40%, vermelho > 40%. Se > 50%, revisão urgente do modelo operacional.',
+      metaTexto: 'A referência esperada é <strong>abaixo de 30%</strong>. Verde ≤ 30%, amarelo entre 30-40%, vermelho acima de 40%. Se ultrapassa 50%, revisão urgente do modelo operacional — provavelmente falta padronização ou automação.',
       serie: null,
-      formula: '(CUSTO_DIRETO − 2.01.95) / Receita Líquida × 100 (janela 3m)',
-      fonte: { origem: 'OMIE', tabela: 'v_despesa_operacional (grupo CUSTO_DIRETO)', freq: 'Mensal',
-        query: `WITH cd AS (\n  SELECT SUM(valor_pago) AS bruto FROM v_despesa_operacional\n  WHERE grupo_dre = 'CUSTO_DIRETO'\n    AND TO_CHAR(data_pagto,'YYYY-MM') IN ('${K.mesRef.key}','${_kpiV3MesAnterior(K.mesRef.key)}','${_kpiV3MesAnterior(_kpiV3MesAnterior(K.mesRef.key))}')\n),\nrepasse AS (\n  SELECT SUM(valor_pago) AS r FROM v_despesa_operacional\n  WHERE categoria_codigo LIKE '02.01.95%'\n    AND TO_CHAR(data_pagto,'YYYY-MM') IN ('${K.mesRef.key}','${_kpiV3MesAnterior(K.mesRef.key)}','${_kpiV3MesAnterior(_kpiV3MesAnterior(K.mesRef.key))}')\n)\nSELECT (cd.bruto - COALESCE(repasse.r,0)) * 100.0 / ${K.margem.receita} AS custo_direto_pct\nFROM cd, repasse;` },
-      passos: [
-        'Somar todas as despesas do grupo CUSTO_DIRETO nos últimos 3 meses',
-        'Subtrair categoria 02.01.95 (repasse de mídia cliente — NÃO é custo nosso)',
-        'Dividir pela Receita Líquida da mesma janela × 100'
+      leitura: [
+        { titulo: 'Como interpretar este número', texto: K.custoDireto.atual != null ? `O custo direto está consumindo <strong>${K.custoDireto.atual.toFixed(1)}%</strong> da receita líquida. Isso é o que a Growper gasta diretamente para entregar o serviço — principalmente mão de obra operacional PJ, produção de vídeo, e ferramentas operacionais.` : 'Aguardando dados.' },
+        { titulo: 'O que está por trás', texto: 'Custo direto é a variável que mais indica se a operação <strong>escala</strong>. Se cada novo cliente adiciona custo proporcional, a margem nunca melhora — você trabalha mais mas não fica mais rico. Se cada novo cliente adiciona menos custo do que receita, a operação escala e a margem cresce naturalmente.' },
+        { titulo: 'Contexto do mercado', texto: 'Em agências digitais, custo direto entre 25-35% é típico. Agências pequenas costumam operar em 35-45% (menos escala, mais dependência de mão de obra dedicada). Agências grandes maduras conseguem 20-30% via padronização de processos e automação. Growper, no tamanho atual, deveria mirar 30-35%.' },
+        { titulo: 'Quando agir', texto: 'Se o custo direto cresce mais rápido que a receita mês a mês, a operação está desbalanceada. Ações: (1) padronizar processos e criar templates; (2) segmentar clientes por complexidade e ajustar time; (3) automatizar tarefas repetitivas (relatórios, criativos); (4) avaliar se algum cliente está consumindo muito mais que o pago.' }
       ],
+      fonteOrigem: 'OMIE (categoria CUSTO_DIRETO)',
+      fonteBase: 'Despesas do grupo Custo Direto ÷ Receita Líquida (janela 3m)',
+      fonteFreq: 'Mensal (janela 3m)',
+      fonteExpl: 'Somamos todas as despesas classificadas como <strong>Custo Direto</strong> (categoria 2.01) nos últimos 3 meses. Subtraímos a categoria 2.01.95 (Gasto com Tráfego Pago Clientes) porque é repasse — dinheiro do cliente que passa pela conta, não custo real. Dividimos pela receita líquida dos mesmos 3 meses. O resultado é o percentual.',
       armadilhas: [
-        '<strong>Sempre excluir 2.01.95</strong> — é dinheiro do cliente que passa pela conta',
-        'Cliente que atrasa afeta o denominador — comparar sempre com janela 3m',
-        'Se produção outsourced (freelas), pico de mês concentrado inflaciona artificialmente'
-      ],
-      perguntas: [
-        { pergunta: 'A operação escala?', resposta: K.custoDireto.atual != null ? (K.custoDireto.atual <= 30 ? `Sim. ${K.custoDireto.atual.toFixed(1)}% é saudável.` : `Não plenamente. ${K.custoDireto.atual.toFixed(1)}% é alto — cada novo cliente adiciona custo proporcional.`) : 'Sem dados.' },
-        { pergunta: 'Onde está indo o custo?', resposta: 'Cruzar breakdown do grupo CUSTO_DIRETO: Remuneração Operacional PJ é o maior. Editores e Influenciadores vêm depois.' },
-        { pergunta: 'Como reduzir sem afetar entrega?', resposta: 'Padronizar processos + templates → mesma entrega com menos hora-analista. Segmentar clientes por complexidade e cobrar acordado.' }
+        'Sempre excluir 2.01.95 (repasse de mídia cliente) — é dinheiro do cliente',
+        'Cliente que atrasa afeta o denominador — comparar sempre janela 3m',
+        'Se produção é outsourced (freelas), pico concentrado em um mês inflaciona artificialmente'
       ]
     };
   }
 
-  // === Bloco 5 — CPL, Taxa, Tiers, CPL x Churn ===
+  // === Bloco 5 ===
   if (id === 'cpl' || id === 'taxaPreench' || id === 'distTiers' || id === 'cplChurn') {
     const cfg = {
-      cpl: { icone: '💰', titulo: 'CPL Médio', desc: 'Custo médio por lead gerado no mês.', valor: inputs.cplMedio > 0 ? 'R$ ' + inputs.cplMedio.toFixed(2) : '—', input: { campo: 'cplMedio', label: 'CPL médio deste mês (R$)', valor: inputs.cplMedio }, form: 'Verba de mídia / Leads gerados' },
-      taxaPreench: { icone: '✅', titulo: 'Taxa de Preenchimento', desc: 'Percentual de leads gerados que preencheram o formulário completo (leads qualificados).', valor: inputs.taxaPreench > 0 ? inputs.taxaPreench.toFixed(1) + '%' : '—', input: { campo: 'taxaPreench', label: 'Taxa de preenchimento (%)', valor: inputs.taxaPreench }, form: 'Leads qualificados / Leads gerados × 100' },
-      distTiers: { icone: '🎖️', titulo: 'Distribuição de Tiers', desc: 'Quantos clientes estão em cada tier de performance (Bronze → Superstar). Requer avaliação mensal no Solaris.', valor: _kpiV3TotalTiers(inputs), form: 'COUNT clientes por tier' },
-      cplChurn: { icone: '📊', titulo: 'CPL × Churn (indicador antecedente)', desc: 'Simula custo real de reposição: se CPL sobe e Churn sobe juntos, base deteriora rapidamente e o Ciclo de aquisição fica insustentável.', valor: (inputs.cplMedio > 0 && K.churnRec.atual != null) ? 'R$ ' + (inputs.cplMedio * (1 + K.churnRec.atual/100)).toFixed(2) : '—', form: 'CPL × (1 + Churn de Receita)' }
+      cpl: { icone: '💰', titulo: 'CPL Médio', desc: 'Custo médio por lead gerado no mês.',
+        valor: inputs.cplMedio > 0 ? 'R$ ' + inputs.cplMedio.toFixed(2) : '—',
+        input: { campo: 'cplMedio', label: 'CPL médio deste mês (R$)', valor: inputs.cplMedio },
+        expl: 'Valor total investido em mídia dividido pelo número de leads gerados. Referência varia muito por segmento — em automotivo, CPL entre R$ 20-80 é comum.' },
+      taxaPreench: { icone: '✅', titulo: 'Taxa de Preenchimento', desc: 'Percentual de leads gerados que preencheram o formulário completo (leads qualificados).',
+        valor: inputs.taxaPreench > 0 ? inputs.taxaPreench.toFixed(1) + '%' : '—',
+        input: { campo: 'taxaPreench', label: 'Taxa de preenchimento (%)', valor: inputs.taxaPreench },
+        expl: 'Referência do setor: acima de 60% é bom sinal. Abaixo de 40% indica formulário longo, oferta pouco clara ou tráfego mal segmentado.' },
+      distTiers: { icone: '🎖️', titulo: 'Distribuição de Tiers', desc: 'Quantos clientes estão em cada tier de performance (Bronze → Superstar). Requer avaliação mensal no Solaris.',
+        valor: _kpiV3TotalTiers(inputs),
+        expl: 'A distribuição saudável concentra 60-70% em Silver/Gold. Muito Bronze indica clientes em risco. Muito Platinum/Superstar indica base madura e retenção alta.' },
+      cplChurn: { icone: '📊', titulo: 'CPL × Churn (indicador antecedente)', desc: 'Simula o custo real de reposição quando há churn na base.',
+        valor: (inputs.cplMedio > 0 && K.churnRec.atual != null) ? 'R$ ' + (inputs.cplMedio * (1 + K.churnRec.atual/100)).toFixed(2) : '—',
+        expl: 'CPL × (1 + Churn). Se CPL e Churn crescem juntos, o ciclo de aquisição fica insustentável — cada novo cliente custa mais e a base perde antes de compensar.' }
     }[id];
     return {
-      icone: cfg.icone, grupo: 'Performance de Mídia', titulo: cfg.titulo,
-      descricao: cfg.desc + ' <strong>Solaris/Elo são MCPs de chat, não acessíveis pelo browser</strong> — enquanto integração via API não é construída, dado depende de input manual.',
-      valor: cfg.valor, subvalor: 'Fonte manual até integração Solaris',
-      semaforo: 'gray', confiab: 'MANUAL', metaTag: 'Configure fonte',
-      metaTexto: 'Objetivo: definir metas quando a integração automática existir. Enquanto isso, informar mensalmente valores consolidados no Solaris.',
+      icone: cfg.icone, grupo: 'Performance de Mídia', grupoId: 'b5', titulo: cfg.titulo,
+      descricao: cfg.desc + ' <strong>Enquanto integração automática não é construída, este indicador depende de preenchimento manual mensal.</strong>',
+      valor: cfg.valor, subvalor: 'Preenchimento manual até integração',
+      semaforo: 'gray', confiab: 'MANUAL', metaTag: 'Requer input',
+      metaTexto: cfg.expl + ' As metas específicas serão definidas quando a integração automática existir e tivermos histórico consistente.',
       serie: null,
-      formula: cfg.form,
-      fonte: { origem: 'Solaris / Elo (MCPs, não integrados)', tabela: 'localStorage (input manual)', freq: 'Manual mensal',
-        query: `-- Fonte não integrada por API HTTP.\n-- Solaris tem histórico jul/2026+ (só acessível via chat).\n-- Elo tem só mês corrente.\n-- Requer construção de endpoint HTTP dedicado.` },
-      passos: id === 'distTiers' ? [
-        'Consultar Solaris manualmente (ou API futura)',
-        'Contar quantos clientes por tier',
-        'Registrar no dashboard nos campos correspondentes'
-      ] : [
-        'Consultar Solaris no mês fechado',
-        'Anotar valor consolidado',
-        'Preencher no campo manual abaixo',
-        'Dashboard usa o valor para o cálculo'
+      leitura: [
+        { titulo: 'Como interpretar este número', texto: 'Este indicador é <strong>manual</strong> hoje — depende do preenchimento no campo abaixo com dados consolidados do Solaris. Isso significa que a confiabilidade depende diretamente da disciplina de atualização mensal.' },
+        { titulo: 'Por que ainda não é automático', texto: 'O <strong>Solaris</strong> (sistema com histórico de faixa, investimento e leads a partir de julho/2026) e o <strong>Elo</strong> (foto do mês corrente da operação) são acessados via MCP — protocolo de contexto de modelo — usado em ferramentas de chat. Não expõem endpoint HTTP acessível diretamente pelo dashboard.' },
+        { titulo: 'Como automatizar', texto: 'A automação exige três etapas: (1) o Solaris expor um endpoint REST autenticado (ex: /api/kpis-mensais); (2) o dashboard buscar via fetch autenticado; (3) armazenar histórico no Supabase para queries rápidas. É trabalho de engenharia — depende de alinhamento com quem administra o Solaris.' },
+        { titulo: 'Enquanto isso', texto: 'A rotina sugerida é: (1) dia 5 de cada mês, consultar Solaris; (2) anotar valores consolidados do mês fechado; (3) preencher no campo abaixo. Este processo precisa estar no calendário mensal do coordenador financeiro para não virar dado incorreto.' }
       ],
+      fonteOrigem: 'Solaris / Elo (não integrado automaticamente)',
+      fonteBase: 'Valores consolidados manualmente',
+      fonteFreq: 'Manual mensal',
+      fonteExpl: 'Não há integração automática do Solaris/Elo com o dashboard hoje. O preenchimento é feito manualmente no campo abaixo. O dashboard só armazena e apresenta — não puxa automaticamente. Enquanto essa integração não é construída, todas as métricas de mídia dependem da consulta e input manual mensal.',
       armadilhas: [
-        'Sem disciplina de preenchimento, indicador vira ficção',
-        'CPL varia muito por segmento — comparar sempre com histórico próprio',
-        'Considerar automação prioritária: economia de tempo + confiabilidade'
-      ],
-      perguntas: [
-        { pergunta: 'Por que não é automático?', resposta: 'Solaris e Elo são MCPs (Model Context Protocol) usados por Claude no chat. Não expõem endpoint HTTP acessível pelo dashboard. Requer construção.' },
-        { pergunta: 'Como automatizar?', resposta: '1) Solaris expor endpoint REST /api/kpis/mensal; 2) Dashboard buscar via fetch autenticado; 3) Cache local + sync.' },
-        { pergunta: 'O manual é confiável?', resposta: 'Enquanto Leandro preencher com disciplina no dia 5 de cada mês, sim. Rotina precisa entrar no calendário.' }
+        'Sem disciplina de preenchimento no dia 5 de cada mês, o indicador vira ficção',
+        'CPL varia muito por segmento — comparar sempre com histórico próprio, nunca com referência genérica',
+        'Considerar automação como prioridade para reduzir dependência humana e aumentar confiabilidade'
       ],
       inputManual: cfg.input || null
     };
@@ -5814,19 +5767,30 @@ function _kpiV3IndDefs(id, K, inputs, D) {
 }
 
 // ============================================================
-// CARREGAMENTO / CÁLCULOS / INPUTS
+// CARREGAMENTO / CÁLCULOS
 // ============================================================
 async function _kpiV3CarregarDados() {
-  const supa = window._authState && window._authState.supabase;
-  if (!supa) throw new Error('Cliente Supabase não disponível — faça login novamente');
+  // Estratégia robusta: tentar múltiplas fontes de cliente Supabase
+  let supa = (window._authState && window._authState.supabase) || (window._syncV4 && window._syncV4.cliente) || null;
+  
+  // Se ainda não tem, tenta criar via window.supabase
+  if (!supa && window.supabase && window.supabase.createClient) {
+    const URL = 'https://dfaydkiqbhpzxosffurs.supabase.co';
+    const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmYXlka2lxYmhwenhvc2ZmdXJzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyMTg1OTYsImV4cCI6MjEwMDc5NDU5Nn0.EJ50JLQw0dufwintmmp_0vR7Cfg9avjDTrmyuC4mfbM';
+    supa = window.supabase.createClient(URL, KEY);
+  }
+  
+  if (!supa) throw new Error('Cliente Supabase indisponível. Verifique se está logado e conectado.');
+
   const [rReceita, rDespesa, rTitulos] = await Promise.all([
     supa.from('v_receita_operacional').select('data_pagto,valor_pago,categoria_codigo,cliente_codigo').gte('data_pagto', '2026-01-01').lte('data_pagto', '2026-12-31'),
     supa.from('v_despesa_operacional').select('data_pagto,valor_pago,categoria_codigo,grupo_dre').gte('data_pagto', '2026-01-01').lte('data_pagto', '2026-12-31'),
     supa.from('titulos').select('id_titulo,tipo,status,cancelado,data_vencimento,valor_documento,valor_pago,cliente_codigo,cliente_nome,categoria_codigo').eq('tipo', '1. Contas a Receber').eq('cancelado', false)
   ]);
-  if (rReceita.error) throw new Error('Receita: ' + rReceita.error.message);
-  if (rDespesa.error) throw new Error('Despesa: ' + rDespesa.error.message);
-  if (rTitulos.error) throw new Error('Títulos: ' + rTitulos.error.message);
+  if (rReceita.error) throw new Error('Erro ao carregar receita: ' + rReceita.error.message);
+  if (rDespesa.error) throw new Error('Erro ao carregar despesa: ' + rDespesa.error.message);
+  if (rTitulos.error) throw new Error('Erro ao carregar títulos: ' + rTitulos.error.message);
+
   window._kpiV3Dados = { receita: rReceita.data || [], despesa: rDespesa.data || [], titulos: rTitulos.data || [], _at: Date.now() };
 }
 
@@ -6085,7 +6049,13 @@ window._kpiV3IrPara = function(view) {
 };
 
 window._kpiV3Voltar = function() {
-  window._kpiV3State.view = 'home';
+  const cur = window._kpiV3State.view;
+  if (cur.startsWith('ind:')) {
+    // volta pro home (bounce simples)
+    window._kpiV3State.view = 'home';
+  } else {
+    window._kpiV3State.view = 'home';
+  }
   window.scrollTo(0, 0);
   renderKPIs();
 };
@@ -6114,26 +6084,17 @@ function _kpiV3ManualHTML() {
       <button onclick="document.getElementById('_kpiV3Manual').style.display='none'" style="background:#f1f5f9;border:none;padding:8px 14px;border-radius:8px;font-family:Poppins;font-weight:700;cursor:pointer;font-size:13px;color:#334155">✕ Fechar</button>
     </div>
     <div style="font-size:13px;line-height:1.65;color:#334155">
-      <h3 style="font-size:16px;color:#0f172a;margin:20px 0 10px">🎤 Como apresentar em reunião</h3>
-      <p><strong>Ordem sugerida da narrativa:</strong></p>
+      <h3 style="font-size:16px;color:#0f172a;margin:20px 0 10px">🎤 Ordem sugerida de apresentação</h3>
       <ol style="padding-left:20px;line-height:1.9">
-        <li><strong>Comece pela Receita</strong> — MRR e Net New MRR. "Fechamos o mês em R$ X, com R$ Y de expansão líquida."</li>
-        <li><strong>Contextualize com o Churn</strong> — "Perdemos X% da receita antiga, mas ganhamos Y novos clientes."</li>
-        <li><strong>Mostre a Margem</strong> — "Isso resulta em margem líquida de X%, dentro/abaixo da meta de 15%."</li>
-        <li><strong>Alerte sobre Risco</strong> — Inadimplência e Concentração. "R$ X está vencido. Os 5 maiores clientes ainda representam Y%."</li>
-        <li><strong>Fecha com Eficiência</strong> — Take Rate e LTV:CAC. "Cada R$1 gasto em aquisição retorna R$ X."</li>
+        <li><strong>Receita e Previsibilidade</strong> primeiro — MRR e Net New MRR são o topo do funil executivo.</li>
+        <li><strong>Retenção</strong> em seguida — Churn de Receita contextualiza se o crescimento é real ou reposição.</li>
+        <li><strong>Rentabilidade</strong> como consequência — Margem Líquida mostra se sobra dinheiro depois de tudo.</li>
+        <li><strong>Risco e Caixa</strong> como alerta — Inadimplência e Concentração indicam vulnerabilidades.</li>
+        <li><strong>Performance de Mídia</strong> por último — contexto operacional para as decisões acima.</li>
       </ol>
-      <p style="margin-top:20px"><strong>Perguntas que o CEO provavelmente vai fazer:</strong></p>
-      <ul style="padding-left:20px;line-height:1.9">
-        <li><strong>"Por que a margem caiu?"</strong> → Olhe Custo Direto primeiro, depois Pessoal. Se Pessoal subiu sem Receita subir, produtividade caiu.</li>
-        <li><strong>"Estamos crescendo?"</strong> → Net New MRR positivo = sim. Ticket Médio subindo = crescimento orgânico.</li>
-        <li><strong>"Qual o maior risco?"</strong> → Concentração Top 5 ou Inadimplência crescente. O que estiver pior.</li>
-        <li><strong>"Vale investir mais em comercial?"</strong> → LTV/CAC > 3x = sim. < 1x = não, primeiro segurar churn.</li>
-        <li><strong>"Quando saberei se o mês foi bom?"</strong> → Após dia 5 do mês seguinte, quando fecham as baixas.</li>
-      </ul>
       <div style="background:#eff6ff;border-left:4px solid #3b82f6;padding:16px 18px;border-radius:8px;margin-top:24px">
         <div style="font-weight:800;color:#1e40af;margin-bottom:6px">💡 Regra de ouro</div>
-        <div style="color:#1e40af">Nenhum indicador conta a história sozinho. Sempre olhe 2-3 juntos: MRR + Churn, Margem + Custo Direto, CAC + LTV. Um pode enganar; o conjunto não.</div>
+        <div style="color:#1e40af">Nenhum indicador conta a história sozinho. Sempre olhe pelo menos 2-3 juntos: MRR + Churn, Margem + Custo Direto, CAC + LTV. Um pode enganar; o conjunto não.</div>
       </div>
       <div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:16px 18px;border-radius:8px;margin-top:14px">
         <div style="font-weight:800;color:#78350f;margin-bottom:6px">⚠️ Marco zero: julho/2026</div>
@@ -6142,6 +6103,7 @@ function _kpiV3ManualHTML() {
     </div>
   </div>`;
 }
+
 
 
 
