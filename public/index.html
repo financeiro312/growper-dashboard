@@ -4902,9 +4902,7 @@ function renderKPIs() {
           <div><div style="font-size:10px;color:#fde047;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">ILC (Liquidez)</div><div style="font-size:22px;font-weight:800;color:${ilc>=1.5?'#10b981':(ilc>=1?'#eab308':'#ef4444')}">${ilc.toFixed(2)}x</div></div>
         </div>
       </div>
-    </div>
-    
-    </div>`;  // fecha hero
+    </div>`;  // fecha hero (container continua aberto — fechado no final)
     
     // ============ HOME (sem categoria selecionada) — 4 cards grandes ============
     if (!window._kpiV2Tab || window._kpiV2Tab === 'home') {
