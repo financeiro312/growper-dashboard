@@ -4014,7 +4014,8 @@ function renderMA() {
   const _fmtPct = v => (v === null || v === undefined || isNaN(v)) ? '—' : v.toFixed(1) + '%';
   const _esc = s => String(s || '').replace(/[<>&"']/g, ch => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[ch]));
   
-  if (!window._maOpen) window._maOpen = { valuation:true, saas:true, cohort:false, concent:false, unit:false, health:false, quality:false, dd:false, scen:false, flags:true };
+  if (!window._maOpen) window._maOpen = { valuation:true, saas:true, cohort:true, concent:true, unit:true, health:true, quality:true, dd:true, scen:true, flags:true };
+  if (!window._maTab) window._maTab = 'home';
   
   // ============ CÁLCULOS (mesmos, já validados) ============
   const isReceitaOp = r => r.tipo === '1. Contas a Receber' && (r.conta === 'Banco Inter' || r.conta === 'Itaú Unibanco') && !String(r.categoria||'').includes('Ajuste') && !String(r.categoria||'').includes('Transferência');
@@ -4379,7 +4380,52 @@ function renderMA() {
       </div>
     </div>`;
   
+  // ============ HOME (cards clicáveis — modelo KPIs) ============
+  if (window._maTab === 'home') {
+    const catCard = (id, icone, titulo, cor, corBg, kpiPreview, previewLabel) => `
+      <div onclick="window._maTab='${id}'; window.scrollTo(0,0); renderMA()" 
+           style="background:white;border-radius:16px;padding:28px;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,0.04);cursor:pointer;transition:all 0.2s;position:relative;overflow:hidden"
+           onmouseover="this.style.transform='translateY(-4px)';this.style.boxShadow='0 12px 28px rgba(0,0,0,0.1)';this.style.borderColor='${cor}'"
+           onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 1px 3px rgba(0,0,0,0.04)';this.style.borderColor='#e2e8f0'">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+          <div style="width:56px;height:56px;background:${corBg};border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:28px">${icone}</div>
+          <span style="font-size:11px;color:${cor};font-weight:800;letter-spacing:0.5px">ABRIR PÁGINA →</span>
+        </div>
+        <div style="font-size:22px;font-weight:800;color:#0f172a;margin-bottom:6px">${titulo}</div>
+        <div style="border-top:1px solid #f1f5f9;padding-top:14px;margin-top:14px">
+          <div style="font-size:10.5px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;margin-bottom:4px">${previewLabel}</div>
+          <div style="font-size:22px;font-weight:800;color:${cor}">${kpiPreview}</div>
+        </div>
+      </div>`;
+    
+    html += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px">
+      ${catCard('valuation', '💰', 'Valuation Snapshot', '#059669', '#d1fae5', _fmtCompact(valMedio), 'Valuation médio (4× ARR)')}
+      ${catCard('saas', '🔁', 'Métricas SaaS', '#7c3aed', '#f3e8ff', _fmtCompact(mrrAtual), 'MRR (Receita Recorrente)')}
+      ${catCard('concent', '🎯', 'Concentração de Clientes', '#dc2626', '#fee2e2', _fmtPct(pctTop10), 'Top 10 clientes')}
+      ${catCard('unit', '📐', 'Unit Economics', '#0284c7', '#dbeafe', ltvCacRatio ? ltvCacRatio.toFixed(1) + 'x' : '—', 'LTV / CAC')}
+      ${catCard('health', '❤️', 'Saúde Financeira', '#e11d48', '#ffe4e6', (isFinite(runwayMeses) ? runwayMeses.toFixed(0) + ' meses' : '∞'), 'Runway')}
+      ${catCard('quality', '⭐', 'Quality of Earnings', '#d97706', '#fef3c7', nrrMedio !== null ? nrrMedio.toFixed(0) + '%' : '—', 'NRR — Net Revenue Retention')}
+      ${catCard('dd', '📋', 'Due Diligence', '#1e40af', '#dbeafe', scoreFinal + '/100', 'Investor Readiness Score')}
+      ${catCard('flags', '🚨', 'Red & Green Flags', '#334155', '#f1f5f9', flags.filter(f=>f.tipo==='green').length + '🟢 · ' + flags.filter(f=>f.tipo==='red').length + '🔴', 'Análise investidor')}
+    </div>`;
+    
+    html += '</div>';
+    container.innerHTML = html;
+    return;
+  }
+  
+  // ============ PÁGINA de uma categoria — Botão voltar ============
+  html += `<div style="margin-bottom:20px">
+    <button onclick="window._maTab='home'; window.scrollTo(0,0); renderMA()" 
+            style="padding:10px 18px;background:white;color:#334155;border:1px solid #cbd5e1;border-radius:8px;font-family:Poppins;font-weight:600;font-size:12.5px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s"
+            onmouseover="this.style.background='#f1f5f9';this.style.borderColor='#94a3b8'"
+            onmouseout="this.style.background='white';this.style.borderColor='#cbd5e1'">
+      ← Voltar aos indicadores
+    </button>
+  </div>`;
+  
   // ============ 1. VALUATION SNAPSHOT ============
+  if (window._maTab === 'valuation') {
   html += acc('valuation', '💰', 'Valuation Snapshot', 'Estimativa de valor de mercado por múltiplos',
     `<span style="font-size:13px;font-weight:800;color:#0f172a;padding:6px 12px;background:#f0fdf4;color:#10b981;border-radius:8px">${_fmtCompact(valMedio)}</span>`);
   html += accBody('valuation', `
@@ -4445,7 +4491,10 @@ function renderMA() {
     </div>
   `);
   
+  }  // fim valuation
+  
   // ============ 2. MÉTRICAS SAAS ============
+  if (window._maTab === 'saas') {
   html += acc('saas', '🔁', 'Métricas SaaS', 'MRR, ARR, Churn, NRR, GRR',
     `<span style="padding:6px 12px;background:#f0fdf4;color:#10b981;border-radius:8px;font-size:12px;font-weight:800">${_fmtCompact(mrrAtual)}/mês</span>`);
   html += accBody('saas', `
@@ -4484,7 +4533,10 @@ function renderMA() {
     </div>
   `);
   
+  }  // fim saas
+  
   // ============ 3. CONCENTRAÇÃO ============
+  if (window._maTab === 'concent') {
   const semConc = pctTop10 > 40 ? 'red' : (pctTop10 > 25 ? 'yellow' : 'green');
   html += acc('concent', '🎯', 'Concentração de Clientes', 'Risco de dependência da base',
     `<span style="padding:6px 12px;background:${semBg[semConc]};color:${semColor[semConc]};border-radius:8px;font-size:12px;font-weight:800">Top10: ${_fmtPct(pctTop10)}</span>`);
@@ -4523,7 +4575,10 @@ function renderMA() {
     </div>
   `);
   
+  }  // fim concent
+  
   // ============ 4. UNIT ECONOMICS ============
+  if (window._maTab === 'unit') {
   const semLTV = ltvCacRatio === null ? 'gray' : (ltvCacRatio >= 3 ? 'green' : (ltvCacRatio >= 1 ? 'yellow' : 'red'));
   html += acc('unit', '📐', 'Unit Economics', 'CAC, LTV, Payback',
     ltvCacRatio !== null ? `<span style="padding:6px 12px;background:${semBg[semLTV]};color:${semColor[semLTV]};border-radius:8px;font-size:12px;font-weight:800">LTV/CAC ${ltvCacRatio.toFixed(1)}x</span>` : '');
@@ -4543,7 +4598,10 @@ function renderMA() {
     </div>
   `);
   
+  }  // fim unit
+  
   // ============ 5. SAÚDE ============
+  if (window._maTab === 'health') {
   html += acc('health', '❤️', 'Saúde Financeira', 'Runway, burn, caixa',
     `<span style="font-size:12px;color:#0f172a;font-weight:800;padding:6px 12px;background:#f0f9ff;border-radius:8px">${runwayMeses === Infinity ? '∞' : runwayMeses.toFixed(1) + ' meses'}</span>`);
   html += accBody('health', `
@@ -4573,7 +4631,10 @@ function renderMA() {
     </div>
   `);
   
+  }  // fim health
+  
   // ============ 6. QUALITY OF EARNINGS ============
+  if (window._maTab === 'quality') {
   const semRec = pctRecorrente >= 70 ? 'green' : (pctRecorrente >= 50 ? 'yellow' : 'red');
   html += acc('quality', '⭐', 'Quality of Earnings', 'Previsibilidade da receita',
     `<span style="padding:6px 12px;background:${semBg[semRec]};color:${semColor[semRec]};border-radius:8px;font-size:12px;font-weight:800">${_fmtPct(pctRecorrente)} recorrente</span>`);
@@ -4602,7 +4663,10 @@ function renderMA() {
     </div>
   `);
   
+  }  // fim quality
+  
   // ============ 7. DD CHECKLIST ============
+  if (window._maTab === 'dd') {
   const ddItems = [
     { cat: 'Financeiro', txt: 'DRE gerencial 3 anos', status: 'progress' },
     { cat: 'Financeiro', txt: 'Balancete 12m rolling', status: 'progress' },
@@ -4674,7 +4738,10 @@ function renderMA() {
     }).join('')}
   `);
   
+  }  // fim dd
+  
   // ============ 8. FLAGS ============
+  if (window._maTab === 'flags') {
   const reds = flags.filter(f => f.tipo === 'red').length;
   const yellows = flags.filter(f => f.tipo === 'yellow').length;
   const greens = flags.filter(f => f.tipo === 'green').length;
@@ -4692,6 +4759,7 @@ function renderMA() {
       💡 <strong>Priorize:</strong> eliminar 🔴 vermelhos → converter 🟡 amarelos → manter 🟢 verdes. Cada red flag pode reduzir múltiplo em 0.5-1.0×.
     </div>
   `);
+  }  // fim flags
   
   html += '</div>';
   container.innerHTML = html;
@@ -14061,6 +14129,7 @@ function abrirMenu(section) {
   if (painel) painel.style.setProperty('display', 'none', 'important');
   // Ao clicar em KPIs (Estratégico), sempre começar na tela dos indicadores
   if (section === 'kpis') { window._kpiV2Tab = 'home'; }
+  if (section === 'ma') { window._maTab = 'home'; }
   // Chamar showSection existente (funcionamento normal das seções)
   if (typeof showSection === 'function') {
     showSection(section);
