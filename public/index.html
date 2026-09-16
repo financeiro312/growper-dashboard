@@ -4771,186 +4771,1054 @@ function renderMA() {
 // Views: v_receita_operacional, v_despesa_operacional, titulos
 // Marco zero: julho/2026
 // ============================================================
+// ============================================================
+// KPIs FINANCEIROS v4 — Modelo Enterprise (Home → Indicador)
+// Views: v_receita_operacional, v_despesa_operacional, titulos
+// Marco zero: julho/2026
+// ============================================================
 async function renderKPIs() {
   const container = document.getElementById('kpisContent') || document.getElementById('mainArea');
   if (!container) return;
 
-  const _fmtRs = v => (v == null || isNaN(v)) ? '—' : 'R$ ' + Math.abs(v).toLocaleString('pt-BR', {minimumFractionDigits:0, maximumFractionDigits:0});
-  const _fmtR = v => (v == null || isNaN(v)) ? '—' : 'R$ ' + Math.abs(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
-  const _fmtPct = (v, d=1) => (v == null || isNaN(v)) ? '—' : v.toFixed(d) + '%';
-  const _fmtSigned = v => (v == null || isNaN(v)) ? '—' : (v >= 0 ? '+' : '−') + 'R$ ' + Math.abs(v).toLocaleString('pt-BR', {minimumFractionDigits:0, maximumFractionDigits:0});
-  const _fmtSignedPct = v => (v == null || isNaN(v)) ? '—' : (v >= 0 ? '▲ +' : '▼ ') + v.toFixed(1) + '%';
-  const _esc = s => String(s || '').replace(/[<>&"']/g, ch => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[ch]));
+  if (!window._kpiV3State) window._kpiV3State = { view: 'home' };
 
-  if (!window._kpiV3State) window._kpiV3State = { blocos: {b1:false,b2:false,b3:false,b4:false,b5:false} };
-
-  // === LOADING inicial se ainda sem dados ===
   if (!window._kpiV3Dados || (Date.now() - window._kpiV3Dados._at > 5*60*1000)) {
     container.innerHTML = `<div style="padding:60px 40px;max-width:1500px;margin:0 auto;text-align:center">
       <div style="display:inline-flex;align-items:center;gap:12px;background:white;padding:16px 24px;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.08);border:1px solid #e2e8f0">
         <span style="animation:_kpiSpin 1s linear infinite;display:inline-block;font-size:20px">🔄</span>
         <span style="font-family:Poppins;font-weight:600;color:#334155;font-size:14px">Carregando KPIs do Supabase…</span>
       </div>
-    </div>
-    <style>@keyframes _kpiSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }</style>`;
+    </div><style>@keyframes _kpiSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }</style>`;
     try {
       await _kpiV3CarregarDados();
     } catch (e) {
       container.innerHTML = `<div style="padding:40px;max-width:1500px;margin:0 auto">
         <div style="background:#fee2e2;border-left:4px solid #dc2626;padding:20px 24px;border-radius:8px">
           <div style="font-size:14px;font-weight:800;color:#991b1b;margin-bottom:6px">❌ Erro ao carregar dados</div>
-          <div style="font-size:13px;color:#7f1d1d;line-height:1.5">${_esc(e.message || 'Desconhecido')}</div>
+          <div style="font-size:13px;color:#7f1d1d">${String(e.message || e).replace(/[<>&]/g,'')}</div>
           <button onclick="window._kpiV3Dados=null; renderKPIs()" style="margin-top:12px;padding:8px 14px;background:#dc2626;color:white;border:none;border-radius:6px;font-family:Poppins;font-weight:700;cursor:pointer">Tentar novamente</button>
-        </div>
-      </div>`;
+        </div></div>`;
       return;
     }
   }
 
   const D = window._kpiV3Dados;
   const inputs = _kpiV3LoadInputs();
-
-  // === CÁLCULOS ===
   const K = _kpiV3Calcular(D, inputs);
 
-  // === HTML ===
+  // Roteador de views
+  const view = window._kpiV3State.view;
+  if (view === 'home') _kpiV3RenderHome(container, K, inputs, D);
+  else if (view.startsWith('ind:')) _kpiV3RenderIndicador(container, view.slice(4), K, inputs, D);
+  else _kpiV3RenderHome(container, K, inputs, D);
+}
+
+// ============================================================
+// RENDER HOME — Grupos com cards clicáveis (modelo M&A)
+// ============================================================
+function _kpiV3RenderHome(container, K, inputs, D) {
+  const grupos = [
+    { id: 'b1', icone: '💰', cor: '#059669', corBg: '#d1fae5', titulo: 'Receita e Previsibilidade', sub: 'De onde vem o dinheiro e se cresce',
+      inds: [
+        { id: 'mrr', icone: '💵', titulo: 'MRR', valor: _fmtRsCurto(K.mrr.atual), sem: K.mrr.sem, sub: K.mrr.varPct != null ? (K.mrr.varPct >= 0 ? '▲ +' : '▼ ') + K.mrr.varPct.toFixed(1) + '% MoM' : '—' },
+        { id: 'netNew', icone: '📈', titulo: 'Net New MRR', valor: _fmtSignedCurto(K.netNew.atual), sem: K.netNew.sem, sub: 'Ganho líquido este mês' },
+        { id: 'nrr', icone: '🔁', titulo: 'NRR', valor: K.nrr.atual != null ? K.nrr.atual.toFixed(0) + '%' : '—', sem: K.nrr.sem, sub: 'Base antiga vs 3 meses atrás' },
+        { id: 'ticket', icone: '🏷️', titulo: 'Ticket Médio', valor: _fmtRsCurto(K.ticket.atual), sem: K.ticket.sem, sub: 'Por cliente ativo' },
+        { id: 'faixa', icone: '📊', titulo: 'Receita por Faixa', valor: _kpiV3FaixaLider(K.faixas), sem: 'gray', sub: 'Distribuição por tier' }
+      ]},
+    { id: 'b2', icone: '📉', cor: '#dc2626', corBg: '#fee2e2', titulo: 'Retenção', sub: 'Quem fica, quem sai',
+      inds: [
+        { id: 'churnRec', icone: '💧', titulo: 'Churn de Receita', valor: K.churnRec.atual != null ? K.churnRec.atual.toFixed(1) + '%' : '—', sem: K.churnRec.sem, sub: 'MRR perdido / MRR início' },
+        { id: 'churnLogo', icone: '👥', titulo: 'Churn de Logos', valor: K.churnLogo.atual != null ? K.churnLogo.atual.toFixed(1) + '%' : '—', sem: K.churnLogo.sem, sub: 'Clientes perdidos' },
+        { id: 'churnAnt', icone: '🚨', titulo: 'Churn Antecedente', valor: '—', sem: 'gray', sub: 'Fonte não integrada' }
+      ]},
+    { id: 'b3', icone: '⚠️', cor: '#f97316', corBg: '#ffedd5', titulo: 'Risco e Caixa', sub: 'O que ameaça o resultado',
+      inds: [
+        { id: 'inadimp', icone: '💸', titulo: 'Inadimplência', valor: K.inadimp.atual != null ? K.inadimp.atual.toFixed(1) + '%' : '—', sem: K.inadimp.sem, sub: _fmtRsCurto(K.inadimp.valorAberto) + ' em aberto' },
+        { id: 'aging', icone: '📅', titulo: 'Aging Recebíveis', valor: _fmtRsCurto(K.aging.a90_mais), sem: K.aging.a90_mais > 0 ? 'red' : 'green', sub: 'Vencido 90+ dias' },
+        { id: 'top5', icone: '🎯', titulo: 'Concentração Top 5', valor: K.top5.atual != null ? K.top5.atual.toFixed(0) + '%' : '—', sem: K.top5.sem, sub: 'Dos 5 maiores' },
+        { id: 'top10', icone: '🎯', titulo: 'Concentração Top 10', valor: K.top10.atual != null ? K.top10.atual.toFixed(0) + '%' : '—', sem: K.top10.sem, sub: 'Dos 10 maiores' }
+      ]},
+    { id: 'b4', icone: '💎', cor: '#7c3aed', corBg: '#f3e8ff', titulo: 'Rentabilidade e Eficiência', sub: 'Se sobra e quanto sobra',
+      inds: [
+        { id: 'margem', icone: '💎', titulo: 'Margem Líquida', valor: K.margem.atual != null ? K.margem.atual.toFixed(1) + '%' : '—', sem: K.margem.sem, sub: 'Janela 3 meses' },
+        { id: 'takeRate', icone: '🎯', titulo: 'Take Rate', valor: K.takeRate.atual != null ? K.takeRate.atual.toFixed(1) + '%' : '—', sem: K.takeRate.sem, sub: 'MRR / Mídia gerenciada' },
+        { id: 'cac', icone: '🎣', titulo: 'CAC', valor: K.cac.atual != null ? _fmtRsCurto(K.cac.atual) : '—', sem: K.cac.sem, sub: K.cac.novos + ' novos clientes' },
+        { id: 'ltvCac', icone: '⚖️', titulo: 'LTV / CAC', valor: K.ltvCac.atual != null ? K.ltvCac.atual.toFixed(1) + 'x' : '—', sem: K.ltvCac.sem, sub: 'Retorno por real gasto' },
+        { id: 'custoDir', icone: '🏭', titulo: 'Custo Direto / Receita', valor: K.custoDireto.atual != null ? K.custoDireto.atual.toFixed(1) + '%' : '—', sem: K.custoDireto.sem, sub: 'Sem 2.01.95' }
+      ]},
+    { id: 'b5', icone: '📢', cor: '#0284c7', corBg: '#dbeafe', titulo: 'Performance de Mídia', sub: 'Como o motor de leads gira',
+      inds: [
+        { id: 'cpl', icone: '💰', titulo: 'CPL Médio', valor: inputs.cplMedio > 0 ? 'R$ ' + inputs.cplMedio.toFixed(2) : '—', sem: 'gray', sub: 'Input manual' },
+        { id: 'taxaPreench', icone: '✅', titulo: 'Taxa Preenchimento', valor: inputs.taxaPreench > 0 ? inputs.taxaPreench.toFixed(1) + '%' : '—', sem: 'gray', sub: 'Input manual' },
+        { id: 'distTiers', icone: '🎖️', titulo: 'Distribuição de Tiers', valor: _kpiV3TotalTiers(inputs), sem: 'gray', sub: 'Bronze → Superstar' },
+        { id: 'cplChurn', icone: '📊', titulo: 'CPL × Churn', valor: (inputs.cplMedio > 0 && K.churnRec.atual != null) ? 'R$ ' + (inputs.cplMedio * (1 + K.churnRec.atual/100)).toFixed(2) : '—', sem: 'gray', sub: 'Indicador antecedente' }
+      ]}
+  ];
+
+  const semCores = { green: '#10b981', yellow: '#f59e0b', red: '#dc2626', gray: '#94a3b8' };
+
   let html = `<div style="padding:20px 24px;max-width:1500px;margin:0 auto;background:#f5f5f7;min-height:100vh">
-    
     <!-- HERO EXECUTIVO -->
-    <div style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#1e40af 100%);border-radius:20px;padding:26px 30px;margin-bottom:14px;color:white;position:relative;overflow:hidden">
-      <div style="position:absolute;top:0;right:0;width:400px;height:400px;background:radial-gradient(circle,rgba(59,130,246,0.15) 0%,transparent 70%);pointer-events:none;border-radius:20px"></div>
+    <div style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#1e40af 100%);border-radius:20px;padding:28px 32px;margin-bottom:20px;color:white;position:relative;overflow:hidden">
+      <div style="position:absolute;top:0;right:0;width:400px;height:400px;background:radial-gradient(circle,rgba(59,130,246,0.15) 0%,transparent 70%);pointer-events:none"></div>
       <div style="position:relative;z-index:1">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px">
           <div>
-            <div style="font-size:11px;color:#93c5fd;text-transform:uppercase;letter-spacing:2px;font-weight:700;margin-bottom:6px">📊 KPIs Financeiros — Visão Coordenador</div>
-            <h1 style="margin:0;font-size:26px;font-weight:800;letter-spacing:-1px;line-height:1.1">Growper Digital</h1>
-            <p style="margin:6px 0 0;color:#cbd5e1;font-size:12.5px">Mês de referência: <strong style="color:white">${K.mesRef.label}</strong> · Marco zero: julho/2026</p>
+            <div style="font-size:11px;color:#93c5fd;text-transform:uppercase;letter-spacing:2px;font-weight:700;margin-bottom:6px">📊 KPIs Financeiros — Coordenador Financeiro</div>
+            <h1 style="margin:0;font-size:28px;font-weight:800;letter-spacing:-1px;line-height:1.1">Growper Digital</h1>
+            <p style="margin:8px 0 0;color:#cbd5e1;font-size:13px">Mês de referência: <strong style="color:white">${K.mesRef.label}</strong> · Marco zero: julho/2026 · Última atualização: agora</p>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start">
-            <button onclick="_kpiV3AbrirManual()" style="background:rgba(255,255,255,0.1);color:white;border:1px solid rgba(255,255,255,0.25);padding:9px 15px;border-radius:8px;font-family:Poppins;font-weight:700;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:6px">📖 Como ler estes indicadores</button>
-            <button onclick="window._kpiV3Dados=null; renderKPIs()" title="Recarregar dados" style="background:rgba(255,255,255,0.1);color:white;border:1px solid rgba(255,255,255,0.25);padding:9px 12px;border-radius:8px;font-family:Poppins;font-weight:700;font-size:12px;cursor:pointer">🔄</button>
+            <button onclick="_kpiV3AbrirManual()" style="background:rgba(255,255,255,0.1);color:white;border:1px solid rgba(255,255,255,0.25);padding:10px 16px;border-radius:8px;font-family:Poppins;font-weight:700;font-size:12.5px;cursor:pointer;display:flex;align-items:center;gap:6px">📖 Manual de Leitura</button>
+            <button onclick="window._kpiV3Dados=null; renderKPIs()" title="Recarregar dados" style="background:rgba(255,255,255,0.1);color:white;border:1px solid rgba(255,255,255,0.25);padding:10px 14px;border-radius:8px;font-family:Poppins;font-weight:700;font-size:12.5px;cursor:pointer">🔄</button>
           </div>
         </div>
-      </div>
-    </div>
-    
-    <!-- ============ VISÃO EXECUTIVA CEO ============ -->
-    <div style="background:white;border-radius:14px;padding:20px 22px;margin-bottom:14px;border:1px solid #e2e8f0;box-shadow:0 1px 2px rgba(0,0,0,0.04)">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-        <div>
-          <div style="font-size:10px;color:#dc2626;font-weight:800;text-transform:uppercase;letter-spacing:1px">👔 Visão Executiva</div>
-          <div style="font-size:17px;font-weight:800;color:#0f172a;margin-top:2px">Seis números para acompanhar</div>
+        
+        <!-- KPIs headline no hero -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:24px;margin-top:24px;padding-top:20px;border-top:1px solid rgba(255,255,255,0.1)">
+          <div><div style="font-size:10px;color:#93c5fd;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">MRR</div><div style="font-size:24px;font-weight:800;color:#10b981;letter-spacing:-0.5px">${_fmtRsCurto(K.mrr.atual)}</div><div style="font-size:11px;color:#94a3b8;margin-top:2px">${K.mrr.varPct != null ? (K.mrr.varPct >= 0 ? '▲ +' : '▼ ') + K.mrr.varPct.toFixed(1) + '%' : '—'}</div></div>
+          <div><div style="font-size:10px;color:#93c5fd;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">Margem Líquida</div><div style="font-size:24px;font-weight:800;color:${K.margem.atual >= 15 ? '#10b981' : (K.margem.atual >= 10 ? '#fbbf24' : '#ef4444')};letter-spacing:-0.5px">${K.margem.atual != null ? K.margem.atual.toFixed(1) + '%' : '—'}</div><div style="font-size:11px;color:#94a3b8;margin-top:2px">Meta > 15%</div></div>
+          <div><div style="font-size:10px;color:#93c5fd;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">Churn Receita</div><div style="font-size:24px;font-weight:800;color:${K.churnRec.atual <= 5 ? '#10b981' : (K.churnRec.atual <= 8 ? '#fbbf24' : '#ef4444')};letter-spacing:-0.5px">${K.churnRec.atual != null ? K.churnRec.atual.toFixed(1) + '%' : '—'}</div><div style="font-size:11px;color:#94a3b8;margin-top:2px">Meta < 5%</div></div>
+          <div><div style="font-size:10px;color:#93c5fd;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">Inadimplência</div><div style="font-size:24px;font-weight:800;color:${K.inadimp.atual <= 3 ? '#10b981' : (K.inadimp.atual <= 5 ? '#fbbf24' : '#ef4444')};letter-spacing:-0.5px">${K.inadimp.atual != null ? K.inadimp.atual.toFixed(1) + '%' : '—'}</div><div style="font-size:11px;color:#94a3b8;margin-top:2px">${_fmtRsCurto(K.inadimp.valorAberto)} vencido</div></div>
+          <div><div style="font-size:10px;color:#93c5fd;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">Concentração Top 5</div><div style="font-size:24px;font-weight:800;color:${K.top5.atual <= 30 ? '#10b981' : (K.top5.atual <= 40 ? '#fbbf24' : '#ef4444')};letter-spacing:-0.5px">${K.top5.atual != null ? K.top5.atual.toFixed(0) + '%' : '—'}</div><div style="font-size:11px;color:#94a3b8;margin-top:2px">Meta < 30%</div></div>
+          <div><div style="font-size:10px;color:#93c5fd;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:4px">LTV / CAC</div><div style="font-size:24px;font-weight:800;color:${K.ltvCac.atual >= 3 ? '#10b981' : (K.ltvCac.atual >= 1 ? '#fbbf24' : '#ef4444')};letter-spacing:-0.5px">${K.ltvCac.atual != null ? K.ltvCac.atual.toFixed(1) + 'x' : '—'}</div><div style="font-size:11px;color:#94a3b8;margin-top:2px">Meta > 3x</div></div>
         </div>
-        <div style="font-size:11px;color:#64748b">Clique em qualquer card para ver o detalhamento</div>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
-        ${_kpiV3CEOCard('MRR', _fmtRs(K.mrr.atual), K.mrr.varPct, K.mrr.sem, K.mrr.leitura, 'b1', '💰')}
-        ${_kpiV3CEOCard('Net New MRR', _fmtSigned(K.netNew.atual), K.netNew.varPct, K.netNew.sem, K.netNew.leitura, 'b1', '📈')}
-        ${_kpiV3CEOCard('Churn de Receita', _fmtPct(K.churnRec.atual), K.churnRec.varPct, K.churnRec.sem, K.churnRec.leitura, 'b2', '📉')}
-        ${_kpiV3CEOCard('Margem Líquida', _fmtPct(K.margem.atual), K.margem.varPct, K.margem.sem, K.margem.leitura, 'b4', '💎')}
-        ${_kpiV3CEOCard('Inadimplência', _fmtPct(K.inadimp.atual), null, K.inadimp.sem, K.inadimp.leitura, 'b3', '⚠️')}
-        ${_kpiV3CEOCard('Take Rate', K.takeRate.atual !== null ? _fmtPct(K.takeRate.atual) : '—', null, K.takeRate.sem, K.takeRate.leitura, 'b4', '🎯')}
       </div>
     </div>
     
-    <!-- ============ BLOCOS DETALHADOS (colapsáveis, fechados por padrão) ============ -->`;
-  
-  // Bloco 1
-  html += _kpiV3Bloco('b1', '💰 Receita e Previsibilidade', 'MRR, Net New MRR, NRR, Ticket Médio, Receita por Faixa', `
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px">
-      ${_kpiV3IndCard({titulo:'MRR', valor:_fmtRs(K.mrr.atual), variacao:K.mrr.varPct, sem:K.mrr.sem, formula:'SUM(valor_pago) em 01.01 do último mês fechado', fonte:'Supabase → v_receita_operacional', meta:'MoM ≥ +3%', armadilha:'Mês corrente NÃO conta — só meses fechados', confiab:'ALTA'})}
-      ${_kpiV3IndCard({titulo:'Net New MRR', valor:_fmtSigned(K.netNew.atual), sem:K.netNew.sem, formula:'MRR mês N − MRR mês N−1', fonte:'Supabase → v_receita_operacional', meta:'Sempre positivo', armadilha:'Pode ser negativo por atraso — validar no mês seguinte', confiab:'MÉDIA (2 meses fechados)'})}
-      ${_kpiV3IndCard({titulo:'NRR — Net Revenue Retention', valor:K.nrr.atual !== null ? _fmtPct(K.nrr.atual, 0) : '—', sem:K.nrr.sem, formula:'(Receita atual da base antiga / Receita antiga da mesma base) × 100', fonte:'Supabase → v_receita_operacional cruzada por cliente_codigo', meta:'> 100%', armadilha:'Janela curta = muita volatilidade', confiab:K.nrr.confiab})}
-      ${_kpiV3IndCard({titulo:'Ticket Médio Recorrente', valor:_fmtRs(K.ticket.atual), variacao:K.ticket.varPct, sem:K.ticket.sem, formula:'MRR / Clientes Ativos', fonte:'Supabase → v_receita_operacional', meta:'Tendência crescente', armadilha:'Cliente novo com desconto puxa pra baixo', confiab:'ALTA'})}
-    </div>
-    <div style="margin-top:14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:16px 18px">
-      <div style="font-size:11px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">Receita por Faixa (inferida por valor da mensalidade)</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px">
-        ${_kpiV3FaixaCard('Basic', 'R$ 1.500', K.faixas.basic, '#94a3b8')}
-        ${_kpiV3FaixaCard('Starter', 'R$ 2.000', K.faixas.starter, '#3b82f6')}
-        ${_kpiV3FaixaCard('Plus', 'R$ 3.000', K.faixas.plus, '#10b981')}
-        ${_kpiV3FaixaCard('Premium', 'R$ 4.500', K.faixas.premium, '#f59e0b')}
-        ${_kpiV3FaixaCard('Master', 'R$ 5.500', K.faixas.master, '#8b5cf6')}
-        ${_kpiV3FaixaCard('Business', 'R$ 6.500', K.faixas.business, '#dc2626')}
-        ${_kpiV3FaixaCard('Outros', '—', K.faixas.outros, '#64748b')}
+    <!-- INSTRUÇÃO -->
+    <div style="background:white;border:1px solid #e2e8f0;border-radius:12px;padding:14px 18px;margin-bottom:18px;display:flex;align-items:center;gap:12px">
+      <div style="width:34px;height:34px;background:#dbeafe;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px">💡</div>
+      <div style="flex:1;font-size:12.5px;color:#334155;line-height:1.5"><strong style="color:#0f172a">Como usar:</strong> os KPIs estão agrupados abaixo por área de decisão. Clique em qualquer indicador para abrir a página com evolução histórica, fonte de dados, passos do cálculo e as perguntas que você deve saber responder.</div>
+    </div>`;
+
+  // Grupos com cards
+  grupos.forEach(g => {
+    html += `<div style="background:white;border:1px solid #e2e8f0;border-radius:14px;margin-bottom:16px;overflow:hidden">
+      <div style="padding:16px 22px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:14px;background:linear-gradient(180deg,#fafafa,white)">
+        <div style="width:44px;height:44px;background:${g.corBg};border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px">${g.icone}</div>
+        <div style="flex:1">
+          <div style="font-size:16px;font-weight:800;color:#0f172a">${g.titulo}</div>
+          <div style="font-size:12px;color:#64748b;margin-top:1px">${g.sub}</div>
+        </div>
+        <div style="font-size:10.5px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">${g.inds.length} indicadores</div>
       </div>
-      <div style="font-size:10.5px;color:#94a3b8;margin-top:10px;line-height:1.4">💡 A faixa é <strong>inferida pelo valor</strong> mensal pago. Integração com Solaris no futuro trará a faixa contratada real.</div>
-    </div>
-  `);
-  
-  // Bloco 2 — Retenção
-  html += _kpiV3Bloco('b2', '📉 Retenção', 'Churn de Receita, Churn de Logos, Churn Antecedente', `
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px">
-      ${_kpiV3IndCard({titulo:'Churn de Receita', valor:_fmtPct(K.churnRec.atual), sem:K.churnRec.sem, formula:'(MRR clientes que pararam / MRR início do mês) × 100', fonte:'Supabase → v_receita_operacional', meta:'< 5%', armadilha:'Cliente pode estar só atrasado — recalcular no mês seguinte', confiab:'MÉDIA'})}
-      ${_kpiV3IndCard({titulo:'Churn de Logos', valor:_fmtPct(K.churnLogo.atual), sem:K.churnLogo.sem, formula:'(Clientes perdidos / Clientes início) × 100', fonte:'Supabase → v_receita_operacional (COUNT DISTINCT)', meta:'< 5%', armadilha:'Divergência com Churn Receita indica saída concentrada por faixa', confiab:'MÉDIA'})}
-      ${_kpiV3IndCard({titulo:'Churn Antecedente', valor:'—', sem:'gray', formula:'N/A — dependente de campo "sinalizou cancelamento"', fonte:'Não disponível hoje (CRM/comercial)', meta:'Integrar comercial no Supabase', armadilha:'Sem campo antecedente, só vemos churn depois que acontece', confiab:'INDISPONÍVEL'})}
-    </div>
-  `);
-  
-  // Bloco 3 — Risco e Caixa
-  html += _kpiV3Bloco('b3', '⚠️ Risco e Caixa', 'Inadimplência, Aging de Recebíveis, Concentração', `
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-bottom:14px">
-      ${_kpiV3IndCard({titulo:'Inadimplência', valor:_fmtPct(K.inadimp.atual), sem:K.inadimp.sem, subvalor:'Vencido em aberto: ' + _fmtRs(K.inadimp.valorAberto), formula:'(Vencido não pago / Esperado 90d) × 100', fonte:'Supabase → titulos', meta:'< 3%', armadilha:'Pode ser negociação, não abandono — cruzar com comercial', confiab:'ALTA'})}
-      ${_kpiV3IndCard({titulo:'Concentração Top 5', valor:_fmtPct(K.top5.atual), sem:K.top5.sem, formula:'SUM top 5 clientes / SUM total (últimos 3m) × 100', fonte:'Supabase → v_receita_operacional', meta:'< 30%', armadilha:'Sobe se a base cai — não só se topo cresceu', confiab:'ALTA'})}
-      ${_kpiV3IndCard({titulo:'Concentração Top 10', valor:_fmtPct(K.top10.atual), sem:K.top10.sem, formula:'SUM top 10 clientes / SUM total (últimos 3m) × 100', fonte:'Supabase → v_receita_operacional', meta:'< 45%', armadilha:'Mesmo cuidado do Top 5', confiab:'ALTA'})}
-    </div>
-    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:16px 18px">
-      <div style="font-size:11px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px">📅 Aging de Recebíveis (títulos em aberto)</div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
-        ${_kpiV3AgingCard('A vencer / até 30d', K.aging.a0_30, '#10b981')}
-        ${_kpiV3AgingCard('Vencido 31-60d', K.aging.a31_60, '#f59e0b')}
-        ${_kpiV3AgingCard('Vencido 61-90d', K.aging.a61_90, '#f97316')}
-        ${_kpiV3AgingCard('Vencido 90+ dias', K.aging.a90_mais, '#dc2626')}
-      </div>
-    </div>
-  `);
-  
-  // Bloco 4 — Rentabilidade e Eficiência
-  html += _kpiV3Bloco('b4', '💎 Rentabilidade e Eficiência', 'Margem Líquida, Take Rate, CAC, LTV:CAC, Custo Direto/Receita', `
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px">
-      ${_kpiV3IndCard({titulo:'Margem Líquida', valor:_fmtPct(K.margem.atual), sem:K.margem.sem, subvalor:'Receita: ' + _fmtRs(K.margem.receita) + ' · Despesa: ' + _fmtRs(K.margem.despesa), formula:'(Receita Líquida − Despesas Op.) / Receita Líquida × 100', fonte:'Supabase → v_receita_operacional + v_despesa_operacional', meta:'> 15%', armadilha:'Sazonalidade alta — olhar janela 3m', confiab:'ALTA'})}
-      ${_kpiV3IndCard({titulo:'Take Rate', valor:K.takeRate.atual !== null ? _fmtPct(K.takeRate.atual) : '—', sem:K.takeRate.sem, subvalor:K.takeRate.subvalor, formula:'MRR / Verba de Mídia Gerenciada × 100', fonte:'MRR: Supabase · Mídia: input manual', meta:'14-16%', armadilha:'Cliente com muita mídia e mensalidade baixa dilui', confiab:'MÉDIA', inputManual:{campo:'verbaMidiaGerenciada', label:'Verba de mídia gerenciada este mês', valor:inputs.verbaMidiaGerenciada}})}
-      ${_kpiV3IndCard({titulo:'CAC', valor:K.cac.atual !== null ? _fmtRs(K.cac.atual) : '—', sem:K.cac.sem, subvalor:K.cac.novos + ' clientes novos este mês', formula:'(Despesas 2.02 comercial) / Nº clientes novos', fonte:'Supabase → v_despesa_operacional (2.02) + v_receita_operacional', meta:'< 3× Ticket Médio', armadilha:'NUNCA usar 2.01.95 (repasse mídia). Novo cliente = primeiro pagamento na base', confiab:'MÉDIA'})}
-      ${_kpiV3IndCard({titulo:'LTV:CAC', valor:K.ltvCac.atual !== null ? K.ltvCac.atual.toFixed(1) + 'x' : '—', sem:K.ltvCac.sem, formula:'LTV / CAC · LTV = Ticket × (1/Churn) × Margem Bruta', fonte:'Derivado', meta:'> 3x', armadilha:'LTV oscila enquanto churn não estabiliza', confiab:'PROVISÓRIA até jan/2027'})}
-      ${_kpiV3IndCard({titulo:'Custo Direto sobre Receita', valor:_fmtPct(K.custoDireto.atual), sem:K.custoDireto.sem, subvalor:'Custo direto: ' + _fmtRs(K.custoDireto.valor) + ' (exclui 2.01.95)', formula:'(CUSTO_DIRETO − 2.01.95) / Receita Líquida × 100', fonte:'Supabase → v_despesa_operacional grupo CUSTO_DIRETO', meta:'< 30%', armadilha:'Excluir repasse de mídia cliente sempre', confiab:'ALTA'})}
-    </div>
-  `);
-  
-  // Bloco 5 — Performance de Mídia
-  html += _kpiV3Bloco('b5', '📢 Performance de Mídia (visão CEO)', 'CPL médio, Taxa de Preenchimento, Distribuição de tiers, CPL × Churn', `
-    <div style="background:#fef3c7;border-left:4px solid #f59e0b;border-radius:10px;padding:16px 18px;margin-bottom:14px">
-      <div style="font-size:13px;color:#78350f;font-weight:800;margin-bottom:6px">⚠️ Fonte não integrada</div>
-      <div style="font-size:12.5px;color:#78350f;line-height:1.6">Solaris (histórico a partir jul/2026) e Elo (foto do mês corrente) são <strong>MCPs de chat</strong>, não acessíveis pelo browser do dashboard. Enquanto a integração via API não é feita, os campos abaixo são <strong>input manual mensal</strong>.</div>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">
-      ${_kpiV3IndCard({titulo:'CPL Médio', valor:inputs.cplMedio > 0 ? 'R$ ' + inputs.cplMedio.toFixed(2) : '—', sem:'gray', formula:'Verba de mídia / Leads gerados', fonte:'Solaris (integração futura) · manual hoje', meta:'Depende do segmento', confiab:'MANUAL', inputManual:{campo:'cplMedio', label:'CPL médio do mês (R$)', valor:inputs.cplMedio}})}
-      ${_kpiV3IndCard({titulo:'Taxa de Preenchimento', valor:inputs.taxaPreench > 0 ? _fmtPct(inputs.taxaPreench) : '—', sem:'gray', formula:'Leads qualificados / Leads gerados × 100', fonte:'Solaris · manual hoje', meta:'> 60%', confiab:'MANUAL', inputManual:{campo:'taxaPreench', label:'Taxa de preenchimento (%)', valor:inputs.taxaPreench}})}
-      ${_kpiV3IndCard({titulo:'CPL × Churn (leading)', valor:(inputs.cplMedio > 0 && K.churnRec.atual !== null) ? 'R$ ' + (inputs.cplMedio * (1 + K.churnRec.atual/100)).toFixed(2) : '—', sem:'gray', formula:'CPL × (1 + Churn)', fonte:'CPL manual + Churn calculado', armadilha:'Se CPL sobe junto com churn, base está deteriorando rápido', confiab:'MANUAL/PROVISÓRIA'})}
-    </div>
-    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:16px 18px;margin-top:14px">
-      <div style="font-size:11px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">🎖️ Distribuição de Tiers (informe manual)</div>
-      <div style="font-size:12px;color:#64748b;margin-bottom:12px">Enquanto Solaris não é integrado, informe abaixo quantos clientes estão em cada tier de performance:</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px">
-        ${_kpiV3TierInput('bronze', 'Bronze', inputs.tierBronze, '#a16207')}
-        ${_kpiV3TierInput('silver', 'Silver', inputs.tierSilver, '#94a3b8')}
-        ${_kpiV3TierInput('gold', 'Gold', inputs.tierGold, '#eab308')}
-        ${_kpiV3TierInput('platinum', 'Platinum', inputs.tierPlatinum, '#0284c7')}
-        ${_kpiV3TierInput('superstar', 'Superstar', inputs.tierSuperstar, '#7c3aed')}
-      </div>
-    </div>
-  `);
-  
+      <div style="padding:16px 18px;display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px">`;
+    
+    g.inds.forEach(ind => {
+      const semCor = semCores[ind.sem];
+      html += `<div onclick="_kpiV3IrPara('ind:${ind.id}')" 
+        style="background:white;border:1px solid #e2e8f0;border-left:3px solid ${semCor};border-radius:10px;padding:14px 16px;cursor:pointer;transition:all 0.15s"
+        onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 16px rgba(0,0,0,0.08)';this.style.borderColor='${g.cor}'"
+        onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='none';this.style.borderColor='#e2e8f0'">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:14px">${ind.icone}</span>
+            <span style="font-size:11px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:0.3px">${ind.titulo}</span>
+          </div>
+          <span style="width:8px;height:8px;background:${semCor};border-radius:50%"></span>
+        </div>
+        <div style="font-size:22px;font-weight:800;color:${semCor};letter-spacing:-0.5px;line-height:1;margin-bottom:4px">${ind.valor}</div>
+        <div style="font-size:11px;color:#64748b">${ind.sub}</div>
+        <div style="border-top:1px solid #f1f5f9;margin-top:10px;padding-top:8px;display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:10.5px;color:${g.cor};font-weight:800;letter-spacing:0.3px">VER DETALHES</span>
+          <span style="color:${g.cor};font-size:14px">→</span>
+        </div>
+      </div>`;
+    });
+    html += `</div></div>`;
+  });
+
   html += '</div>';
   container.innerHTML = html;
 }
 
 // ============================================================
-// CARREGAMENTO DE DADOS
+// RENDER INDICADOR — Página individual completa
+// ============================================================
+function _kpiV3RenderIndicador(container, id, K, inputs, D) {
+  const def = _kpiV3IndDefs(id, K, inputs, D);
+  if (!def) { window._kpiV3State.view = 'home'; renderKPIs(); return; }
+
+  const semCores = { green: '#10b981', yellow: '#f59e0b', red: '#dc2626', gray: '#94a3b8' };
+  const cor = semCores[def.semaforo] || semCores.gray;
+  const confiabCor = { 'ALTA': '#10b981', 'MÉDIA': '#f59e0b', 'PROVISÓRIA': '#f97316', 'INDISPONÍVEL': '#dc2626', 'MANUAL': '#8b5cf6' }[String(def.confiab || '').split(' ')[0]] || '#94a3b8';
+
+  let html = `<div style="padding:20px 24px;max-width:1500px;margin:0 auto;background:#f5f5f7;min-height:100vh">
+    <!-- Breadcrumb + Voltar -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <button onclick="_kpiV3Voltar()" style="background:white;border:1px solid #cbd5e1;color:#334155;padding:9px 14px;border-radius:8px;font-family:Poppins;font-weight:700;font-size:12.5px;cursor:pointer;display:flex;align-items:center;gap:6px">← Voltar aos indicadores</button>
+      <div style="font-size:11.5px;color:#64748b">KPIs Financeiros · <strong>${def.grupo}</strong> · ${def.titulo}</div>
+    </div>
+    
+    <!-- Hero do indicador -->
+    <div style="background:white;border:1px solid #e2e8f0;border-radius:16px;padding:28px 32px;margin-bottom:16px;position:relative;overflow:hidden">
+      <div style="position:absolute;top:0;left:0;width:6px;height:100%;background:${cor}"></div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:20px">
+        <div style="flex:1;min-width:300px">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
+            <div style="width:44px;height:44px;background:${cor}15;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px">${def.icone}</div>
+            <div>
+              <div style="font-size:10.5px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:0.8px">${def.grupo}</div>
+              <div style="font-size:22px;font-weight:800;color:#0f172a;letter-spacing:-0.5px">${def.titulo}</div>
+            </div>
+          </div>
+          <p style="margin:12px 0 0;font-size:13px;color:#475569;line-height:1.6;max-width:600px">${def.descricao}</p>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px">Valor atual — ${K.mesRef.label}</div>
+          <div style="font-size:44px;font-weight:800;color:${cor};letter-spacing:-1px;line-height:1">${def.valor}</div>
+          ${def.subvalor ? `<div style="font-size:12.5px;color:#334155;margin-top:6px">${def.subvalor}</div>` : ''}
+          <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px;flex-wrap:wrap">
+            <span style="background:${cor}15;color:${cor};padding:4px 10px;border-radius:6px;font-size:10.5px;font-weight:800;text-transform:uppercase">${def.metaTag}</span>
+            <span style="background:${confiabCor};color:white;padding:4px 10px;border-radius:6px;font-size:10.5px;font-weight:800;text-transform:uppercase">${def.confiab}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Evolução histórica -->
+    ${def.serie && def.serie.length > 0 ? `<div style="background:white;border:1px solid #e2e8f0;border-radius:14px;padding:20px 24px;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <div>
+          <div style="font-size:11px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:0.5px">📈 Evolução histórica</div>
+          <div style="font-size:15px;font-weight:800;color:#0f172a;margin-top:2px">${def.serieTitulo || 'Últimos meses'}</div>
+        </div>
+        <div style="font-size:11px;color:#64748b">Marco zero: julho/2026</div>
+      </div>
+      ${_kpiV3ChartLinha(def.serie, cor, def.serieFmt || 'money')}
+    </div>` : ''}
+    
+    <!-- Perguntas do CEO -->
+    <div style="background:white;border:1px solid #e2e8f0;border-radius:14px;padding:20px 24px;margin-bottom:16px">
+      <div style="margin-bottom:16px">
+        <div style="font-size:11px;color:#dc2626;font-weight:800;text-transform:uppercase;letter-spacing:0.5px">👔 Perguntas que o CEO vai fazer</div>
+        <div style="font-size:15px;font-weight:800;color:#0f172a;margin-top:2px">E onde ver a resposta</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr;gap:14px">
+        ${def.perguntas.map(p => `<div style="background:#fafafa;border:1px solid #e2e8f0;border-radius:10px;padding:16px 18px">
+          <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:10px">
+            <div style="width:26px;height:26px;background:#0f172a;color:white;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0">?</div>
+            <div style="font-size:13.5px;font-weight:700;color:#0f172a;line-height:1.4">${p.pergunta}</div>
+          </div>
+          <div style="font-size:12.5px;color:#334155;line-height:1.6;padding-left:38px">${p.resposta}</div>
+          ${p.visual ? `<div style="margin-top:12px;padding-left:38px">${p.visual}</div>` : ''}
+        </div>`).join('')}
+      </div>
+    </div>
+    
+    <!-- Fonte de dados -->
+    <div style="background:white;border:1px solid #e2e8f0;border-radius:14px;padding:20px 24px;margin-bottom:16px">
+      <div style="margin-bottom:14px">
+        <div style="font-size:11px;color:#059669;font-weight:800;text-transform:uppercase;letter-spacing:0.5px">🔌 Fonte de dados</div>
+        <div style="font-size:15px;font-weight:800;color:#0f172a;margin-top:2px">De onde vem este número</div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-bottom:14px">
+        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px 14px">
+          <div style="font-size:10px;color:#166534;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Sistema de Origem</div>
+          <div style="font-size:13px;color:#0f172a;font-weight:700">${def.fonte.origem}</div>
+        </div>
+        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px 14px">
+          <div style="font-size:10px;color:#1e40af;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Banco de dados</div>
+          <div style="font-size:13px;color:#0f172a;font-weight:700">Supabase → ${def.fonte.tabela}</div>
+        </div>
+        <div style="background:#faf5ff;border:1px solid #d8b4fe;border-radius:8px;padding:12px 14px">
+          <div style="font-size:10px;color:#6b21a8;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Frequência</div>
+          <div style="font-size:13px;color:#0f172a;font-weight:700">${def.fonte.freq}</div>
+        </div>
+      </div>
+      <div style="background:#0f172a;border-radius:10px;padding:14px 16px;overflow-x:auto">
+        <div style="font-size:10px;color:#94a3b8;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Query SQL</div>
+        <pre style="margin:0;font-family:'Courier New',monospace;font-size:11.5px;color:#e2e8f0;line-height:1.5;white-space:pre-wrap">${def.fonte.query}</pre>
+      </div>
+    </div>
+    
+    <!-- Como foi elaborado -->
+    <div style="background:white;border:1px solid #e2e8f0;border-radius:14px;padding:20px 24px;margin-bottom:16px">
+      <div style="margin-bottom:14px">
+        <div style="font-size:11px;color:#7c3aed;font-weight:800;text-transform:uppercase;letter-spacing:0.5px">🧮 Como foi elaborado</div>
+        <div style="font-size:15px;font-weight:800;color:#0f172a;margin-top:2px">Fórmula e passo a passo</div>
+      </div>
+      <div style="background:#faf5ff;border:1px solid #d8b4fe;border-radius:10px;padding:14px 18px;margin-bottom:14px">
+        <div style="font-size:10.5px;color:#6b21a8;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Fórmula</div>
+        <div style="font-size:14px;color:#0f172a;font-weight:700;font-family:'Courier New',monospace">${def.formula}</div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">Passo a passo</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          ${def.passos.map((p, i) => `<div style="display:flex;align-items:flex-start;gap:12px">
+            <div style="width:26px;height:26px;background:${cor};color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0">${i+1}</div>
+            <div style="font-size:13px;color:#334155;line-height:1.6;padding-top:3px">${p}</div>
+          </div>`).join('')}
+        </div>
+      </div>
+    </div>
+    
+    <!-- Armadilhas + Meta + Input Manual -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px;margin-bottom:16px">
+      <div style="background:white;border:1px solid #e2e8f0;border-radius:12px;padding:18px 20px">
+        <div style="font-size:11px;color:#f59e0b;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">⚠️ Armadilhas</div>
+        <ul style="margin:0;padding-left:18px;font-size:13px;color:#334155;line-height:1.7">${def.armadilhas.map(a => `<li>${a}</li>`).join('')}</ul>
+      </div>
+      <div style="background:white;border:1px solid #e2e8f0;border-radius:12px;padding:18px 20px">
+        <div style="font-size:11px;color:#0284c7;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">🎯 Meta e sinais</div>
+        <div style="font-size:13px;color:#334155;line-height:1.7">${def.metaTexto}</div>
+      </div>
+    </div>
+    
+    ${def.inputManual ? `<div style="background:white;border:2px dashed #cbd5e1;border-radius:12px;padding:18px 20px;margin-bottom:16px">
+      <div style="font-size:11px;color:#7c3aed;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">✏️ Entrada manual necessária</div>
+      <label style="font-size:12.5px;color:#334155;display:block;margin-bottom:6px">${def.inputManual.label}</label>
+      <input type="number" value="${def.inputManual.valor || ''}" onchange="_kpiV3SetInput('${def.inputManual.campo}', this.value)" min="0" step="0.01"
+        style="width:100%;max-width:320px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;font-family:Poppins;font-size:14px;font-weight:700" placeholder="0">
+    </div>` : ''}
+  </div>`;
+
+  container.innerHTML = html;
+}
+
+// ============================================================
+// HELPERS DE APRESENTAÇÃO
+// ============================================================
+function _fmtRsCurto(v) {
+  if (v == null || isNaN(v)) return '—';
+  const abs = Math.abs(v);
+  if (abs >= 1e6) return 'R$ ' + (v/1e6).toFixed(1) + 'M';
+  if (abs >= 1e3) return 'R$ ' + (v/1e3).toFixed(0) + 'k';
+  return 'R$ ' + v.toFixed(0);
+}
+
+function _fmtSignedCurto(v) {
+  if (v == null || isNaN(v)) return '—';
+  return (v >= 0 ? '+' : '−') + _fmtRsCurto(v).replace('R$ ', 'R$ ');
+}
+
+function _kpiV3FaixaLider(f) {
+  const arr = [['Basic', f.basic], ['Starter', f.starter], ['Plus', f.plus], ['Premium', f.premium], ['Master', f.master], ['Business', f.business]].filter(([_, v]) => v > 0).sort((a,b) => b[1] - a[1]);
+  return arr.length > 0 ? arr[0][0] : '—';
+}
+
+function _kpiV3TotalTiers(i) {
+  const t = (i.tierBronze||0) + (i.tierSilver||0) + (i.tierGold||0) + (i.tierPlatinum||0) + (i.tierSuperstar||0);
+  return t > 0 ? t + ' clientes' : '—';
+}
+
+// Chart de linha SVG
+function _kpiV3ChartLinha(serie, cor, formato) {
+  const w = 1000, h = 220, mL = 60, mR = 20, mT = 20, mB = 40;
+  const inW = w - mL - mR, inH = h - mT - mB;
+  const vals = serie.map(s => s.valor);
+  const min = Math.min(...vals, 0);
+  const max = Math.max(...vals, 1);
+  const range = max - min || 1;
+  const xStep = inW / Math.max(1, serie.length - 1);
+  const points = serie.map((s, i) => `${mL + i * xStep},${mT + inH - ((s.valor - min) / range) * inH}`).join(' ');
+  const areaPath = `M ${mL},${mT + inH} L ${points.split(' ').join(' L ')} L ${mL + (serie.length-1) * xStep},${mT + inH} Z`;
+  const fmt = v => formato === 'pct' ? v.toFixed(1) + '%' : (formato === 'int' ? v.toFixed(0) : _fmtRsCurto(v));
+  
+  // Ticks Y (4 níveis)
+  const ticks = [0, 0.33, 0.67, 1].map(t => min + t * range);
+  const yGrid = ticks.map(t => {
+    const y = mT + inH - ((t - min) / range) * inH;
+    return `<line x1="${mL}" y1="${y}" x2="${w-mR}" y2="${y}" stroke="#f1f5f9" stroke-width="1"/>
+            <text x="${mL - 8}" y="${y+4}" text-anchor="end" fill="#94a3b8" font-size="10" font-family="Poppins">${fmt(t)}</text>`;
+  }).join('');
+  
+  return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block">
+    ${yGrid}
+    <path d="${areaPath}" fill="${cor}" fill-opacity="0.08"/>
+    <polyline points="${points}" fill="none" stroke="${cor}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    ${serie.map((s, i) => {
+      const x = mL + i * xStep;
+      const y = mT + inH - ((s.valor - min) / range) * inH;
+      return `<circle cx="${x}" cy="${y}" r="4" fill="white" stroke="${cor}" stroke-width="2.5"/>
+              <text x="${x}" y="${h - 22}" text-anchor="middle" fill="#64748b" font-size="10" font-family="Poppins" font-weight="700">${s.label}</text>
+              <text x="${x}" y="${h - 8}" text-anchor="middle" fill="#334155" font-size="10.5" font-family="Poppins" font-weight="600">${fmt(s.valor)}</text>`;
+    }).join('')}
+  </svg>`;
+}
+
+// Barras horizontais para breakdown
+function _kpiV3Breakdown(items, cor) {
+  const max = Math.max(...items.map(i => i.valor), 1);
+  return `<div style="display:flex;flex-direction:column;gap:8px">
+    ${items.map(i => `<div>
+      <div style="display:flex;justify-content:space-between;font-size:11.5px;color:#334155;margin-bottom:3px">
+        <span style="font-weight:700">${i.label}</span>
+        <span style="font-weight:700;color:${cor}">${i.display || _fmtRsCurto(i.valor)}</span>
+      </div>
+      <div style="height:8px;background:#f1f5f9;border-radius:4px;overflow:hidden">
+        <div style="height:100%;background:${cor};width:${(i.valor/max*100).toFixed(0)}%;border-radius:4px"></div>
+      </div>
+    </div>`).join('')}
+  </div>`;
+}
+
+// Ranking (lista numerada)
+function _kpiV3Ranking(items, cor) {
+  return `<div style="display:flex;flex-direction:column;gap:8px">
+    ${items.map((i, idx) => `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:white;border:1px solid #e2e8f0;border-radius:8px">
+      <div style="width:22px;height:22px;background:${idx < 3 ? cor : '#e2e8f0'};color:${idx < 3 ? 'white' : '#334155'};border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800">${idx+1}</div>
+      <div style="flex:1;font-size:12px;color:#334155;font-weight:600">${i.label}</div>
+      <div style="font-size:12px;font-weight:700;color:${cor}">${i.display}</div>
+    </div>`).join('')}
+  </div>`;
+}
+
+// Gauge de meta
+function _kpiV3Gauge(atual, meta, cor, formato) {
+  const pct = Math.max(0, Math.min(100, (atual / meta) * 100));
+  const fmt = v => formato === 'pct' ? v.toFixed(1) + '%' : _fmtRsCurto(v);
+  return `<div style="display:flex;align-items:center;gap:16px">
+    <div style="flex:1">
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:#64748b;margin-bottom:4px">
+        <span>Atual: <strong style="color:${cor}">${fmt(atual)}</strong></span>
+        <span>Meta: <strong>${fmt(meta)}</strong></span>
+      </div>
+      <div style="height:12px;background:#f1f5f9;border-radius:6px;overflow:hidden">
+        <div style="height:100%;background:linear-gradient(90deg,${cor}80,${cor});width:${pct}%;border-radius:6px"></div>
+      </div>
+      <div style="font-size:11px;color:#64748b;margin-top:4px">${pct.toFixed(0)}% da meta</div>
+    </div>
+  </div>`;
+}
+
+// ============================================================
+// DEFINIÇÕES POR INDICADOR
+// ============================================================
+function _kpiV3IndDefs(id, K, inputs, D) {
+  const semCores = { green: '#10b981', yellow: '#f59e0b', red: '#dc2626', gray: '#94a3b8' };
+  // cor local — mapeada pelo semáforo do indicador quando conhecido; fallback verde
+  const _corDo = sem => semCores[sem] || semCores.green;
+  const fmtPct = v => v != null && !isNaN(v) ? v.toFixed(1) + '%' : '—';
+  const meses6 = _kpiV3UltimosMeses(K.mesRef.key, 6);
+  const mesesLabels = m => ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'][parseInt(m.split('-')[1]) - 1];
+
+  // === MRR ===
+  if (id === 'mrr') {
+    const mrrPorMes = _kpiV3AgruparPorMes(D.receita.filter(r => (r.categoria_codigo || '').startsWith('01.01')));
+    const serie = meses6.map(m => ({ label: mesesLabels(m), valor: mrrPorMes[m] || 0 }));
+    const faixasBar = [
+      { label: 'Basic (R$ 1.500)', valor: K.faixas.basic },
+      { label: 'Starter (R$ 2.000)', valor: K.faixas.starter },
+      { label: 'Plus (R$ 3.000)', valor: K.faixas.plus },
+      { label: 'Premium (R$ 4.500)', valor: K.faixas.premium },
+      { label: 'Master (R$ 5.500)', valor: K.faixas.master },
+      { label: 'Business (R$ 6.500)', valor: K.faixas.business }
+    ].filter(f => f.valor > 0);
+    return {
+      icone: '💵', grupo: 'Receita e Previsibilidade', titulo: 'MRR — Monthly Recurring Revenue',
+      descricao: 'Receita recorrente que entra todo mês pelas mensalidades contratadas. É o indicador mais importante para saber se o negócio está crescendo, estável ou encolhendo. Muda com novos contratos, cancelamentos e upgrade/downgrade de faixa.',
+      valor: _fmtRsCurto(K.mrr.atual), subvalor: K.mrr.varPct != null ? (K.mrr.varPct >= 0 ? '▲ +' : '▼ ') + K.mrr.varPct.toFixed(1) + '% vs mês anterior' : '',
+      semaforo: K.mrr.sem, confiab: 'ALTA', metaTag: 'Meta > +3% MoM',
+      metaTexto: 'Objetivo: crescimento de <strong>≥ 3% ao mês</strong> vs mês anterior. Verde ≥ 3%, amarelo entre 0-3%, vermelho quando cai. Alerta acionado quando cai 2 meses seguidos.',
+      serie, serieTitulo: 'MRR mensal (últimos 6 meses)', serieFmt: 'money',
+      formula: 'SUM(valor_pago) do último mês fechado, filtrado por categoria 01.01',
+      fonte: { origem: 'OMIE (Contas a Receber)', tabela: 'v_receita_operacional', freq: 'Diária (sync OMIE)',
+        query: `SELECT SUM(valor_pago) AS mrr\nFROM v_receita_operacional\nWHERE categoria_codigo LIKE '01.01%'\n  AND TO_CHAR(data_pagto,'YYYY-MM') = '${K.mesRef.key}';` },
+      passos: [
+        'Filtrar movimentos financeiros do tipo <strong>1. Contas a Receber</strong> na tabela <code>movimentos_financeiros</code>',
+        'Aplicar view <code>v_movimentos_deduplicados</code> para descartar movimentos "previsão" que já viraram baixa efetiva (evita contagem dupla do OMIE)',
+        'Filtrar por prefixo de categoria <code>01.01%</code> (receita operacional principal — mensalidades)',
+        'Restringir ao mês de referência (<strong>' + K.mesRef.label + '</strong> — último mês fechado)',
+        'Somar <code>valor_pago</code> agrupado por mês',
+        'Comparar com o mês anterior para calcular variação percentual (MoM)'
+      ],
+      armadilhas: [
+        'Mês corrente NUNCA conta — usar sempre o último mês fechado',
+        'Taxa de implementação (01.02) NÃO entra no MRR — só mensalidade recorrente',
+        'Rendimentos de aplicação e ajustes de conciliação (id_titulo=0) já são filtrados pela view'
+      ],
+      perguntas: [
+        { pergunta: 'Por que o MRR mudou este mês?', resposta: 'Olhe a variação vs mês anterior. Se positiva, ganhamos base ou clientes subiram de faixa. Se negativa, cruzar com o Churn de Receita (mesma diferença = cancelamento; diferença menor = downgrade de faixa).',
+          visual: `<div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px"><div style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;margin-bottom:10px">Composição atual por faixa</div>${_kpiV3Breakdown(faixasBar, '#059669')}</div>` },
+        { pergunta: 'Qual faixa está puxando o crescimento (ou queda)?', resposta: 'A faixa com maior peso hoje define a resiliência do MRR. Se cai a Basic mas cresce a Master, é sinal de qualificação da base. Se ao contrário, base migrando para faixa menor = risco.',
+          visual: `<div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px"><div style="font-size:11.5px;color:#334155;line-height:1.6">Faixa líder: <strong>${_kpiV3FaixaLider(K.faixas)}</strong> · Faixa em queda: acompanhar próximos meses</div></div>` },
+        { pergunta: 'Estamos crescendo no ritmo esperado?', resposta: 'Meta é 3% ao mês. Nos últimos 6 meses, quantos foram acima disso? Se menos da metade, o negócio está estagnando.',
+          visual: _kpiV3Gauge(K.mrr.varPct || 0, 3, _corDo(K.mrr.sem), 'pct') },
+        { pergunta: 'A queda pode ser só atraso de pagamento?', resposta: 'Sim, e frequentemente é. Revalidar no dia 5 do mês seguinte quando as baixas fecham. Se persistir, é churn real.' }
+      ]
+    };
+  }
+  
+  // === Net New MRR ===
+  if (id === 'netNew') {
+    const mrrPorMes = _kpiV3AgruparPorMes(D.receita.filter(r => (r.categoria_codigo || '').startsWith('01.01')));
+    const serie = meses6.map((m, i) => {
+      const ant = _kpiV3MesAnterior(m);
+      return { label: mesesLabels(m), valor: (mrrPorMes[m] || 0) - (mrrPorMes[ant] || 0) };
+    });
+    return {
+      icone: '📈', grupo: 'Receita e Previsibilidade', titulo: 'Net New MRR',
+      descricao: 'Receita recorrente líquida adicionada no mês. Considera novos clientes, expansões, downgrades e cancelamentos. É a métrica mais direta do vetor de crescimento — se está positiva, a base está expandindo; se negativa, encolhendo.',
+      valor: _fmtSignedCurto(K.netNew.atual), subvalor: K.netNew.atual >= 0 ? 'Ganho líquido este mês' : 'Perda líquida este mês',
+      semaforo: K.netNew.sem, confiab: 'MÉDIA (2 meses fechados)', metaTag: 'Sempre positivo',
+      metaTexto: 'Objetivo: <strong>sempre positivo</strong>, ideal ≥ +5% do MRR base. Verde quando > 0, vermelho quando < 0. Alerta: negativo por 2 meses seguidos.',
+      serie, serieTitulo: 'Net New MRR mensal', serieFmt: 'money',
+      formula: 'MRR do mês N − MRR do mês N−1',
+      fonte: { origem: 'OMIE (Contas a Receber)', tabela: 'v_receita_operacional', freq: 'Mensal',
+        query: `WITH m AS (\n  SELECT TO_CHAR(data_pagto,'YYYY-MM') mes, SUM(valor_pago) mrr\n  FROM v_receita_operacional\n  WHERE categoria_codigo LIKE '01.01%'\n  GROUP BY 1\n)\nSELECT mes, mrr - LAG(mrr) OVER (ORDER BY mes) net_new FROM m;` },
+      passos: [
+        'Calcular MRR do mês N e MRR do mês N−1 usando a mesma regra do indicador MRR',
+        'Subtrair: Net New = MRR(N) − MRR(N−1)',
+        'Se positivo, adicionamos receita líquida no mês. Se negativo, perdemos'
+      ],
+      armadilhas: [
+        'Pode ficar temporariamente negativo por atrasos de pagamento — validar no mês seguinte',
+        'Se o mês anterior teve valor concentrado (março 2026 = R$ 836k), o Net New oscila artificialmente',
+        'Não confundir com "clientes novos": Net New é receita líquida, não headcount'
+      ],
+      perguntas: [
+        { pergunta: 'De onde veio o crescimento?', resposta: 'Cruzar com Churn de Receita: se Net New > Churn, a expansão vem de novos contratos. Se Net New próximo do Churn, estamos apenas repondo baixas.' },
+        { pergunta: 'Foi expansão real ou reversão de atraso?', resposta: 'Se o mês anterior teve inadimplência alta e o Net New pulou, provavelmente foi só recuperação. Cruzar com Aging.' },
+        { pergunta: 'Quantos clientes novos entraram este mês?', resposta: `Este mês entraram <strong>${K.cac.novos} novos clientes</strong>. Divida por eles para saber o ticket médio de aquisição.` }
+      ]
+    };
+  }
+
+  // === NRR ===
+  if (id === 'nrr') {
+    return {
+      icone: '🔁', grupo: 'Receita e Previsibilidade', titulo: 'NRR — Net Revenue Retention',
+      descricao: 'Mede quanto da receita da base antiga sobreviveu (contando expansões, downgrades e cancelamentos). É o principal indicador de saúde de retenção — no benchmark SaaS, acima de 100% significa que a base cresce sozinha sem clientes novos.',
+      valor: K.nrr.atual != null ? K.nrr.atual.toFixed(0) + '%' : '—', subvalor: 'Janela: últimos 3 meses',
+      semaforo: K.nrr.sem, confiab: 'MÉDIA (janela 3m — provisória até out/2026)', metaTag: 'Meta > 100%',
+      metaTexto: 'Objetivo: <strong>> 100%</strong> (base cresce sozinha). Verde ≥ 100%, amarelo 90-100%, vermelho < 90%. Só será plenamente confiável com janela 12m a partir de julho/2027.',
+      serie: null,
+      formula: '(Receita atual da base antiga / Receita antiga da mesma base) × 100',
+      fonte: { origem: 'OMIE (Contas a Receber)', tabela: 'v_receita_operacional', freq: 'Mensal',
+        query: `WITH base_antiga AS (\n  SELECT DISTINCT cliente_codigo\n  FROM v_receita_operacional\n  WHERE categoria_codigo LIKE '01.01%'\n    AND TO_CHAR(data_pagto,'YYYY-MM') = '${_kpiV3MesAnterior(_kpiV3MesAnterior(_kpiV3MesAnterior(K.mesRef.key)))}'\n),\nreceita_hoje AS (\n  SELECT SUM(v.valor_pago) rec\n  FROM v_receita_operacional v JOIN base_antiga b USING (cliente_codigo)\n  WHERE TO_CHAR(v.data_pagto,'YYYY-MM') = '${K.mesRef.key}'\n),\nreceita_ontem AS (\n  SELECT SUM(v.valor_pago) rec\n  FROM v_receita_operacional v JOIN base_antiga b USING (cliente_codigo)\n  WHERE TO_CHAR(v.data_pagto,'YYYY-MM') = '${_kpiV3MesAnterior(_kpiV3MesAnterior(_kpiV3MesAnterior(K.mesRef.key)))}'\n)\nSELECT (SELECT rec FROM receita_hoje) / NULLIF((SELECT rec FROM receita_ontem),0) * 100 AS nrr;` },
+      passos: [
+        'Identificar todos os clientes que estavam ativos há 3 meses (base antiga)',
+        'Somar quanto essa mesma base paga <strong>hoje</strong>',
+        'Somar quanto essa mesma base pagava <strong>há 3 meses</strong>',
+        'Dividir hoje / há 3 meses × 100'
+      ],
+      armadilhas: [
+        'Janela curta (3m) = mais volátil. Janela 12m só a partir de jul/2027',
+        'Base antiga precisa ser estabilizada — se marco zero é jul/2026, NRR só é confiável de out/2026 em diante',
+        'Cliente que estava atrasado e agora pagou aumenta artificialmente o NRR'
+      ],
+      perguntas: [
+        { pergunta: 'A base está expandindo sozinha?', resposta: K.nrr.atual >= 100 ? 'Sim. Clientes antigos estão gastando mais hoje do que gastavam antes — expansão orgânica.' : (K.nrr.atual >= 90 ? 'Estável. Nem expandindo nem contraindo significativamente.' : 'Não. Base antiga está encolhendo — churn ou downgrade dominando.') },
+        { pergunta: 'Devo confiar plenamente neste número?', resposta: 'Ainda não. A janela é 3m provisória. NRR robusto exige 12m de histórico limpo, disponível apenas em julho/2027.' },
+        { pergunta: 'Como comparar com o mercado?', resposta: 'SaaS B2B saudável: NRR ≥ 110%. Marketing digital com clientes de menor ticket: 100-105% já é bom.' }
+      ]
+    };
+  }
+
+  // === Ticket Médio ===
+  if (id === 'ticket') {
+    const mrrPorMes = _kpiV3AgruparPorMes(D.receita.filter(r => (r.categoria_codigo || '').startsWith('01.01')));
+    const cliMes = _kpiV3ClientesPorMes(D.receita.filter(r => (r.categoria_codigo || '').startsWith('01.01')));
+    const serie = meses6.map(m => ({ label: mesesLabels(m), valor: cliMes[m] && cliMes[m].size > 0 ? (mrrPorMes[m] || 0) / cliMes[m].size : 0 }));
+    return {
+      icone: '🏷️', grupo: 'Receita e Previsibilidade', titulo: 'Ticket Médio Recorrente',
+      descricao: 'Quanto cada cliente ativo paga em média por mês. Mostra o mix da base — sobe quando mais clientes migram para faixas maiores (Master, Business), cai quando entram muitos novos em faixas menores ou há downgrade em massa.',
+      valor: _fmtRsCurto(K.ticket.atual), subvalor: K.ticket.varPct != null ? (K.ticket.varPct >= 0 ? '▲ +' : '▼ ') + K.ticket.varPct.toFixed(1) + '% MoM' : '',
+      semaforo: K.ticket.sem, confiab: 'ALTA', metaTag: 'Tendência crescente',
+      metaTexto: 'Objetivo: <strong>tendência crescente</strong> ao longo do tempo. Verde quando sobe MoM, amarelo estável, vermelho cair 3 meses seguidos.',
+      serie, serieTitulo: 'Ticket Médio mensal', serieFmt: 'money',
+      formula: 'MRR do mês / Clientes ativos recorrentes no mês',
+      fonte: { origem: 'OMIE (Contas a Receber)', tabela: 'v_receita_operacional', freq: 'Mensal',
+        query: `SELECT SUM(valor_pago) / NULLIF(COUNT(DISTINCT cliente_codigo),0) AS ticket_medio\nFROM v_receita_operacional\nWHERE categoria_codigo LIKE '01.01%'\n  AND TO_CHAR(data_pagto,'YYYY-MM') = '${K.mesRef.key}';` },
+      passos: [
+        'Somar todas as mensalidades pagas no mês (MRR)',
+        'Contar clientes distintos que pagaram no mês',
+        'Dividir MRR pelo número de clientes'
+      ],
+      armadilhas: [
+        'Cliente novo com desconto de implantação puxa para baixo — considerar isolar esses casos',
+        'Se muitos clientes atrasam, ticket parece maior no mês seguinte (recuperação inflada)',
+        'Faixa é inferida pelo valor pago — não é a faixa contratada real (que está no Solaris)'
+      ],
+      perguntas: [
+        { pergunta: 'A qualidade da base está melhorando?', resposta: `Ticket médio hoje é ${_fmtRsCurto(K.ticket.atual)}. Se aumentar mês a mês, sim. Se cair, pode ser onda de novos em faixas baixas ou downgrades.` },
+        { pergunta: 'Estamos atraindo clientes maiores?', resposta: `Cruzar com Net New MRR: se Net New sobe rápido e Ticket também, sim. Se Net New sobe mas Ticket cai, estamos ganhando volume mas qualidade cai.` },
+        { pergunta: 'Qual faixa domina hoje?', resposta: `<strong>${_kpiV3FaixaLider(K.faixas)}</strong> lidera em receita este mês.` }
+      ]
+    };
+  }
+  
+  // === Receita por Faixa ===
+  if (id === 'faixa') {
+    const items = [
+      { label: 'Basic (R$ 1.500)', valor: K.faixas.basic },
+      { label: 'Starter (R$ 2.000)', valor: K.faixas.starter },
+      { label: 'Plus (R$ 3.000)', valor: K.faixas.plus },
+      { label: 'Premium (R$ 4.500)', valor: K.faixas.premium },
+      { label: 'Master (R$ 5.500)', valor: K.faixas.master },
+      { label: 'Business (R$ 6.500)', valor: K.faixas.business },
+      { label: 'Outros / Custom', valor: K.faixas.outros }
+    ].filter(f => f.valor > 0);
+    const total = items.reduce((s, i) => s + i.valor, 0);
+    items.forEach(i => i.display = _fmtRsCurto(i.valor) + ' (' + (i.valor/total*100).toFixed(0) + '%)');
+    return {
+      icone: '📊', grupo: 'Receita e Previsibilidade', titulo: 'Receita por Faixa',
+      descricao: 'Distribuição da receita mensal recorrente entre as faixas de contrato (Basic → Business). A faixa é inferida pelo valor mensal pago. Concentração em faixas baixas = risco alto de churn; concentração em faixas altas = ticket forte mas dependência de poucos.',
+      valor: _kpiV3FaixaLider(K.faixas), subvalor: 'Faixa líder em receita',
+      semaforo: 'gray', confiab: 'MÉDIA (inferência por valor)', metaTag: 'Diversificação',
+      metaTexto: 'Objetivo: <strong>diversificação equilibrada</strong>. Alerta quando > 40% concentrado em Basic + Starter (base frágil) ou > 60% em uma única faixa.',
+      serie: null,
+      formula: 'SUM(valor_pago) por cliente, classificado em faixa por banda de valor',
+      fonte: { origem: 'OMIE (Contas a Receber)', tabela: 'v_receita_operacional', freq: 'Mensal',
+        query: `SELECT\n  CASE\n    WHEN pago BETWEEN 1350 AND 1650 THEN 'Basic'\n    WHEN pago BETWEEN 1800 AND 2200 THEN 'Starter'\n    WHEN pago BETWEEN 2700 AND 3300 THEN 'Plus'\n    WHEN pago BETWEEN 4050 AND 4950 THEN 'Premium'\n    WHEN pago BETWEEN 4950 AND 6050 THEN 'Master'\n    WHEN pago BETWEEN 5850 AND 7150 THEN 'Business'\n    ELSE 'Outros'\n  END AS faixa,\n  SUM(pago) AS total\nFROM (\n  SELECT cliente_codigo, SUM(valor_pago) AS pago\n  FROM v_receita_operacional\n  WHERE categoria_codigo LIKE '01.01%'\n    AND TO_CHAR(data_pagto,'YYYY-MM') = '${K.mesRef.key}'\n  GROUP BY cliente_codigo\n) x GROUP BY 1;` },
+      passos: [
+        'Somar por cliente o valor pago em mensalidades no mês',
+        'Classificar cada cliente em uma faixa pela banda de valor (Basic ±10%, Starter ±10% etc.)',
+        'Agregar receita total por faixa'
+      ],
+      armadilhas: [
+        'Cliente com desconto proporcional cai fora das bandas → vai para "Outros"',
+        'Cliente com pagamento parcial no mês pode ficar em faixa errada',
+        'A faixa contratual real está no Solaris — esta é uma inferência pela receita observada'
+      ],
+      perguntas: [
+        { pergunta: 'Qual faixa gera mais receita?', resposta: `<strong>${_kpiV3FaixaLider(K.faixas)}</strong> lidera. Se a faixa mais alta domina, ticket forte. Se a mais baixa domina, atenção ao risco de churn.`,
+          visual: `<div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px">${_kpiV3Breakdown(items, '#059669')}</div>` },
+        { pergunta: 'A base está segura?', resposta: 'Se > 40% está em Basic + Starter, atenção — essas faixas têm churn mais alto historicamente. Se > 60% concentrado numa faixa, dependência excessiva.' },
+        { pergunta: 'Vale acelerar upgrade?', resposta: 'Se Ticket Médio subindo + faixas altas crescendo em % = comercial está fazendo upsell bem. Se ao contrário = necessário treinamento comercial em faixas maiores.' }
+      ]
+    };
+  }
+
+  // === Churn de Receita ===
+  if (id === 'churnRec') {
+    return {
+      icone: '💧', grupo: 'Retenção', titulo: 'Churn de Receita',
+      descricao: 'Percentual do MRR do mês anterior que foi perdido no mês seguinte. Combina cancelamentos e downgrades por valor. É o principal termômetro de saúde da base — meta agressiva < 5%, tolerável até 8%.',
+      valor: fmtPct(K.churnRec.atual), subvalor: 'MRR do mês anterior que sumiu',
+      semaforo: K.churnRec.sem, confiab: 'MÉDIA (base fechada a partir de out/2026)', metaTag: 'Meta < 5%',
+      metaTexto: 'Objetivo: <strong>< 5%</strong> mensal. Verde ≤ 5%, amarelo 5-8%, vermelho > 8%. Alerta: > 10% um único mês.',
+      serie: null,
+      formula: '(MRR dos clientes que pararam / MRR do início do mês) × 100',
+      fonte: { origem: 'OMIE (Contas a Receber)', tabela: 'v_receita_operacional', freq: 'Mensal',
+        query: `WITH ativos_ontem AS (\n  SELECT DISTINCT cliente_codigo FROM v_receita_operacional\n  WHERE categoria_codigo LIKE '01.01%'\n    AND TO_CHAR(data_pagto,'YYYY-MM') = '${_kpiV3MesAnterior(K.mesRef.key)}'\n),\nativos_hoje AS (\n  SELECT DISTINCT cliente_codigo FROM v_receita_operacional\n  WHERE categoria_codigo LIKE '01.01%'\n    AND TO_CHAR(data_pagto,'YYYY-MM') = '${K.mesRef.key}'\n),\nperdidos AS (\n  SELECT cliente_codigo FROM ativos_ontem\n  EXCEPT SELECT cliente_codigo FROM ativos_hoje\n)\nSELECT\n  (SELECT SUM(valor_pago) FROM v_receita_operacional v JOIN perdidos p USING(cliente_codigo)\n     WHERE TO_CHAR(v.data_pagto,'YYYY-MM') = '${_kpiV3MesAnterior(K.mesRef.key)}')\n  / NULLIF((SELECT SUM(valor_pago) FROM v_receita_operacional\n     WHERE categoria_codigo LIKE '01.01%'\n       AND TO_CHAR(data_pagto,'YYYY-MM') = '${_kpiV3MesAnterior(K.mesRef.key)}'),0)\n  * 100 AS churn_receita_pct;` },
+      passos: [
+        'Identificar clientes que pagaram no mês anterior (base de comparação)',
+        'Identificar clientes que pagaram no mês de referência',
+        'Encontrar quem estava na base anterior e NÃO está na atual (perdidos)',
+        'Somar quanto esses clientes perdidos pagavam no mês anterior',
+        'Dividir pelo MRR total do mês anterior e multiplicar por 100'
+      ],
+      armadilhas: [
+        'Cliente pode estar só atrasado — recalcular no mês seguinte pode reverter',
+        'Cliente que paga bimestralmente aparece como churnado — filtrar padrão de pagamento',
+        'Se a base é pequena, um único cliente grande pode elevar muito o churn'
+      ],
+      perguntas: [
+        { pergunta: 'Foi cancelamento ou só atraso?', resposta: 'Aguardar dia 5 do mês seguinte quando as baixas fecham. Se persistir, é churn real. Cruzar com Inadimplência: se ela subiu junto, é mais atraso do que perda.' },
+        { pergunta: 'Perdemos clientes grandes ou pequenos?', resposta: 'Cruzar com Churn de Logos: se Churn Receita > Churn Logos, saíram clientes grandes (ticket alto). Se Churn Receita < Churn Logos, saíram muitos pequenos.' },
+        { pergunta: 'Estamos batendo a meta?', resposta: K.churnRec.atual != null ? (K.churnRec.atual <= 5 ? `Sim (${K.churnRec.atual.toFixed(1)}% ≤ 5%).` : `Não (${K.churnRec.atual.toFixed(1)}% > 5%). Investigar perfil dos que saíram.`) : 'Ainda sem dados suficientes.' }
+      ]
+    };
+  }
+
+  // === Churn de Logos ===
+  if (id === 'churnLogo') {
+    return {
+      icone: '👥', grupo: 'Retenção', titulo: 'Churn de Logos',
+      descricao: 'Percentual do número de clientes ativos que saíram no mês. Complementar ao Churn de Receita — a comparação entre os dois diz se saíram clientes grandes ou pequenos.',
+      valor: fmtPct(K.churnLogo.atual), subvalor: 'Clientes perdidos vs mês anterior',
+      semaforo: K.churnLogo.sem, confiab: 'MÉDIA', metaTag: 'Meta < 5%',
+      metaTexto: 'Objetivo: <strong>< 5%</strong> mensal. Verde ≤ 5%, amarelo 5-8%, vermelho > 8%.',
+      serie: null,
+      formula: '(Clientes perdidos no mês / Clientes ativos início do mês) × 100',
+      fonte: { origem: 'OMIE', tabela: 'v_receita_operacional', freq: 'Mensal',
+        query: `WITH a AS (SELECT COUNT(DISTINCT cliente_codigo) n FROM v_receita_operacional WHERE categoria_codigo LIKE '01.01%' AND TO_CHAR(data_pagto,'YYYY-MM') = '${_kpiV3MesAnterior(K.mesRef.key)}'),\np AS (SELECT COUNT(DISTINCT cliente_codigo) n FROM v_receita_operacional v1\n  WHERE categoria_codigo LIKE '01.01%'\n    AND TO_CHAR(data_pagto,'YYYY-MM') = '${_kpiV3MesAnterior(K.mesRef.key)}'\n    AND NOT EXISTS (SELECT 1 FROM v_receita_operacional v2 WHERE v2.cliente_codigo = v1.cliente_codigo AND v2.categoria_codigo LIKE '01.01%' AND TO_CHAR(v2.data_pagto,'YYYY-MM') = '${K.mesRef.key}'))\nSELECT p.n * 100.0 / NULLIF(a.n,0) FROM a, p;` },
+      passos: [
+        'Contar clientes distintos que pagaram no mês anterior',
+        'Contar quantos desses NÃO pagaram no mês de referência (perdidos)',
+        'Perdidos / Ativos anterior × 100'
+      ],
+      armadilhas: [
+        'Não distingue "cliente que era grande" de "cliente que era pequeno" — usar junto com Churn de Receita',
+        'Cliente com pagamento bimestral cai fora',
+        'Pequenas bases fazem o indicador oscilar muito'
+      ],
+      perguntas: [
+        { pergunta: 'Perdemos muitos ou poucos?', resposta: K.churnLogo.atual != null ? `${K.churnLogo.atual.toFixed(1)}% da base saiu.` : 'Sem dados.' },
+        { pergunta: 'Saíram clientes grandes ou pequenos?', resposta: (K.churnRec.atual != null && K.churnLogo.atual != null) ? (K.churnRec.atual > K.churnLogo.atual ? 'Grandes — Churn Receita maior que Churn Logos.' : 'Pequenos — Churn Logos maior que Churn Receita.') : 'Aguardar comparação.' },
+        { pergunta: 'Qual perfil está saindo?', resposta: 'Cruzar com Receita por Faixa. Se faixa Basic caiu mais, o problema é retenção de clientes pequenos.' }
+      ]
+    };
+  }
+
+  // === Churn Antecedente ===
+  if (id === 'churnAnt') {
+    return {
+      icone: '🚨', grupo: 'Retenção', titulo: 'Churn Antecedente',
+      descricao: 'Percentual de clientes que sinalizaram saída ANTES de parar de pagar — pedido de cancelamento, downgrade solicitado, reclamação formal. É o único indicador antecedente de churn, permitindo agir antes da perda. Hoje NÃO ESTÁ INTEGRADO.',
+      valor: '—', subvalor: 'Fonte não configurada',
+      semaforo: 'gray', confiab: 'INDISPONÍVEL', metaTag: 'Requer CRM',
+      metaTexto: 'Objetivo: quando integrado, <strong>< 3%</strong>. Hoje precisa que o comercial registre sinalizações no CRM (não implementado).',
+      serie: null,
+      formula: 'N/A — dependente de campo "sinalizou_cancelamento" em sistema comercial',
+      fonte: { origem: 'CRM / Comercial (NÃO INTEGRADO)', tabela: 'sinalizacoes_churn (não existe)', freq: 'A definir',
+        query: `-- Estrutura sugerida quando implementar:\nSELECT COUNT(*) FILTER (WHERE sinalizou_cancelamento) * 100.0\n     / NULLIF(COUNT(*), 0) AS churn_antecedente_pct\nFROM sinalizacoes_churn\nWHERE mes_ref = '${K.mesRef.key}';` },
+      passos: [
+        'Precisa: registro no comercial (Bruna) de cada sinalização',
+        'Criar tabela <code>sinalizacoes_churn</code> no Supabase',
+        'Campos: cliente_codigo, data_sinalizacao, tipo (cancelamento, downgrade, reclamação), motivo',
+        'Popular via formulário/registro no dashboard'
+      ],
+      armadilhas: [
+        'Depende 100% da disciplina do comercial em registrar',
+        'Sem processo, indicador vira ficção',
+        'Considerar automatizar por gatilhos (queda de uso, ticket aberto)'
+      ],
+      perguntas: [
+        { pergunta: 'Por que não temos este indicador?', resposta: 'Porque nem OMIE (financeiro) nem Solaris (mídia) capturam intenção de saída. Precisamos alimentar isso do comercial.' },
+        { pergunta: 'Qual valor de ter?', resposta: 'Ver o churn 30-60 dias antes dele acontecer. Permite negociação preventiva. Sem isso, só reagimos.' },
+        { pergunta: 'Como implementar?', resposta: 'Fase 1: campo no CRM (ou planilha) que Bruna preenche. Fase 2: sync automático para Supabase. Fase 3: card aqui puxa dado.' }
+      ]
+    };
+  }
+
+  // === Inadimplência ===
+  if (id === 'inadimp') {
+    return {
+      icone: '💸', grupo: 'Risco e Caixa', titulo: 'Inadimplência',
+      descricao: 'Percentual da receita esperada nos últimos 90 dias que ainda não foi paga. Diferente de churn: cliente pode ainda pagar. Ideal < 3%, tolerável até 5%, crítico acima disso.',
+      valor: fmtPct(K.inadimp.atual), subvalor: _fmtRsCurto(K.inadimp.valorAberto) + ' vencido em aberto',
+      semaforo: K.inadimp.sem, confiab: 'ALTA', metaTag: 'Meta < 3%',
+      metaTexto: 'Objetivo: <strong>< 3%</strong>. Verde ≤ 3%, amarelo 3-5%, vermelho > 5%. Cruzar SEMPRE com comercial antes de considerar perda — pode ser negociação.',
+      serie: null,
+      formula: '(SUM(vencido não pago) / SUM(esperado últimos 90d)) × 100',
+      fonte: { origem: 'OMIE (títulos abertos)', tabela: 'titulos', freq: 'Snapshot atual',
+        query: `SELECT\n  SUM(valor_documento) FILTER (WHERE status='Não' AND data_vencimento < CURRENT_DATE) * 100.0\n  / NULLIF(SUM(valor_documento) FILTER (WHERE data_vencimento >= CURRENT_DATE - INTERVAL '90 days' AND data_vencimento <= CURRENT_DATE), 0)\n  AS inadimplencia_pct\nFROM titulos\nWHERE tipo = '1. Contas a Receber' AND cancelado = FALSE;` },
+      passos: [
+        'Filtrar todos os títulos de Contas a Receber não cancelados',
+        'Somar valor dos que estão vencidos (data_vencimento < hoje) e não pagos (status = Não)',
+        'Somar valor total esperado nos últimos 90 dias (vencidos e não vencidos)',
+        'Dividir e multiplicar por 100'
+      ],
+      armadilhas: [
+        'Pode ser só renegociação em andamento, não perda',
+        'Cliente que sempre atrasa 5 dias sobe/desce o indicador artificialmente',
+        'Cruzar com comercial antes de considerar baixa'
+      ],
+      perguntas: [
+        { pergunta: 'Quanto está em aberto e há quanto tempo?', resposta: `Total vencido: <strong>${_fmtRsCurto(K.inadimp.valorAberto)}</strong>. Ver a página de Aging para detalhamento por faixa de atraso.` },
+        { pergunta: 'É um problema estrutural?', resposta: K.inadimp.atual > 5 ? 'Sim. Acima da tolerância. Revisar critério de crédito para novos clientes ou política de cobrança.' : (K.inadimp.atual > 3 ? 'Atenção. Dentro da tolerância mas próximo do limite.' : 'Não. Dentro do saudável.') },
+        { pergunta: 'Como recuperar?', resposta: 'Aging na faixa 0-30d = cobrança automática. 31-60d = contato personalizado. 61-90d = negociação. 90+ = jurídico ou baixa.' }
+      ]
+    };
+  }
+
+  // === Aging ===
+  if (id === 'aging') {
+    const items = [
+      { label: 'A vencer / até 30d', valor: K.aging.a0_30, display: _fmtRsCurto(K.aging.a0_30) },
+      { label: 'Vencido 31-60 dias', valor: K.aging.a31_60, display: _fmtRsCurto(K.aging.a31_60) },
+      { label: 'Vencido 61-90 dias', valor: K.aging.a61_90, display: _fmtRsCurto(K.aging.a61_90) },
+      { label: 'Vencido 90+ dias', valor: K.aging.a90_mais, display: _fmtRsCurto(K.aging.a90_mais) }
+    ];
+    const totAberto = items.reduce((s, i) => s + i.valor, 0);
+    return {
+      icone: '📅', grupo: 'Risco e Caixa', titulo: 'Aging de Recebíveis',
+      descricao: 'Distribuição dos títulos em aberto por faixa de atraso. Diagnóstico da inadimplência: se está tudo em 0-30d, é normalidade. Se acumula em 90+, é problema estrutural que precisa de baixa contábil.',
+      valor: _fmtRsCurto(totAberto), subvalor: 'Total em aberto (todas as faixas)',
+      semaforo: K.aging.a90_mais > 0 ? (K.aging.a90_mais > totAberto * 0.1 ? 'red' : 'yellow') : 'green',
+      confiab: 'ALTA', metaTag: '90%+ em 0-30d',
+      metaTexto: 'Objetivo: <strong>> 90% na faixa 0-30d</strong>. Alerta quando > 10% acumulado em 90+d.',
+      serie: null,
+      formula: 'SUM(valor_documento) agrupado por faixa de (CURRENT_DATE − data_vencimento)',
+      fonte: { origem: 'OMIE (títulos)', tabela: 'titulos', freq: 'Snapshot atual',
+        query: `SELECT\n  CASE\n    WHEN data_vencimento >= CURRENT_DATE THEN 'A vencer'\n    WHEN data_vencimento >= CURRENT_DATE - 30 THEN '0-30d'\n    WHEN data_vencimento >= CURRENT_DATE - 60 THEN '31-60d'\n    WHEN data_vencimento >= CURRENT_DATE - 90 THEN '61-90d'\n    ELSE '90+ dias'\n  END AS faixa,\n  SUM(valor_documento) AS total\nFROM titulos\nWHERE tipo = '1. Contas a Receber' AND cancelado = FALSE AND status = 'Não'\nGROUP BY 1;` },
+      passos: [
+        'Filtrar títulos abertos (status = Não) e não cancelados',
+        'Calcular diferença entre hoje e a data de vencimento',
+        'Agrupar em faixas: a vencer, 0-30d, 31-60d, 61-90d, 90+d',
+        'Somar valor de documento por faixa'
+      ],
+      armadilhas: [
+        'Título em 90+d muitas vezes já foi baixado internamente pelo comercial',
+        'Cruzar com histórico antes de considerar como perda',
+        'Sazonalidade: dezembro sempre tem aging pior'
+      ],
+      perguntas: [
+        { pergunta: 'Como se distribui o vencido?', resposta: 'Ver breakdown abaixo — quanto está em cada faixa.',
+          visual: `<div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px">${_kpiV3Breakdown(items, '#f97316')}</div>` },
+        { pergunta: 'O que está em 90+d é recuperável?', resposta: K.aging.a90_mais > 0 ? `<strong>${_fmtRsCurto(K.aging.a90_mais)}</strong> em 90+d. Se > 6 meses, considerar baixa. Se < 6 meses, agressão de cobrança + oferta de acordo.` : 'Nada em 90+d — situação saudável.' },
+        { pergunta: 'Onde priorizar?', resposta: 'Recuperar 31-60d é mais barato que recuperar 90+d. Foco máximo nesta faixa antes de deteriorar.' }
+      ]
+    };
+  }
+
+  // === Top 5 / Top 10 ===
+  if (id === 'top5' || id === 'top10') {
+    const isTop5 = id === 'top5';
+    const cutoff = isTop5 ? 5 : 10;
+    // ranking de clientes últimos 3m
+    const mesRef = K.mesRef.key;
+    const m1 = _kpiV3MesAnterior(mesRef);
+    const m2 = _kpiV3MesAnterior(m1);
+    const perCli = {};
+    D.receita.forEach(r => {
+      const mes = (r.data_pagto || '').slice(0, 7);
+      if (mes === mesRef || mes === m1 || mes === m2) {
+        const cli = r.cliente_codigo || 'SEM';
+        perCli[cli] = (perCli[cli] || 0) + Number(r.valor_pago || 0);
+      }
+    });
+    const ranking = Object.entries(perCli).sort((a,b) => b[1] - a[1]).slice(0, cutoff)
+      .map(([cli, v]) => ({ label: 'Cliente ' + cli, valor: v, display: _fmtRsCurto(v) }));
+    const alvo = isTop5 ? K.top5 : K.top10;
+    return {
+      icone: '🎯', grupo: 'Risco e Caixa', titulo: `Concentração — Top ${cutoff} clientes`,
+      descricao: `Percentual da receita total dos últimos 3 meses que vem dos ${cutoff} maiores clientes. Alta concentração = alto risco: perder um cliente grande pode desestabilizar o mês inteiro.`,
+      valor: fmtPct(alvo.atual), subvalor: `Dos ${cutoff} maiores em receita`,
+      semaforo: alvo.sem, confiab: 'ALTA', metaTag: isTop5 ? 'Meta < 30%' : 'Meta < 45%',
+      metaTexto: isTop5 ? 'Objetivo: <strong>Top 5 < 30%</strong>. Verde ≤ 30%, amarelo 30-40%, vermelho > 40%. Alta concentração = risco existencial.' : 'Objetivo: <strong>Top 10 < 45%</strong>. Verde ≤ 45%, amarelo 45-60%, vermelho > 60%.',
+      serie: null,
+      formula: `SUM(top ${cutoff} clientes últimos 3m) / SUM(total últimos 3m) × 100`,
+      fonte: { origem: 'OMIE', tabela: 'v_receita_operacional', freq: 'Mensal (janela móvel 3m)',
+        query: `WITH ranking AS (\n  SELECT cliente_codigo, SUM(valor_pago) AS receita\n  FROM v_receita_operacional\n  WHERE TO_CHAR(data_pagto,'YYYY-MM') IN ('${mesRef}','${m1}','${m2}')\n  GROUP BY cliente_codigo\n  ORDER BY receita DESC\n)\nSELECT\n  (SELECT SUM(receita) FROM (SELECT * FROM ranking LIMIT ${cutoff}) t) * 100.0\n  / NULLIF((SELECT SUM(receita) FROM ranking), 0) AS concentracao_pct;` },
+      passos: [
+        'Somar receita por cliente nos últimos 3 meses (janela móvel)',
+        `Ordenar decrescente e pegar os ${cutoff} maiores`,
+        `Soma dos ${cutoff} maiores / total × 100`
+      ],
+      armadilhas: [
+        'Sobe se a base cai mesmo que o topo não cresça — não é sempre sinal de dependência crescente',
+        'Cliente fora do top que cresce pode reduzir a concentração — nem sempre é ruim',
+        'Um cliente sazonal (paga trimestralmente) infla a janela onde caiu o pagamento'
+      ],
+      perguntas: [
+        { pergunta: `Quem são os ${cutoff} maiores?`, resposta: 'Ver ranking abaixo. Se algum representa > 15% sozinho, é vulnerabilidade sistêmica.',
+          visual: `<div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px">${_kpiV3Ranking(ranking, '#f97316')}</div>` },
+        { pergunta: 'Estamos diversificando?', resposta: 'Comparar Top 5 e Top 10 mês a mês. Se ambos caem = base crescendo saudável. Se ambos sobem = dependência crescente.' },
+        { pergunta: 'Devo demitir algum grande?', resposta: 'Nunca. Deve trabalhar para adicionar NOVOS grandes ou expandir médios. Reduzir dependência crescendo, não cortando.' }
+      ]
+    };
+  }
+
+  // === Margem Líquida ===
+  if (id === 'margem') {
+    // Série da margem últimos 6 meses
+    const serie = meses6.map(m => {
+      const rec = D.receita.filter(r => (r.data_pagto || '').slice(0,7) === m).reduce((s,r) => s + Number(r.valor_pago || 0), 0);
+      const imp = D.despesa.filter(d => (d.data_pagto || '').slice(0,7) === m && d.grupo_dre === 'IMPOSTOS').reduce((s,r) => s + Number(r.valor_pago || 0), 0);
+      const desp = D.despesa.filter(d => (d.data_pagto || '').slice(0,7) === m && d.grupo_dre !== 'IMPOSTOS').reduce((s,r) => s + Number(r.valor_pago || 0), 0);
+      const rl = rec - imp;
+      return { label: mesesLabels(m), valor: rl > 0 ? ((rl - desp) / rl * 100) : 0 };
+    });
+    // Breakdown de despesas
+    const gruposDesp = {};
+    D.despesa.forEach(d => {
+      const mes = (d.data_pagto || '').slice(0,7);
+      if (mes === K.mesRef.key || mes === _kpiV3MesAnterior(K.mesRef.key) || mes === _kpiV3MesAnterior(_kpiV3MesAnterior(K.mesRef.key))) {
+        gruposDesp[d.grupo_dre] = (gruposDesp[d.grupo_dre] || 0) + Number(d.valor_pago || 0);
+      }
+    });
+    const breakdownDesp = Object.entries(gruposDesp).sort((a,b) => b[1] - a[1]).map(([g, v]) => ({ label: g, valor: v, display: _fmtRsCurto(v) }));
+    return {
+      icone: '💎', grupo: 'Rentabilidade e Eficiência', titulo: 'Margem Líquida',
+      descricao: 'Percentual da receita líquida (receita − impostos) que sobra depois de todas as despesas operacionais. É o principal termômetro de rentabilidade. Janela 3 meses para suavizar sazonalidade.',
+      valor: fmtPct(K.margem.atual), subvalor: `Receita Líquida: ${_fmtRsCurto(K.margem.receita)} · Despesa: ${_fmtRsCurto(K.margem.despesa)}`,
+      semaforo: K.margem.sem, confiab: 'ALTA', metaTag: 'Meta > 15%',
+      metaTexto: 'Objetivo: <strong>> 15%</strong>. Verde ≥ 15%, amarelo 10-15%, vermelho < 10%. Em agências digitais saudáveis: 15-20% é normal.',
+      serie, serieTitulo: 'Margem Líquida mensal (%)', serieFmt: 'pct',
+      formula: '(Receita Líquida − Todas Despesas Op. exceto Impostos) / Receita Líquida × 100',
+      fonte: { origem: 'OMIE', tabela: 'v_receita_operacional + v_despesa_operacional', freq: 'Mensal',
+        query: `WITH r AS (\n  SELECT SUM(valor_pago) AS receita FROM v_receita_operacional\n  WHERE TO_CHAR(data_pagto,'YYYY-MM') IN ('${K.mesRef.key}','${_kpiV3MesAnterior(K.mesRef.key)}','${_kpiV3MesAnterior(_kpiV3MesAnterior(K.mesRef.key))}')\n), i AS (\n  SELECT SUM(valor_pago) AS imp FROM v_despesa_operacional\n  WHERE grupo_dre = 'IMPOSTOS'\n    AND TO_CHAR(data_pagto,'YYYY-MM') IN ('${K.mesRef.key}','${_kpiV3MesAnterior(K.mesRef.key)}','${_kpiV3MesAnterior(_kpiV3MesAnterior(K.mesRef.key))}')\n), d AS (\n  SELECT SUM(valor_pago) AS desp FROM v_despesa_operacional\n  WHERE grupo_dre != 'IMPOSTOS'\n    AND TO_CHAR(data_pagto,'YYYY-MM') IN ('${K.mesRef.key}','${_kpiV3MesAnterior(K.mesRef.key)}','${_kpiV3MesAnterior(_kpiV3MesAnterior(K.mesRef.key))}')\n)\nSELECT ((r.receita - i.imp) - d.desp) / NULLIF((r.receita - i.imp), 0) * 100 AS margem_pct\nFROM r, i, d;` },
+      passos: [
+        'Somar receita operacional (v_receita_operacional) dos últimos 3 meses',
+        'Somar impostos (v_despesa_operacional, grupo IMPOSTOS)',
+        'Receita Líquida = Receita − Impostos',
+        'Somar todas as outras despesas operacionais (não-impostos)',
+        '(Receita Líquida − Despesas) / Receita Líquida × 100'
+      ],
+      armadilhas: [
+        'Sazonalidade mensal alta — sempre janela 3m',
+        'Impostos são pagos na data do movimento, não gerados — pode causar picos',
+        'Não inclui distribuição de sócios (2.09) nem devolução de empréstimos'
+      ],
+      perguntas: [
+        { pergunta: 'Onde está indo a receita?', resposta: 'Ver breakdown das despesas nos últimos 3 meses. Impostos e Pessoal costumam dominar.',
+          visual: `<div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px">${_kpiV3Breakdown(breakdownDesp, '#7c3aed')}</div>` },
+        { pergunta: 'Estamos na meta?', resposta: K.margem.atual >= 15 ? 'Sim, acima da meta 15%.' : (K.margem.atual >= 10 ? 'Não. Entre 10-15%, precisa atenção.' : 'Não. Abaixo de 10%, situação crítica.') },
+        { pergunta: 'Como aumentar?', resposta: '1) Aumentar ticket (upsell); 2) Reduzir custo direto sem afetar entrega; 3) Escalar receita sem escalar administrativo. Cortar impostos é ilusão — depende do regime.' }
+      ]
+    };
+  }
+
+  // === Take Rate ===
+  if (id === 'takeRate') {
+    return {
+      icone: '🎯', grupo: 'Rentabilidade e Eficiência', titulo: 'Take Rate',
+      descricao: 'De cada R$1 de mídia gerenciada para clientes, quanto vira receita da Growper. Indicador exclusivo de agências que gerenciam verba de terceiros. Faixa saudável para lead gen: 14-16%.',
+      valor: K.takeRate.atual != null ? K.takeRate.atual.toFixed(1) + '%' : '—', subvalor: K.takeRate.subvalor,
+      semaforo: K.takeRate.sem, confiab: 'MÉDIA (input manual)', metaTag: 'Faixa 14-16%',
+      metaTexto: 'Objetivo: <strong>14-16%</strong>. Verde nesta faixa, amarelo 12-14% ou 16-18%, vermelho < 12% ou > 18% (fora do padrão do setor).',
+      serie: null,
+      formula: 'MRR / Verba de mídia gerenciada × 100',
+      fonte: { origem: 'MRR: OMIE · Mídia: Solaris (manual)', tabela: 'MRR: v_receita_operacional', freq: 'Mensal',
+        query: `-- MRR: automático via view\n-- Verba de mídia: input manual no card abaixo (integração Solaris pendente)\nSELECT ${_fmtRsCurto(K.mrr.atual).replace('R$ ','').replace(/[k.MB]/g,'')} / verba_midia * 100 AS take_rate;` },
+      passos: [
+        'MRR: calculado automaticamente pela view v_receita_operacional',
+        'Verba de mídia gerenciada: informar manualmente no campo abaixo (até integração Solaris)',
+        'Take Rate = MRR / Verba × 100'
+      ],
+      armadilhas: [
+        'Cliente com mídia altíssima e mensalidade proporcional baixa dilui o take rate',
+        'Sem integração Solaris, dado depende de disciplina no preenchimento manual',
+        'Alguns clientes não têm mídia gerenciada — considerar segmentar'
+      ],
+      perguntas: [
+        { pergunta: 'Estamos na faixa saudável?', resposta: K.takeRate.atual != null ? (K.takeRate.atual >= 14 && K.takeRate.atual <= 16 ? 'Sim.' : 'Não, fora da faixa 14-16%.') : 'Preencha a verba de mídia abaixo para calcular.' },
+        { pergunta: 'Como aumentar sem perder cliente?', resposta: 'Empacotar serviços de otimização junto com a gestão de mídia. Cobrar success fee em resultados extraordinários.' },
+        { pergunta: 'Quando terá dado automático?', resposta: 'Quando a integração via API do Solaris for construída — MCPs de chat não são acessíveis do browser.' }
+      ],
+      inputManual: { campo: 'verbaMidiaGerenciada', label: 'Verba de mídia gerenciada este mês (R$)', valor: inputs.verbaMidiaGerenciada }
+    };
+  }
+
+  // === CAC ===
+  if (id === 'cac') {
+    return {
+      icone: '🎣', grupo: 'Rentabilidade e Eficiência', titulo: 'CAC — Custo de Aquisição de Cliente',
+      descricao: 'Quanto foi investido em comercial e marketing (2.02) para conquistar cada cliente novo no mês. NUNCA inclui repasse de mídia dos clientes (2.01.95). Meta: recuperar em ≤ 3 ticket médios.',
+      valor: K.cac.atual != null ? _fmtRsCurto(K.cac.atual) : '—', subvalor: K.cac.novos + ' clientes novos este mês',
+      semaforo: K.cac.sem, confiab: 'MÉDIA', metaTag: 'CAC < 3× Ticket',
+      metaTexto: `Objetivo: <strong>CAC < 3 × Ticket Médio</strong> (recuperação em 3 meses). Verde se < 3×, amarelo 3-6×, vermelho > 6×. Ticket atual: ${_fmtRsCurto(K.ticket.atual)} → CAC ideal < ${_fmtRsCurto(K.ticket.atual * 3)}.`,
+      serie: null,
+      formula: '(Despesas 2.02) / Nº de clientes novos no mês',
+      fonte: { origem: 'OMIE', tabela: 'v_despesa_operacional + v_receita_operacional', freq: 'Mensal',
+        query: `WITH gasto AS (\n  SELECT SUM(valor_pago) AS comercial FROM v_despesa_operacional\n  WHERE categoria_codigo LIKE '02.02%'\n    AND TO_CHAR(data_pagto,'YYYY-MM') = '${K.mesRef.key}'\n),\nnovos AS (\n  SELECT COUNT(DISTINCT cliente_codigo) AS n FROM v_receita_operacional\n  WHERE categoria_codigo LIKE '01.01%'\n    AND cliente_codigo IN (\n      SELECT cliente_codigo FROM v_receita_operacional\n      WHERE categoria_codigo LIKE '01.01%'\n      GROUP BY cliente_codigo\n      HAVING MIN(TO_CHAR(data_pagto,'YYYY-MM')) = '${K.mesRef.key}'\n    )\n)\nSELECT gasto.comercial / NULLIF(novos.n, 0) AS cac FROM gasto, novos;` },
+      passos: [
+        'Somar despesas de vendas e marketing (categoria 02.02 — inclui marketing, eventos, comissões, brindes)',
+        'Identificar clientes cujo PRIMEIRO pagamento em 01.01 aconteceu no mês de referência',
+        'Dividir gasto pelo número de novos'
+      ],
+      armadilhas: [
+        '<strong>NUNCA</strong> incluir 2.01.95 (repasse de mídia cliente) — é dinheiro do cliente, não custo nosso',
+        '"Cliente novo" precisa ter no mínimo 2 meses de histórico para eliminar falsos (atrasados)',
+        'Comercial que fecha em novembro paga em dezembro — pode gerar delay de atribuição'
+      ],
+      perguntas: [
+        { pergunta: 'Vale a pena adquirir novos?', resposta: K.ltvCac.atual != null && K.ltvCac.atual >= 3 ? `Sim. LTV/CAC ${K.ltvCac.atual.toFixed(1)}x > 3.` : `Ver LTV/CAC — se < 1x, freio no comercial e foco em retenção.` },
+        { pergunta: 'Quanto tempo para recuperar?', resposta: K.cac.atual != null && K.ticket.atual > 0 ? `${(K.cac.atual / K.ticket.atual).toFixed(1)} meses de mensalidade para pagar o CAC.` : '—' },
+        { pergunta: 'Como reduzir?', resposta: 'Referral (indicação) é o menor CAC. Investir em NPS + programa de indicação. Marketing digital próprio tem CAC alto — usar como complemento, não único canal.' }
+      ]
+    };
+  }
+
+  // === LTV:CAC ===
+  if (id === 'ltvCac') {
+    return {
+      icone: '⚖️', grupo: 'Rentabilidade e Eficiência', titulo: 'LTV / CAC',
+      descricao: 'Quantas vezes o custo de aquisição de um cliente é recuperado ao longo da vida dele. Referência SaaS: > 3x é saudável, > 5x é excelente, < 1x é insustentável.',
+      valor: K.ltvCac.atual != null ? K.ltvCac.atual.toFixed(1) + 'x' : '—', subvalor: 'Retorno estimado por real gasto em CAC',
+      semaforo: K.ltvCac.sem, confiab: 'PROVISÓRIA até jan/2027', metaTag: 'Meta > 3x',
+      metaTexto: 'Objetivo: <strong>> 3x</strong>. Verde ≥ 3x, amarelo 1-3x, vermelho < 1x. Provisório até termos 6m de churn estabilizado.',
+      serie: null,
+      formula: 'LTV / CAC · LTV = Ticket Médio × (1 / Churn) × Margem Bruta',
+      fonte: { origem: 'Derivado', tabela: 'CAC + Ticket + Churn Rec + Margem', freq: 'Mensal',
+        query: `-- Cálculo composto no aplicativo:\n-- LTV = Ticket × (1/Churn_decimal) × Margem_bruta_aprox\n-- LTV/CAC = LTV / CAC\nSELECT\n  ${_fmtRsCurto(K.ticket.atual).replace('R$ ','').replace(/[kM]/g,'')} * (1 / ${K.churnRec.atual != null ? (K.churnRec.atual/100).toFixed(3) : 'NULL'})\n    * ${K.margem.atual != null ? ((100 + K.margem.atual) / 200).toFixed(3) : '0.5'}\n    / ${K.cac.atual != null ? K.cac.atual : 'NULL'} AS ltv_cac;` },
+      passos: [
+        'Calcular Ticket Médio Recorrente',
+        'Calcular Churn de Receita (decimal — divide por 100)',
+        'Margem bruta ≈ (100 + Margem Líquida) / 200 (proxy conservador)',
+        'LTV = Ticket × (1 / Churn) × Margem Bruta',
+        'LTV / CAC'
+      ],
+      armadilhas: [
+        'LTV oscila enquanto Churn não estabiliza — requer 6m de dados limpos',
+        'Se Churn é zero num mês, LTV vira infinito — cap em 100x na visualização',
+        'Margem bruta usada é proxy — real precisa breakdown de custo direto por cliente'
+      ],
+      perguntas: [
+        { pergunta: 'Devemos investir mais em aquisição?', resposta: K.ltvCac.atual != null ? (K.ltvCac.atual >= 3 ? `Sim. LTV/CAC ${K.ltvCac.atual.toFixed(1)}x — cada real gasto retorna R$ ${K.ltvCac.atual.toFixed(1)}.` : `Não. Antes, reduzir Churn e aumentar Ticket.`) : 'Aguardar dados de Churn estabilizarem.' },
+        { pergunta: 'É um indicador confiável hoje?', resposta: 'Não plenamente. Provisório até jan/2027 (6m de Churn limpo). Use com desconto até lá.' },
+        { pergunta: 'Como aumentar?', resposta: '1) Reduzir Churn (mais impacto); 2) Aumentar Ticket via upsell; 3) Reduzir CAC via referral/inbound.' }
+      ]
+    };
+  }
+
+  // === Custo Direto sobre Receita ===
+  if (id === 'custoDir') {
+    return {
+      icone: '🏭', grupo: 'Rentabilidade e Eficiência', titulo: 'Custo Direto sobre Receita',
+      descricao: 'Percentual da receita líquida gasto com custo direto de entrega (mão de obra operacional, produção, editores, influenciadores). Exclui 2.01.95 (repasse de mídia cliente).',
+      valor: fmtPct(K.custoDireto.atual), subvalor: `Custo direto: ${_fmtRsCurto(K.custoDireto.valor)} (janela 3m, exclui 2.01.95)`,
+      semaforo: K.custoDireto.sem, confiab: 'ALTA', metaTag: 'Meta < 30%',
+      metaTexto: 'Objetivo: <strong>< 30%</strong>. Verde ≤ 30%, amarelo 30-40%, vermelho > 40%. Se > 50%, revisão urgente do modelo operacional.',
+      serie: null,
+      formula: '(CUSTO_DIRETO − 2.01.95) / Receita Líquida × 100 (janela 3m)',
+      fonte: { origem: 'OMIE', tabela: 'v_despesa_operacional (grupo CUSTO_DIRETO)', freq: 'Mensal',
+        query: `WITH cd AS (\n  SELECT SUM(valor_pago) AS bruto FROM v_despesa_operacional\n  WHERE grupo_dre = 'CUSTO_DIRETO'\n    AND TO_CHAR(data_pagto,'YYYY-MM') IN ('${K.mesRef.key}','${_kpiV3MesAnterior(K.mesRef.key)}','${_kpiV3MesAnterior(_kpiV3MesAnterior(K.mesRef.key))}')\n),\nrepasse AS (\n  SELECT SUM(valor_pago) AS r FROM v_despesa_operacional\n  WHERE categoria_codigo LIKE '02.01.95%'\n    AND TO_CHAR(data_pagto,'YYYY-MM') IN ('${K.mesRef.key}','${_kpiV3MesAnterior(K.mesRef.key)}','${_kpiV3MesAnterior(_kpiV3MesAnterior(K.mesRef.key))}')\n)\nSELECT (cd.bruto - COALESCE(repasse.r,0)) * 100.0 / ${K.margem.receita} AS custo_direto_pct\nFROM cd, repasse;` },
+      passos: [
+        'Somar todas as despesas do grupo CUSTO_DIRETO nos últimos 3 meses',
+        'Subtrair categoria 02.01.95 (repasse de mídia cliente — NÃO é custo nosso)',
+        'Dividir pela Receita Líquida da mesma janela × 100'
+      ],
+      armadilhas: [
+        '<strong>Sempre excluir 2.01.95</strong> — é dinheiro do cliente que passa pela conta',
+        'Cliente que atrasa afeta o denominador — comparar sempre com janela 3m',
+        'Se produção outsourced (freelas), pico de mês concentrado inflaciona artificialmente'
+      ],
+      perguntas: [
+        { pergunta: 'A operação escala?', resposta: K.custoDireto.atual != null ? (K.custoDireto.atual <= 30 ? `Sim. ${K.custoDireto.atual.toFixed(1)}% é saudável.` : `Não plenamente. ${K.custoDireto.atual.toFixed(1)}% é alto — cada novo cliente adiciona custo proporcional.`) : 'Sem dados.' },
+        { pergunta: 'Onde está indo o custo?', resposta: 'Cruzar breakdown do grupo CUSTO_DIRETO: Remuneração Operacional PJ é o maior. Editores e Influenciadores vêm depois.' },
+        { pergunta: 'Como reduzir sem afetar entrega?', resposta: 'Padronizar processos + templates → mesma entrega com menos hora-analista. Segmentar clientes por complexidade e cobrar acordado.' }
+      ]
+    };
+  }
+
+  // === Bloco 5 — CPL, Taxa, Tiers, CPL x Churn ===
+  if (id === 'cpl' || id === 'taxaPreench' || id === 'distTiers' || id === 'cplChurn') {
+    const cfg = {
+      cpl: { icone: '💰', titulo: 'CPL Médio', desc: 'Custo médio por lead gerado no mês.', valor: inputs.cplMedio > 0 ? 'R$ ' + inputs.cplMedio.toFixed(2) : '—', input: { campo: 'cplMedio', label: 'CPL médio deste mês (R$)', valor: inputs.cplMedio }, form: 'Verba de mídia / Leads gerados' },
+      taxaPreench: { icone: '✅', titulo: 'Taxa de Preenchimento', desc: 'Percentual de leads gerados que preencheram o formulário completo (leads qualificados).', valor: inputs.taxaPreench > 0 ? inputs.taxaPreench.toFixed(1) + '%' : '—', input: { campo: 'taxaPreench', label: 'Taxa de preenchimento (%)', valor: inputs.taxaPreench }, form: 'Leads qualificados / Leads gerados × 100' },
+      distTiers: { icone: '🎖️', titulo: 'Distribuição de Tiers', desc: 'Quantos clientes estão em cada tier de performance (Bronze → Superstar). Requer avaliação mensal no Solaris.', valor: _kpiV3TotalTiers(inputs), form: 'COUNT clientes por tier' },
+      cplChurn: { icone: '📊', titulo: 'CPL × Churn (indicador antecedente)', desc: 'Simula custo real de reposição: se CPL sobe e Churn sobe juntos, base deteriora rapidamente e o Ciclo de aquisição fica insustentável.', valor: (inputs.cplMedio > 0 && K.churnRec.atual != null) ? 'R$ ' + (inputs.cplMedio * (1 + K.churnRec.atual/100)).toFixed(2) : '—', form: 'CPL × (1 + Churn de Receita)' }
+    }[id];
+    return {
+      icone: cfg.icone, grupo: 'Performance de Mídia', titulo: cfg.titulo,
+      descricao: cfg.desc + ' <strong>Solaris/Elo são MCPs de chat, não acessíveis pelo browser</strong> — enquanto integração via API não é construída, dado depende de input manual.',
+      valor: cfg.valor, subvalor: 'Fonte manual até integração Solaris',
+      semaforo: 'gray', confiab: 'MANUAL', metaTag: 'Configure fonte',
+      metaTexto: 'Objetivo: definir metas quando a integração automática existir. Enquanto isso, informar mensalmente valores consolidados no Solaris.',
+      serie: null,
+      formula: cfg.form,
+      fonte: { origem: 'Solaris / Elo (MCPs, não integrados)', tabela: 'localStorage (input manual)', freq: 'Manual mensal',
+        query: `-- Fonte não integrada por API HTTP.\n-- Solaris tem histórico jul/2026+ (só acessível via chat).\n-- Elo tem só mês corrente.\n-- Requer construção de endpoint HTTP dedicado.` },
+      passos: id === 'distTiers' ? [
+        'Consultar Solaris manualmente (ou API futura)',
+        'Contar quantos clientes por tier',
+        'Registrar no dashboard nos campos correspondentes'
+      ] : [
+        'Consultar Solaris no mês fechado',
+        'Anotar valor consolidado',
+        'Preencher no campo manual abaixo',
+        'Dashboard usa o valor para o cálculo'
+      ],
+      armadilhas: [
+        'Sem disciplina de preenchimento, indicador vira ficção',
+        'CPL varia muito por segmento — comparar sempre com histórico próprio',
+        'Considerar automação prioritária: economia de tempo + confiabilidade'
+      ],
+      perguntas: [
+        { pergunta: 'Por que não é automático?', resposta: 'Solaris e Elo são MCPs (Model Context Protocol) usados por Claude no chat. Não expõem endpoint HTTP acessível pelo dashboard. Requer construção.' },
+        { pergunta: 'Como automatizar?', resposta: '1) Solaris expor endpoint REST /api/kpis/mensal; 2) Dashboard buscar via fetch autenticado; 3) Cache local + sync.' },
+        { pergunta: 'O manual é confiável?', resposta: 'Enquanto Leandro preencher com disciplina no dia 5 de cada mês, sim. Rotina precisa entrar no calendário.' }
+      ],
+      inputManual: cfg.input || null
+    };
+  }
+
+  return null;
+}
+
+// ============================================================
+// CARREGAMENTO / CÁLCULOS / INPUTS
 // ============================================================
 async function _kpiV3CarregarDados() {
   const supa = window._authState && window._authState.supabase;
   if (!supa) throw new Error('Cliente Supabase não disponível — faça login novamente');
-
   const [rReceita, rDespesa, rTitulos] = await Promise.all([
     supa.from('v_receita_operacional').select('data_pagto,valor_pago,categoria_codigo,cliente_codigo').gte('data_pagto', '2026-01-01').lte('data_pagto', '2026-12-31'),
     supa.from('v_despesa_operacional').select('data_pagto,valor_pago,categoria_codigo,grupo_dre').gte('data_pagto', '2026-01-01').lte('data_pagto', '2026-12-31'),
@@ -4959,50 +5827,35 @@ async function _kpiV3CarregarDados() {
   if (rReceita.error) throw new Error('Receita: ' + rReceita.error.message);
   if (rDespesa.error) throw new Error('Despesa: ' + rDespesa.error.message);
   if (rTitulos.error) throw new Error('Títulos: ' + rTitulos.error.message);
-
-  window._kpiV3Dados = {
-    receita: rReceita.data || [],
-    despesa: rDespesa.data || [],
-    titulos: rTitulos.data || [],
-    _at: Date.now()
-  };
+  window._kpiV3Dados = { receita: rReceita.data || [], despesa: rDespesa.data || [], titulos: rTitulos.data || [], _at: Date.now() };
 }
 
-// ============================================================
-// CÁLCULOS
-// ============================================================
 function _kpiV3Calcular(D, inputs) {
-  // Determinar último mês FECHADO (hoje já passou = mês corrente incompleto)
   const hoje = new Date();
   const anoAtual = hoje.getFullYear();
-  const mesAtual = hoje.getMonth() + 1; // 1-12
-  // Último mês fechado = mês anterior ao corrente
+  const mesAtual = hoje.getMonth() + 1;
   const yFechado = mesAtual === 1 ? anoAtual - 1 : anoAtual;
   const mFechado = mesAtual === 1 ? 12 : mesAtual - 1;
   const mesRefKey = yFechado + '-' + String(mFechado).padStart(2,'0');
   const mesAntKey = _kpiV3MesAnterior(mesRefKey);
   const mesLabel = _kpiV3FormatarMes(mesRefKey);
 
-  // === MRR (só categoria 01.01) ===
   const mrrPorMes = _kpiV3AgruparPorMes(D.receita.filter(r => (r.categoria_codigo || '').startsWith('01.01')));
   const mrrAtual = mrrPorMes[mesRefKey] || 0;
   const mrrAnt = mrrPorMes[mesAntKey] || 0;
   const netNewAtual = mrrAtual - mrrAnt;
   const mrrVarPct = mrrAnt > 0 ? ((mrrAtual - mrrAnt) / mrrAnt * 100) : null;
+  const mrr = { atual: mrrAtual, varPct: mrrVarPct, sem: mrrVarPct >= 3 ? 'green' : (mrrVarPct >= 0 ? 'yellow' : 'red') };
+  const netNew = { atual: netNewAtual, sem: netNewAtual > 0 ? 'green' : (netNewAtual === 0 ? 'yellow' : 'red') };
 
-  const mrr = { atual: mrrAtual, varPct: mrrVarPct, sem: mrrVarPct >= 3 ? 'green' : (mrrVarPct >= 0 ? 'yellow' : 'red'), leitura: mrrVarPct !== null ? `Variação de ${mrrVarPct.toFixed(1)}% vs mês anterior` : 'Comparação indisponível' };
-  const netNew = { atual: netNewAtual, varPct: null, sem: netNewAtual > 0 ? 'green' : (netNewAtual === 0 ? 'yellow' : 'red'), leitura: netNewAtual > 0 ? `Ganhamos R$${netNewAtual.toLocaleString('pt-BR')} líquido este mês` : `Perdemos R$${Math.abs(netNewAtual).toLocaleString('pt-BR')} líquido este mês` };
-
-  // === Clientes ativos e Ticket Médio ===
   const clientesMes = _kpiV3ClientesPorMes(D.receita.filter(r => (r.categoria_codigo || '').startsWith('01.01')));
   const nClientesAtual = (clientesMes[mesRefKey] || new Set()).size;
   const nClientesAnt = (clientesMes[mesAntKey] || new Set()).size;
   const ticketAtual = nClientesAtual > 0 ? mrrAtual / nClientesAtual : 0;
   const ticketAnt = nClientesAnt > 0 ? mrrAnt / nClientesAnt : 0;
   const ticketVar = ticketAnt > 0 ? ((ticketAtual - ticketAnt) / ticketAnt * 100) : null;
-  const ticket = { atual: ticketAtual, varPct: ticketVar, sem: ticketVar >= 0 ? 'green' : 'yellow', leitura: ticketVar !== null ? `${ticketVar.toFixed(1)}% vs mês anterior` : '—' };
+  const ticket = { atual: ticketAtual, varPct: ticketVar, sem: ticketVar >= 0 ? 'green' : 'yellow' };
 
-  // === NRR (janela 3m — enquanto não temos 12m estabilizado) ===
   const mrrCliente = _kpiV3MRRPorCliente(D.receita.filter(r => (r.categoria_codigo || '').startsWith('01.01')));
   const mrr3mAtras = _kpiV3MesAnterior(_kpiV3MesAnterior(_kpiV3MesAnterior(mesRefKey)));
   const clientesAntigos = clientesMes[mrr3mAtras] ? Array.from(clientesMes[mrr3mAtras]) : [];
@@ -5012,51 +5865,37 @@ function _kpiV3Calcular(D, inputs) {
     receitaAntigaHoje += (mrrCliente[cli] && mrrCliente[cli][mesRefKey]) || 0;
   });
   const nrrAtual = receitaAntigaEntao > 0 ? (receitaAntigaHoje / receitaAntigaEntao * 100) : null;
-  const nrr = { atual: nrrAtual, sem: nrrAtual === null ? 'gray' : (nrrAtual >= 100 ? 'green' : (nrrAtual >= 90 ? 'yellow' : 'red')), confiab: 'MÉDIA (janela 3m)' };
+  const nrr = { atual: nrrAtual, sem: nrrAtual === null ? 'gray' : (nrrAtual >= 100 ? 'green' : (nrrAtual >= 90 ? 'yellow' : 'red')) };
 
-  // === Faixas de valor ===
   const faixas = _kpiV3ClassificarFaixas(D.receita, mesRefKey);
 
-  // === Churn ===
   const clientesAntSet = clientesMes[mesAntKey] || new Set();
   const clientesAtualSet = clientesMes[mesRefKey] || new Set();
   const perdidos = [...clientesAntSet].filter(c => !clientesAtualSet.has(c));
   const mrrPerdidoTotal = perdidos.reduce((s, c) => s + ((mrrCliente[c] && mrrCliente[c][mesAntKey]) || 0), 0);
   const churnRecAtual = mrrAnt > 0 ? (mrrPerdidoTotal / mrrAnt * 100) : null;
   const churnLogoAtual = clientesAntSet.size > 0 ? (perdidos.length / clientesAntSet.size * 100) : null;
-  const churnRec = { atual: churnRecAtual, sem: churnRecAtual === null ? 'gray' : (churnRecAtual <= 5 ? 'green' : (churnRecAtual <= 8 ? 'yellow' : 'red')), leitura: churnRecAtual !== null ? `Meta: < 5%` : 'Precisa 2 meses fechados', varPct: null };
+  const churnRec = { atual: churnRecAtual, sem: churnRecAtual === null ? 'gray' : (churnRecAtual <= 5 ? 'green' : (churnRecAtual <= 8 ? 'yellow' : 'red')) };
   const churnLogo = { atual: churnLogoAtual, sem: churnLogoAtual === null ? 'gray' : (churnLogoAtual <= 5 ? 'green' : (churnLogoAtual <= 8 ? 'yellow' : 'red')) };
 
-  // === Inadimplência e Aging ===
   const hoje0 = new Date(); hoje0.setHours(0,0,0,0);
   let vencidoTotal = 0, esperado90d = 0;
   const aging = { a0_30: 0, a31_60: 0, a61_90: 0, a90_mais: 0 };
   const cutoff90d = new Date(hoje0); cutoff90d.setDate(cutoff90d.getDate() - 90);
   D.titulos.forEach(t => {
-    if (t.status === 'Sim') return; // pago
+    if (t.status === 'Sim') return;
     const venc = new Date(t.data_vencimento);
     if (isNaN(venc)) return;
     const val = Number(t.valor_documento || 0);
     if (val <= 0) return;
     const diasVencido = Math.floor((hoje0 - venc) / (1000 * 60 * 60 * 24));
-    if (diasVencido < 0) {
-      aging.a0_30 += val; // a vencer
-    } else if (diasVencido <= 30) {
-      aging.a0_30 += val;
-      vencidoTotal += val;
-    } else if (diasVencido <= 60) {
-      aging.a31_60 += val;
-      vencidoTotal += val;
-    } else if (diasVencido <= 90) {
-      aging.a61_90 += val;
-      vencidoTotal += val;
-    } else {
-      aging.a90_mais += val;
-      vencidoTotal += val;
-    }
+    if (diasVencido < 0) aging.a0_30 += val;
+    else if (diasVencido <= 30) { aging.a0_30 += val; vencidoTotal += val; }
+    else if (diasVencido <= 60) { aging.a31_60 += val; vencidoTotal += val; }
+    else if (diasVencido <= 90) { aging.a61_90 += val; vencidoTotal += val; }
+    else { aging.a90_mais += val; vencidoTotal += val; }
     if (venc >= cutoff90d && venc <= hoje0) esperado90d += val;
   });
-  // Esperado incluir também o já pago dos últimos 90d de vencimento
   D.titulos.forEach(t => {
     if (t.status !== 'Sim') return;
     const venc = new Date(t.data_vencimento);
@@ -5064,9 +5903,8 @@ function _kpiV3Calcular(D, inputs) {
     if (venc >= cutoff90d && venc <= hoje0) esperado90d += Number(t.valor_documento || 0);
   });
   const inadimpPct = esperado90d > 0 ? (vencidoTotal / esperado90d * 100) : null;
-  const inadimp = { atual: inadimpPct, valorAberto: vencidoTotal, sem: inadimpPct === null ? 'gray' : (inadimpPct <= 3 ? 'green' : (inadimpPct <= 5 ? 'yellow' : 'red')), leitura: `${_fmtRsCurto(vencidoTotal)} vencido em aberto` };
+  const inadimp = { atual: inadimpPct, valorAberto: vencidoTotal, sem: inadimpPct === null ? 'gray' : (inadimpPct <= 3 ? 'green' : (inadimpPct <= 5 ? 'yellow' : 'red')) };
 
-  // === Concentração Top N (últimos 3 meses) ===
   const mesAntAntKey = _kpiV3MesAnterior(mesAntKey);
   const receita3m = {};
   D.receita.forEach(r => {
@@ -5085,24 +5923,20 @@ function _kpiV3Calcular(D, inputs) {
   const top5 = { atual: top5Pct, sem: top5Pct <= 30 ? 'green' : (top5Pct <= 40 ? 'yellow' : 'red') };
   const top10 = { atual: top10Pct, sem: top10Pct <= 45 ? 'green' : (top10Pct <= 60 ? 'yellow' : 'red') };
 
-  // === Margem Líquida (últimos 3m) ===
   const recRef = _kpiV3SomaPeriodo(D.receita, [mesRefKey, mesAntKey, mesAntAntKey]);
   const impostosRef = _kpiV3SomaPeriodo(D.despesa.filter(d => d.grupo_dre === 'IMPOSTOS'), [mesRefKey, mesAntKey, mesAntAntKey]);
   const despRef = _kpiV3SomaPeriodo(D.despesa.filter(d => d.grupo_dre !== 'IMPOSTOS'), [mesRefKey, mesAntKey, mesAntAntKey]);
   const receitaLiq3m = recRef - impostosRef;
   const margemPct = receitaLiq3m > 0 ? ((receitaLiq3m - despRef) / receitaLiq3m * 100) : null;
-  const margem = { atual: margemPct, receita: receitaLiq3m, despesa: despRef, sem: margemPct === null ? 'gray' : (margemPct >= 15 ? 'green' : (margemPct >= 10 ? 'yellow' : 'red')), leitura: margemPct >= 15 ? 'Dentro da meta' : (margemPct >= 10 ? 'Abaixo da meta 15%' : 'Crítico'), varPct: null };
+  const margem = { atual: margemPct, receita: receitaLiq3m, despesa: despRef, sem: margemPct === null ? 'gray' : (margemPct >= 15 ? 'green' : (margemPct >= 10 ? 'yellow' : 'red')) };
 
-  // === Take Rate (manual) ===
-  const takeRate = { atual: null, sem: 'gray', subvalor: '', leitura: 'Informe a verba de mídia gerenciada' };
+  const takeRate = { atual: null, sem: 'gray', subvalor: '' };
   if (inputs.verbaMidiaGerenciada > 0) {
     takeRate.atual = mrrAtual / inputs.verbaMidiaGerenciada * 100;
     takeRate.sem = (takeRate.atual >= 14 && takeRate.atual <= 16) ? 'green' : (takeRate.atual >= 12 ? 'yellow' : 'red');
     takeRate.subvalor = 'MRR: ' + _fmtRsCurto(mrrAtual) + ' · Mídia: ' + _fmtRsCurto(inputs.verbaMidiaGerenciada);
-    takeRate.leitura = takeRate.atual >= 14 ? 'Dentro da faixa saudável' : 'Abaixo da faixa 14-16%';
   }
 
-  // === CAC ===
   const clientesJaVistos = new Set();
   const primeirosPagamentosPorMes = {};
   D.receita
@@ -5122,14 +5956,12 @@ function _kpiV3Calcular(D, inputs) {
   const cacAtual = novosMes > 0 ? gastoComercial / novosMes : null;
   const cac = { atual: cacAtual, novos: novosMes, sem: cacAtual === null ? 'gray' : (cacAtual < 3 * ticketAtual ? 'green' : (cacAtual < 6 * ticketAtual ? 'yellow' : 'red')) };
 
-  // === LTV:CAC ===
   const churnMensal = churnRecAtual !== null ? churnRecAtual / 100 : null;
-  const margemBrutaAprox = margemPct !== null ? Math.max(0.3, (100 + margemPct) / 200) : 0.3; // proxy conservador
+  const margemBrutaAprox = margemPct !== null ? Math.max(0.3, (100 + margemPct) / 200) : 0.3;
   const ltvAprox = (ticketAtual > 0 && churnMensal > 0) ? ticketAtual * (1 / churnMensal) * margemBrutaAprox : null;
   const ltvCacAtual = (ltvAprox && cacAtual > 0) ? ltvAprox / cacAtual : null;
   const ltvCac = { atual: ltvCacAtual, sem: ltvCacAtual === null ? 'gray' : (ltvCacAtual >= 3 ? 'green' : (ltvCacAtual >= 1 ? 'yellow' : 'red')) };
 
-  // === Custo Direto sobre Receita ===
   const custoDiretoBruto = _kpiV3SomaPeriodo(D.despesa.filter(d => d.grupo_dre === 'CUSTO_DIRETO'), [mesRefKey, mesAntKey, mesAntAntKey]);
   const repasse = _kpiV3SomaPeriodo(D.despesa.filter(d => (d.categoria_codigo || '').startsWith('02.01.95')), [mesRefKey, mesAntKey, mesAntAntKey]);
   const custoDireto3m = custoDiretoBruto - repasse;
@@ -5139,17 +5971,16 @@ function _kpiV3Calcular(D, inputs) {
   return { mesRef: { key: mesRefKey, label: mesLabel }, mrr, netNew, ticket, nrr, faixas, churnRec, churnLogo, inadimp, aging, top5, top10, margem, takeRate, cac, ltvCac, custoDireto };
 }
 
-function _fmtRsCurto(v) {
-  if (v == null || isNaN(v)) return '—';
-  const abs = Math.abs(v);
-  if (abs >= 1e6) return 'R$ ' + (v/1e6).toFixed(1) + 'M';
-  if (abs >= 1e3) return 'R$ ' + (v/1e3).toFixed(0) + 'k';
-  return 'R$ ' + v.toFixed(0);
+function _kpiV3UltimosMeses(mesRefKey, n) {
+  const arr = [];
+  let cur = mesRefKey;
+  for (let i = 0; i < n; i++) { arr.unshift(cur); cur = _kpiV3MesAnterior(cur); }
+  return arr;
 }
 
 function _kpiV3MesAnterior(mesKey) {
   const [y, m] = mesKey.split('-').map(Number);
-  const d = new Date(y, m - 2, 1); // mês -1 (0-based)
+  const d = new Date(y, m - 2, 1);
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
 }
 
@@ -5223,9 +6054,6 @@ function _kpiV3ClassificarFaixas(rows, mesRef) {
   return faixas;
 }
 
-// ============================================================
-// INPUTS MANUAIS (localStorage)
-// ============================================================
 function _kpiV3LoadInputs() {
   try {
     const raw = localStorage.getItem('kpi_v3_inputs');
@@ -5250,98 +6078,18 @@ window._kpiV3SetInput = function(campo, valor) {
   renderKPIs();
 };
 
-// ============================================================
-// TEMPLATES DE CARD
-// ============================================================
-function _kpiV3CEOCard(titulo, valor, varPct, sem, leitura, blocoId, icone) {
-  const cores = { green: '#10b981', yellow: '#f59e0b', red: '#dc2626', gray: '#94a3b8' };
-  const cor = cores[sem] || cores.gray;
-  const setaHtml = (varPct != null && !isNaN(varPct))
-    ? `<span style="font-size:11.5px;color:${varPct >= 0 ? '#10b981' : '#dc2626'};font-weight:800">${varPct >= 0 ? '▲' : '▼'} ${Math.abs(varPct).toFixed(1)}%</span>`
-    : '';
-  return `<div onclick="_kpiV3AbrirBloco('${blocoId}')" style="background:white;border:1px solid #e2e8f0;border-left:4px solid ${cor};border-radius:10px;padding:12px 14px;cursor:pointer;transition:all 0.15s" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='none'">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-      <div style="font-size:10.5px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:0.3px">${icone} ${titulo}</div>
-      ${setaHtml}
-    </div>
-    <div style="font-size:22px;font-weight:800;color:${cor};letter-spacing:-0.5px;line-height:1">${valor}</div>
-    <div style="font-size:11px;color:#64748b;margin-top:4px;line-height:1.35">${leitura || ''}</div>
-  </div>`;
-}
-
-function _kpiV3Bloco(id, titulo, subtitulo, conteudo) {
-  const aberto = window._kpiV3State.blocos[id];
-  return `<div style="background:white;border-radius:14px;border:1px solid #e2e8f0;margin-bottom:12px;overflow:hidden">
-    <div onclick="_kpiV3Toggle('${id}')" style="padding:14px 20px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;background:${aberto ? 'linear-gradient(180deg,#f8fafc,#ffffff)' : 'white'};border-bottom:${aberto ? '1px solid #e2e8f0' : 'none'}">
-      <div>
-        <div style="font-size:15.5px;font-weight:800;color:#0f172a">${titulo}</div>
-        <div style="font-size:11.5px;color:#64748b;margin-top:2px">${subtitulo}</div>
-      </div>
-      <span style="color:#94a3b8;font-size:16px;transform:rotate(${aberto ? 90 : 0}deg);transition:transform 0.2s;display:inline-block">▸</span>
-    </div>
-    ${aberto ? `<div style="padding:18px 20px;background:#fafafa">${conteudo}</div>` : ''}
-  </div>`;
-}
-
-function _kpiV3IndCard(o) {
-  const cores = { green: '#10b981', yellow: '#f59e0b', red: '#dc2626', gray: '#94a3b8' };
-  const cor = cores[o.sem] || cores.gray;
-  const inputHtml = o.inputManual ? `<div style="margin-top:8px;padding-top:8px;border-top:1px dashed #e2e8f0"><label style="font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase">${o.inputManual.label}</label><input type="number" value="${o.inputManual.valor || ''}" onchange="_kpiV3SetInput('${o.inputManual.campo}', this.value)" style="width:100%;margin-top:4px;padding:6px 8px;border:1px solid #cbd5e1;border-radius:5px;font-family:Poppins;font-size:12px" placeholder="0"></div>` : '';
-  const confiabCor = { 'ALTA': '#10b981', 'MÉDIA': '#f59e0b', 'PROVISÓRIA': '#f97316', 'INDISPONÍVEL': '#dc2626', 'MANUAL': '#8b5cf6' }[String(o.confiab || '').split(' ')[0]] || '#94a3b8';
-  return `<div style="background:white;border:1px solid #e2e8f0;border-left:4px solid ${cor};border-radius:10px;padding:14px 16px">
-    <div style="font-size:11px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:0.3px;margin-bottom:4px">${o.titulo}</div>
-    <div style="font-size:24px;font-weight:800;color:${cor};letter-spacing:-0.5px;line-height:1;margin-bottom:6px">${o.valor}</div>
-    ${o.subvalor ? `<div style="font-size:11px;color:#334155;margin-bottom:6px">${o.subvalor}</div>` : ''}
-    <div style="border-top:1px solid #f1f5f9;padding-top:8px;margin-top:6px;font-size:11px;color:#64748b;line-height:1.5">
-      <div><strong style="color:#334155">Fórmula:</strong> ${o.formula || '—'}</div>
-      <div><strong style="color:#334155">Fonte:</strong> ${o.fonte || '—'}</div>
-      ${o.meta ? `<div><strong style="color:#334155">Meta:</strong> ${o.meta}</div>` : ''}
-      ${o.armadilha ? `<div style="color:#78350f;margin-top:4px"><strong>⚠ Cuidado:</strong> ${o.armadilha}</div>` : ''}
-      <div style="margin-top:4px"><span style="background:${confiabCor};color:white;padding:1px 6px;border-radius:4px;font-size:9.5px;font-weight:800;text-transform:uppercase">${o.confiab || '—'}</span></div>
-    </div>
-    ${inputHtml}
-  </div>`;
-}
-
-function _kpiV3FaixaCard(nome, valor, receita, cor) {
-  return `<div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;text-align:center">
-    <div style="font-size:10px;color:${cor};font-weight:800;text-transform:uppercase">${nome}</div>
-    <div style="font-size:9.5px;color:#94a3b8;margin-top:2px">${valor}/mês</div>
-    <div style="font-size:14px;font-weight:800;color:#0f172a;margin-top:4px">${receita > 0 ? _fmtRsCurto(receita) : '—'}</div>
-  </div>`;
-}
-
-function _kpiV3AgingCard(label, valor, cor) {
-  return `<div style="background:white;border:1px solid #e2e8f0;border-left:4px solid ${cor};border-radius:8px;padding:12px 14px">
-    <div style="font-size:10.5px;color:#64748b;font-weight:800;text-transform:uppercase">${label}</div>
-    <div style="font-size:18px;font-weight:800;color:${cor};margin-top:4px">${_fmtRsCurto(valor)}</div>
-  </div>`;
-}
-
-function _kpiV3TierInput(campo, label, valor, cor) {
-  return `<div style="background:white;border:1px solid #e2e8f0;border-top:3px solid ${cor};border-radius:8px;padding:8px 10px">
-    <div style="font-size:10.5px;color:${cor};font-weight:800;text-transform:uppercase;margin-bottom:4px">${label}</div>
-    <input type="number" value="${valor || ''}" onchange="_kpiV3SetInput('tier${campo.charAt(0).toUpperCase()+campo.slice(1)}', this.value)" min="0" style="width:100%;padding:5px 7px;border:1px solid #cbd5e1;border-radius:5px;font-family:Poppins;font-size:13px;text-align:center;font-weight:700" placeholder="0">
-  </div>`;
-}
-
-window._kpiV3Toggle = function(id) {
-  window._kpiV3State.blocos[id] = !window._kpiV3State.blocos[id];
+window._kpiV3IrPara = function(view) {
+  window._kpiV3State.view = view;
+  window.scrollTo(0, 0);
   renderKPIs();
 };
 
-window._kpiV3AbrirBloco = function(id) {
-  window._kpiV3State.blocos[id] = true;
+window._kpiV3Voltar = function() {
+  window._kpiV3State.view = 'home';
+  window.scrollTo(0, 0);
   renderKPIs();
-  setTimeout(() => {
-    const el = document.querySelector('[onclick^="_kpiV3Toggle(\'' + id + '\')"]');
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, 100);
 };
 
-// ============================================================
-// MANUAL — Modal
-// ============================================================
 window._kpiV3AbrirManual = function() {
   let modal = document.getElementById('_kpiV3Manual');
   if (!modal) {
@@ -5360,73 +6108,41 @@ function _kpiV3ManualHTML() {
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:18px;border-bottom:2px solid #e2e8f0">
       <div>
         <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1px;font-weight:800">Manual de Leitura</div>
-        <h2 style="margin:4px 0 0;font-size:24px;font-weight:800">📖 Como ler estes indicadores</h2>
-        <p style="margin:6px 0 0;color:#64748b;font-size:12.5px">Guia de referência para o coordenador financeiro e para apresentação ao CEO</p>
+        <h2 style="margin:4px 0 0;font-size:24px;font-weight:800">📖 Como apresentar estes indicadores</h2>
+        <p style="margin:6px 0 0;color:#64748b;font-size:12.5px">Guia de referência para o coordenador financeiro</p>
       </div>
       <button onclick="document.getElementById('_kpiV3Manual').style.display='none'" style="background:#f1f5f9;border:none;padding:8px 14px;border-radius:8px;font-family:Poppins;font-weight:700;cursor:pointer;font-size:13px;color:#334155">✕ Fechar</button>
     </div>
-    
     <div style="font-size:13px;line-height:1.65;color:#334155">
-      
-      <h3 style="font-size:16px;color:#0f172a;margin:24px 0 10px">🔹 Bloco 1 — Receita e Previsibilidade</h3>
-      <p><strong>MRR</strong>: receita recorrente do último mês fechado. Sobe = base cresceu. Cai 2 meses seguidos = alerta.</p>
-      <p><strong>Net New MRR</strong>: MRR mês N − MRR mês N-1. Precisa ser positivo. Se negativo por 2 meses, base está encolhendo.</p>
-      <p><strong>NRR</strong>: janela de 3 meses (até termos 12m estabilizado). Acima de 100% = expansão orgânica.</p>
-      <p><strong>Ticket Médio</strong>: MRR / clientes ativos. Sobe = clientes migrando para faixas maiores.</p>
-      <p><strong>Receita por faixa</strong>: inferida pelo valor mensal pago. Faixa real virá do Solaris quando integrado.</p>
-      
-      <h3 style="font-size:16px;color:#0f172a;margin:24px 0 10px">🔹 Bloco 2 — Retenção</h3>
-      <p><strong>Churn de Receita</strong>: % do MRR do mês anterior que sumiu. Meta &lt; 5%. Cliente pode ter só atrasado — recalcular no mês seguinte.</p>
-      <p><strong>Churn de Logos</strong>: mesma coisa mas por número de clientes. Divergência com Churn Receita indica saída concentrada em faixa alta ou baixa.</p>
-      <p><strong>Churn Antecedente</strong>: quantos avisaram saída antes de parar de pagar. Hoje não temos essa informação — precisa integração com comercial.</p>
-      
-      <h3 style="font-size:16px;color:#0f172a;margin:24px 0 10px">🔹 Bloco 3 — Risco e Caixa</h3>
-      <p><strong>Inadimplência</strong>: % da receita esperada não recebida no prazo. Meta &lt; 3%. Cruzar com comercial antes de considerar perda.</p>
-      <p><strong>Aging</strong>: distribuição do vencido por faixa de atraso. Ideal: &gt; 90% na faixa 0-30d.</p>
-      <p><strong>Concentração Top 5 e Top 10</strong>: risco de dependência. Se Top 5 &gt; 40%, perder um grande cliente é catástrofe.</p>
-      
-      <h3 style="font-size:16px;color:#0f172a;margin:24px 0 10px">🔹 Bloco 4 — Rentabilidade e Eficiência</h3>
-      <p><strong>Margem Líquida</strong>: janela 3m para suavizar sazonalidade. Meta &gt; 15%.</p>
-      <p><strong>Take Rate</strong>: MRR sobre verba de mídia gerenciada. Faixa saudável 14-16%. Requer input manual até Solaris integrado.</p>
-      <p><strong>CAC</strong>: custo em Vendas e Marketing (2.02) dividido por clientes novos no mês. <strong style="color:#dc2626">NUNCA usar 2.01.95</strong> (repasse de mídia cliente).</p>
-      <p><strong>LTV:CAC</strong>: retorno esperado por cliente. Meta &gt; 3x. Provisório até jan/2027.</p>
-      <p><strong>Custo Direto sobre Receita</strong>: % da receita gasto em entrega (mão de obra + produção). Meta &lt; 30%. Excluir 2.01.95.</p>
-      
-      <h3 style="font-size:16px;color:#0f172a;margin:24px 0 10px">🔹 Bloco 5 — Performance de Mídia</h3>
-      <p>Até integração com Solaris/Elo via API, os campos são <strong>input manual mensal</strong>. Você preenche o CPL médio, a Taxa de Preenchimento e a distribuição de tiers observados nos sistemas de operação.</p>
-      
-      <h3 style="font-size:17px;color:#dc2626;margin:32px 0 12px;padding-top:20px;border-top:2px solid #e2e8f0">🎤 Como apresentar em reunião</h3>
-      
+      <h3 style="font-size:16px;color:#0f172a;margin:20px 0 10px">🎤 Como apresentar em reunião</h3>
       <p><strong>Ordem sugerida da narrativa:</strong></p>
       <ol style="padding-left:20px;line-height:1.9">
         <li><strong>Comece pela Receita</strong> — MRR e Net New MRR. "Fechamos o mês em R$ X, com R$ Y de expansão líquida."</li>
         <li><strong>Contextualize com o Churn</strong> — "Perdemos X% da receita antiga, mas ganhamos Y novos clientes."</li>
         <li><strong>Mostre a Margem</strong> — "Isso resulta em margem líquida de X%, dentro/abaixo da meta de 15%."</li>
-        <li><strong>Alerte sobre Risco</strong> — Inadimplência e Concentração. "R$ X está vencido. Os 5 maiores clientes ainda representam Y% — precisamos diversificar."</li>
-        <li><strong>Fecha com Eficiência</strong> — Take Rate e LTV:CAC. "Cada R$1 investido em aquisição retorna R$ X."</li>
+        <li><strong>Alerte sobre Risco</strong> — Inadimplência e Concentração. "R$ X está vencido. Os 5 maiores clientes ainda representam Y%."</li>
+        <li><strong>Fecha com Eficiência</strong> — Take Rate e LTV:CAC. "Cada R$1 gasto em aquisição retorna R$ X."</li>
       </ol>
-      
       <p style="margin-top:20px"><strong>Perguntas que o CEO provavelmente vai fazer:</strong></p>
       <ul style="padding-left:20px;line-height:1.9">
-        <li><strong>"Por que a margem caiu?"</strong> → Olhe primeiro Custo Direto, depois Pessoal. Se Pessoal subiu sem Receita subir, produtividade caiu.</li>
-        <li><strong>"Estamos crescendo?"</strong> → Net New MRR positivo = sim. Ticket Médio subindo = sim organicamente.</li>
+        <li><strong>"Por que a margem caiu?"</strong> → Olhe Custo Direto primeiro, depois Pessoal. Se Pessoal subiu sem Receita subir, produtividade caiu.</li>
+        <li><strong>"Estamos crescendo?"</strong> → Net New MRR positivo = sim. Ticket Médio subindo = crescimento orgânico.</li>
         <li><strong>"Qual o maior risco?"</strong> → Concentração Top 5 ou Inadimplência crescente. O que estiver pior.</li>
-        <li><strong>"Vale a pena investir mais em comercial?"</strong> → LTV:CAC &gt; 3x = sim. &lt; 1x = não, primeiro segurar churn.</li>
-        <li><strong>"Quando vou saber se o mês foi bom?"</strong> → Após dia 5 do mês seguinte, quando fecham as baixas do mês anterior.</li>
+        <li><strong>"Vale investir mais em comercial?"</strong> → LTV/CAC > 3x = sim. < 1x = não, primeiro segurar churn.</li>
+        <li><strong>"Quando saberei se o mês foi bom?"</strong> → Após dia 5 do mês seguinte, quando fecham as baixas.</li>
       </ul>
-      
       <div style="background:#eff6ff;border-left:4px solid #3b82f6;padding:16px 18px;border-radius:8px;margin-top:24px">
         <div style="font-weight:800;color:#1e40af;margin-bottom:6px">💡 Regra de ouro</div>
         <div style="color:#1e40af">Nenhum indicador conta a história sozinho. Sempre olhe 2-3 juntos: MRR + Churn, Margem + Custo Direto, CAC + LTV. Um pode enganar; o conjunto não.</div>
       </div>
-      
       <div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:16px 18px;border-radius:8px;margin-top:14px">
         <div style="font-weight:800;color:#78350f;margin-bottom:6px">⚠️ Marco zero: julho/2026</div>
-        <div style="color:#78350f">Dados anteriores a jul/2026 têm ruído por importação inicial. NRR, LTV e Churn Antecedente só serão confiáveis quando acumularmos histórico suficiente (out/2026 → jan/2027).</div>
+        <div style="color:#78350f">Dados anteriores a jul/2026 têm ruído. NRR, LTV e Churn Antecedente só serão plenamente confiáveis quando acumularmos histórico limpo (out/2026 → jul/2027).</div>
       </div>
     </div>
   </div>`;
 }
+
 
 
 
