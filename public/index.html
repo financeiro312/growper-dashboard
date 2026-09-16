@@ -15426,6 +15426,180 @@ window._tribNovaTarefa = function() {
 })();
 
 </script>
+<script>
+// ============================================================
+// SINCRONIZAÇÃO v4 — dados compartilhados via Supabase
+// ============================================================
+(function() {
+  const CHAVES = [
+    'rec_ov_elo_v1', 'rec_ov_real_v1', 'mensalidades_manuais_v1',
+    'kpi_manual_v1', 'projetadoData_v1', 'caixaInicialInter_v1',
+    'caixaInicialItau_v1', 'caixaSaldoInicial_v1', 'mens_import_planilha_v4',
+    'telefones_manual_v1', 'estoque_v1', 'notas_forn_v1',
+    'rh_folha_v1', 'reembolso_v1', 'tributario_v1', 'scalia_kits_v1'
+  ];
+  const SUPABASE_URL = 'https://dfaydkiqbhpzxosffurs.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmYXlka2lxYmhwenhvc2ZmdXJzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyMTg1OTYsImV4cCI6MjEwMDc5NDU5Nn0.EJ50JLQw0dufwintmmp_0vR7Cfg9avjDTrmyuC4mfbM';
+
+  window._syncV4 = { cliente: null, origSet: null, origRemove: null, debounces: {}, timerPoll: null };
+
+  function _status(estado, extra) {
+    let ind = document.getElementById('_syncInd');
+    if (!ind) {
+      ind = document.createElement('div');
+      ind.id = '_syncInd';
+      ind.style.cssText = 'position:fixed;bottom:16px;left:80px;z-index:99;padding:6px 14px;border-radius:20px;font-family:Poppins,sans-serif;font-weight:700;font-size:11px;box-shadow:0 3px 8px rgba(0,0,0,0.15);display:flex;align-items:center;gap:6px;cursor:pointer;height:26px;box-sizing:border-box;border:1px solid transparent;transition:all 0.2s';
+      ind.onclick = () => window._syncForcarAgora();
+      ind.title = 'Clique para sincronizar agora';
+      document.body.appendChild(ind);
+      if (!document.getElementById('_syncStyles')) {
+        const st = document.createElement('style');
+        st.id = '_syncStyles';
+        st.textContent = '@keyframes _syncSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } } #_syncInd:hover { transform: scale(1.05); }';
+        document.head.appendChild(st);
+      }
+    }
+    const map = {
+      aguardando: ['#f1f5f9', '#64748b', '#cbd5e1', '⏳ Aguardando login'],
+      carregando: ['#dbeafe', '#1e40af', '#93c5fd', '<span style="animation:_syncSpin 1s linear infinite;display:inline-block">🔄</span> Sincronizando…'],
+      sucesso: ['#dcfce7', '#065f46', '#86efac', '✓ Sincronizado' + (extra ? ' (' + extra + ')' : '')],
+      erro: ['#fee2e2', '#991b1b', '#fca5a5', '❌ ' + (extra || 'Erro')]
+    };
+    const [bg, cor, borda, texto] = map[estado] || map.erro;
+    ind.style.background = bg;
+    ind.style.color = cor;
+    ind.style.borderColor = borda;
+    ind.innerHTML = texto;
+  }
+
+  function _esperar(fn, ms) {
+    return new Promise((ok, fail) => {
+      const t0 = Date.now();
+      const check = () => {
+        if (fn()) return ok();
+        if (Date.now() - t0 > ms) return fail(new Error('timeout esperando ' + fn.toString().slice(0, 50)));
+        setTimeout(check, 100);
+      };
+      check();
+    });
+  }
+
+  async function _cliente() {
+    if (window._syncV4.cliente) return window._syncV4.cliente;
+    try {
+      await _esperar(() => window.supabase && typeof window.supabase.createClient === 'function', 15000);
+    } catch (e) {
+      throw new Error('Supabase JS não carregou (verifique conexão)');
+    }
+    window._syncV4.cliente = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    return window._syncV4.cliente;
+  }
+
+  async function _baixar() {
+    const cli = await _cliente();
+    const { data, error } = await cli.from('app_state').select('chave, valor').in('chave', CHAVES);
+    if (error) throw new Error(error.message || 'Erro Supabase');
+    const setOrig = window._syncV4.origSet;
+    let n = 0;
+    (data || []).forEach(r => {
+      if (CHAVES.includes(r.chave) && r.valor) {
+        setOrig(r.chave, r.valor);
+        n++;
+      }
+    });
+    return n;
+  }
+
+  function _subir(chave, valor) {
+    clearTimeout(window._syncV4.debounces[chave]);
+    window._syncV4.debounces[chave] = setTimeout(async () => {
+      try {
+        const cli = await _cliente();
+        const email = (window._authState && window._authState.usuario) ? window._authState.usuario.email : 'anon';
+        await cli.from('app_state').upsert({ chave, valor, atualizado_por: email, atualizado_em: new Date().toISOString() });
+      } catch (e) {}
+    }, 1000);
+  }
+
+  function _instalar() {
+    if (window._syncV4.origSet) return;
+    window._syncV4.origSet = localStorage.setItem.bind(localStorage);
+    window._syncV4.origRemove = localStorage.removeItem.bind(localStorage);
+    localStorage.setItem = function(k, v) {
+      window._syncV4.origSet(k, v);
+      if (CHAVES.includes(k)) _subir(k, v);
+    };
+    localStorage.removeItem = function(k) {
+      window._syncV4.origRemove(k);
+      if (CHAVES.includes(k)) {
+        _cliente().then(c => c.from('app_state').delete().eq('chave', k).then(() => {})).catch(() => {});
+      }
+    };
+  }
+
+  async function _polling() {
+    try {
+      const cli = window._syncV4.cliente;
+      if (!cli) return;
+      const email = (window._authState && window._authState.usuario) ? window._authState.usuario.email : '';
+      const desde = new Date(Date.now() - 60000).toISOString();
+      const { data } = await cli.from('app_state').select('chave, valor, atualizado_por').in('chave', CHAVES).gt('atualizado_em', desde);
+      if (!data || data.length === 0) return;
+      let mudou = 0;
+      data.forEach(r => {
+        if (r.atualizado_por === email) return;
+        if (localStorage.getItem(r.chave) !== r.valor) {
+          window._syncV4.origSet(r.chave, r.valor);
+          mudou++;
+        }
+      });
+      if (mudou > 0) {
+        let t = document.getElementById('_syncToast');
+        if (!t) {
+          t = document.createElement('div');
+          t.id = '_syncToast';
+          t.style.cssText = 'position:fixed;bottom:60px;left:16px;z-index:9500;background:#0f766e;color:white;padding:10px 16px;border-radius:8px;font-family:Poppins;font-weight:600;font-size:12px;box-shadow:0 4px 12px rgba(0,0,0,0.3);cursor:pointer';
+          t.innerHTML = '🔄 Dados atualizados — clique para recarregar';
+          t.onclick = () => location.reload();
+          document.body.appendChild(t);
+        }
+      }
+    } catch (e) {}
+  }
+
+  // API PÚBLICA
+  window._syncBoot = async function() {
+    _status('carregando');
+    _instalar();
+    try {
+      const n = await _baixar();
+      _status('sucesso', n);
+      if (!window._syncV4.timerPoll) window._syncV4.timerPoll = setInterval(_polling, 30000);
+      return { ok: true, total: n };
+    } catch (e) {
+      _status('erro', e.message);
+      return { ok: false, erro: e.message };
+    }
+  };
+
+  window._syncForcarAgora = async function() {
+    const r = await window._syncBoot();
+    if (r.ok) {
+      if (confirm('✓ Baixados ' + r.total + ' conjuntos.\n\nRecarregar para aplicar?')) location.reload();
+    } else {
+      alert('Erro:\n\n' + r.erro);
+    }
+  };
+
+  // Mostrar aguardando desde já
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => _status('aguardando'));
+  } else {
+    _status('aguardando');
+  }
+})();
+
+</script>
 <!-- CONTAINER FIXO NO CANTO INFERIOR ESQUERDO: engrenagem (admin) + badge do usuário -->
 <div id="authFooterFixed" style="position:fixed;bottom:16px;left:16px;z-index:100;display:none;align-items:center;gap:10px">
   <button id="adminGearBtn" onclick="_authAbrirAdmin()" title="Gerenciar acessos" style="background:linear-gradient(135deg,#334155,#1e293b);color:white;border:1px solid rgba(255,255,255,0.1);width:38px;height:38px;border-radius:50%;font-family:Poppins;font-weight:700;font-size:16px;cursor:pointer;box-shadow:0 3px 8px rgba(0,0,0,0.25);align-items:center;justify-content:center;transition:all 0.2s;flex-shrink:0" onmouseover="this.style.transform='scale(1.1)';this.style.background='linear-gradient(135deg,#475569,#334155)'" onmouseout="this.style.transform='scale(1)';this.style.background='linear-gradient(135deg,#334155,#1e293b)'">⚙️</button>
@@ -15464,3 +15638,4 @@ window._tribNovaTarefa = function() {
 
 </body>
 </html>
+
