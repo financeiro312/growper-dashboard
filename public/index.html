@@ -1421,6 +1421,7 @@ body.mobile-mini .main-content { margin-left: 40px !important; }
     <div id="reembolsoSection" class="hidden"><div id="reembolsoContainer" style="padding:24px 32px;font-family:Poppins,sans-serif"></div></div>
 <div id="dreSection" class="hidden"><div id="dreContent"></div></div>
 <div id="tributarioSection" class="hidden"><div id="tributarioContent"></div></div>
+<div id="conciliacaoSection" class="hidden"><div id="conciliacaoContent"></div></div>
     <div id="pjsSection" class="hidden">
   <div style="display:flex;gap:8px;margin-bottom:24px;border-bottom:1px solid var(--border)">
     <button class="pj-tab-btn active" data-pjtab="custo" style="padding:10px 18px;border:none;background:transparent;color:var(--primary);font-family:Poppins;font-size:13px;font-weight:600;cursor:pointer;border-bottom:2px solid var(--primary)">💰 Custo</button>
@@ -3994,6 +3995,78 @@ function renderEstoque() {
   container.innerHTML = html;
 }
 
+// Detalhamento clicável do MRR — mostra os pagamentos daquele mês em modal
+window._maAbrirDetalhesMRR = function(mes) {
+  const data = window.RAW_DATA_CAIXA || [];
+  const pagamentos = data.filter(r => 
+    r.tipo === '1. Contas a Receber' && 
+    r.mesPagto === mes &&
+    String(r.categoria || '').includes('Mensalidades Clientes')
+  );
+  // Agrupa por cliente
+  const porCliente = {};
+  pagamentos.forEach(p => {
+    const cli = String(p.fornecedor || 'Sem cliente').trim();
+    if (!porCliente[cli]) porCliente[cli] = { total: 0, pagamentos: [] };
+    porCliente[cli].total += Math.abs(p.valorPago || 0);
+    porCliente[cli].pagamentos.push(p);
+  });
+  const ranking = Object.entries(porCliente).sort((a,b) => b[1].total - a[1].total);
+  const total = ranking.reduce((s, [_, o]) => s + o.total, 0);
+  const _fmt = v => 'R$ ' + v.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+  const nomeMes = ['','Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][parseInt(mes.split('-')[1])] + '/' + mes.split('-')[0];
+  
+  let modal = document.getElementById('_maMRRDetalhes');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = '_maMRRDetalhes';
+    modal.style.cssText = 'position:fixed;inset:0;z-index:10002;background:rgba(0,0,0,0.7);padding:20px;overflow-y:auto';
+    modal.onclick = function(e) { if (e.target === modal) modal.style.display = 'none'; };
+    document.body.appendChild(modal);
+  }
+  modal.innerHTML = `<div style="background:white;max-width:1000px;margin:30px auto;border-radius:16px;padding:0;box-shadow:0 20px 60px rgba(0,0,0,0.5);font-family:Poppins,sans-serif;color:#0f172a;overflow:hidden">
+    <div style="background:linear-gradient(135deg,#059669,#10b981);padding:24px 28px;color:white;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:2px;font-weight:700;opacity:0.9">📈 MRR — Detalhamento</div>
+        <h2 style="margin:4px 0 0;font-size:26px;font-weight:800">${nomeMes}</h2>
+        <div style="margin-top:6px;font-size:13px;opacity:0.95">${ranking.length} clientes · ${pagamentos.length} pagamentos · Total: <strong>${_fmt(total)}</strong></div>
+      </div>
+      <button onclick="document.getElementById('_maMRRDetalhes').style.display='none'" style="background:rgba(255,255,255,0.2);border:none;padding:10px 16px;border-radius:8px;font-family:Poppins;font-weight:700;cursor:pointer;font-size:13px;color:white">✕ Fechar</button>
+    </div>
+    <div style="padding:24px 28px;max-height:600px;overflow-y:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+        <thead style="background:#f8fafc;position:sticky;top:0">
+          <tr style="border-bottom:2px solid #e2e8f0">
+            <th style="padding:10px 12px;text-align:left;font-weight:800;color:#334155;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">#</th>
+            <th style="padding:10px 12px;text-align:left;font-weight:800;color:#334155;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">Cliente</th>
+            <th style="padding:10px 12px;text-align:right;font-weight:800;color:#334155;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">Total no mês</th>
+            <th style="padding:10px 12px;text-align:right;font-weight:800;color:#334155;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">% do MRR</th>
+            <th style="padding:10px 12px;text-align:center;font-weight:800;color:#334155;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">Pagamentos</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${ranking.map(([cli, o], idx) => `<tr style="border-bottom:1px solid #f1f5f9">
+            <td style="padding:10px 12px;color:#94a3b8;font-weight:700">${idx+1}</td>
+            <td style="padding:10px 12px;color:#0f172a;font-weight:600">${cli}</td>
+            <td style="padding:10px 12px;text-align:right;color:#059669;font-weight:800">${_fmt(o.total)}</td>
+            <td style="padding:10px 12px;text-align:right;color:#64748b;font-weight:700">${total>0?(o.total/total*100).toFixed(1):'0.0'}%</td>
+            <td style="padding:10px 12px;text-align:center;color:#64748b">${o.pagamentos.length}</td>
+          </tr>`).join('')}
+        </tbody>
+        <tfoot style="border-top:2px solid #0f172a;background:#f8fafc">
+          <tr>
+            <td colspan="2" style="padding:12px;font-weight:800;color:#0f172a">Total</td>
+            <td style="padding:12px;text-align:right;font-weight:800;color:#059669;font-size:14px">${_fmt(total)}</td>
+            <td style="padding:12px;text-align:right;font-weight:800;color:#0f172a">100.0%</td>
+            <td style="padding:12px;text-align:center;font-weight:800;color:#0f172a">${pagamentos.length}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>`;
+  modal.style.display = 'block';
+};
+
 function renderMA() {
   const container = document.getElementById('maContent');
   if (!container) return;
@@ -4361,16 +4434,19 @@ function renderMA() {
           <div style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;background:#ef4444;border-radius:2px"></span><span style="color:#475569">Churn</span></div>
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(12,1fr);gap:6px;align-items:end;height:140px;margin-bottom:8px">
+      <div style="display:grid;grid-template-columns:repeat(12,1fr);gap:6px;align-items:end;height:180px;margin-bottom:8px">
         ${(() => {
           const maxMRR = Math.max(...MONTHS_ALL.map(m => mrrMes[m]), 1);
           return MONTHS_ALL.map((m, i) => {
             const mrr = mrrMes[m] || 0;
-            const novo = mrrNovoMes[m] || 0;
-            const churn = mrrChurnMes[m] || 0;
-            const hMrr = (mrr / maxMRR) * 100;
-            return `<div style="display:flex;flex-direction:column;justify-content:flex-end;position:relative;height:100%">
-              <div style="height:${hMrr}%;background:linear-gradient(180deg,#10b981,#059669);border-radius:6px 6px 0 0;position:relative;min-height:${mrr>0?4:0}px" title="${MONTH_LABELS[i]}: ${_fmtR(mrr)}"></div>
+            const hMrr = (mrr / maxMRR) * 82;
+            const valTxt = mrr > 0 ? _fmtCompact(mrr) : '';
+            return `<div onclick="if(${mrr}>0) window._maAbrirDetalhesMRR('${m}')" 
+              style="display:flex;flex-direction:column;justify-content:flex-end;position:relative;height:100%;${mrr>0?'cursor:pointer;':''}"
+              onmouseover="if(${mrr}>0){this.querySelector('.__bar').style.filter='brightness(1.1)';this.querySelector('.__lbl').style.color='#059669'}"
+              onmouseout="if(${mrr}>0){this.querySelector('.__bar').style.filter='';this.querySelector('.__lbl').style.color='#0f172a'}">
+              ${mrr > 0 ? `<div class="__lbl" style="text-align:center;font-size:10px;font-weight:800;color:#0f172a;margin-bottom:4px;transition:color 0.15s">${valTxt}</div>` : '<div style="height:14px"></div>'}
+              <div class="__bar" style="height:${hMrr}%;background:linear-gradient(180deg,#10b981,#059669);border-radius:6px 6px 0 0;position:relative;min-height:${mrr>0?4:0}px;transition:filter 0.15s" title="${MONTH_LABELS[i]}: ${_fmtR(mrr)} — clique para ver detalhes"></div>
             </div>`;
           }).join('');
         })()}
@@ -4378,6 +4454,7 @@ function renderMA() {
       <div style="display:grid;grid-template-columns:repeat(12,1fr);gap:6px;font-size:10px;color:#94a3b8;text-align:center;font-weight:700;text-transform:uppercase">
         ${MONTH_LABELS.map(l => `<div>${l}</div>`).join('')}
       </div>
+      <div style="font-size:10.5px;color:#94a3b8;text-align:center;margin-top:12px;font-style:italic">💡 Clique em uma coluna para ver os pagamentos daquele mês</div>
     </div>`;
   
   // ============ HOME (cards clicáveis — modelo KPIs) ============
@@ -5146,6 +5223,17 @@ function _kpiV3TotalTiers(i) {
   return t > 0 ? t + ' clientes' : '—';
 }
 
+function _kpiV3GrupoDespesa(txt) {
+  const c = String(txt || '');
+  if (c.match(/Imposto|Simples Nacional|ISS|PIS|COFINS|IRPJ|CSLL|IRRF|INSS/i)) return 'Impostos';
+  if (c.match(/marketing|comercial|propaganda|publicidade|vendas/i)) return 'Comercial e Marketing';
+  if (c.match(/Remuneração Operacional|Editores|Custo Direto|Influenciad|Produção/i)) return 'Custo Direto (Operação)';
+  if (c.match(/Salário|Salario|Pró-labore|Pro-labore|Folha|Férias|13º|FGTS|Vale/i)) return 'Pessoal';
+  if (c.match(/Aluguel|Água|Agua|Luz|Energia|Internet|Telefone|Softwar|Contabilidade|Escritório/i)) return 'Administrativo';
+  if (c.match(/Juros|Tarifa banc|Taxa banc|Financeiro/i)) return 'Financeiro';
+  return 'Outros';
+}
+
 // Chart linha SVG
 function _kpiV3ChartLinha(serie, cor, formato) {
   const w = 1000, h = 240, mL = 70, mR = 30, mT = 24, mB = 46;
@@ -5213,7 +5301,7 @@ function _kpiV3IndDefs(id, K, inputs, D) {
 
   // === MRR ===
   if (id === 'mrr') {
-    const mrrPorMes = _kpiV3AgruparPorMes(D.receita.filter(r => (r.categoria_codigo || '').startsWith('01.01')));
+    const mrrPorMes = _kpiV3AgruparPorMes(D.receita.filter(r => (r.categoria_texto || '').includes('Mensalidades Clientes')));
     const serie = meses6.map(m => ({ label: mesesLabels(m), valor: mrrPorMes[m] || 0 }));
     const faixasBar = [
       { label: 'Basic (R$ 1.500)', valor: K.faixas.basic },
@@ -5252,7 +5340,7 @@ function _kpiV3IndDefs(id, K, inputs, D) {
 
   // === Net New MRR ===
   if (id === 'netNew') {
-    const mrrPorMes = _kpiV3AgruparPorMes(D.receita.filter(r => (r.categoria_codigo || '').startsWith('01.01')));
+    const mrrPorMes = _kpiV3AgruparPorMes(D.receita.filter(r => (r.categoria_texto || '').includes('Mensalidades Clientes')));
     const serie = meses6.map(m => {
       const ant = _kpiV3MesAnterior(m);
       return { label: mesesLabels(m), valor: (mrrPorMes[m] || 0) - (mrrPorMes[ant] || 0) };
@@ -5312,8 +5400,8 @@ function _kpiV3IndDefs(id, K, inputs, D) {
 
   // === Ticket Médio ===
   if (id === 'ticket') {
-    const mrrPorMes = _kpiV3AgruparPorMes(D.receita.filter(r => (r.categoria_codigo || '').startsWith('01.01')));
-    const cliMes = _kpiV3ClientesPorMes(D.receita.filter(r => (r.categoria_codigo || '').startsWith('01.01')));
+    const mrrPorMes = _kpiV3AgruparPorMes(D.receita.filter(r => (r.categoria_texto || '').includes('Mensalidades Clientes')));
+    const cliMes = _kpiV3ClientesPorMes(D.receita.filter(r => (r.categoria_texto || '').includes('Mensalidades Clientes')));
     const serie = meses6.map(m => ({ label: mesesLabels(m), valor: cliMes[m] && cliMes[m].size > 0 ? (mrrPorMes[m] || 0) / cliMes[m].size : 0 }));
     return {
       icone: '🏷️', grupo: 'Receita e Previsibilidade', grupoId: 'b1', titulo: 'Ticket Médio Recorrente',
@@ -5534,7 +5622,7 @@ function _kpiV3IndDefs(id, K, inputs, D) {
     D.receita.forEach(r => {
       const mes = (r.data_pagto || '').slice(0, 7);
       if (mes === mesRef || mes === m1 || mes === m2) {
-        const cli = r.cliente_codigo || 'SEM';
+        const cli = r.cliente_nome || 'SEM';
         perCli[cli] = (perCli[cli] || 0) + Number(r.valor_pago || 0);
       }
     });
@@ -5570,17 +5658,17 @@ function _kpiV3IndDefs(id, K, inputs, D) {
   // === Margem Líquida ===
   if (id === 'margem') {
     const serie = meses6.map(m => {
-      const rec = D.receita.filter(r => (r.data_pagto || '').slice(0,7) === m).reduce((s,r) => s + Number(r.valor_pago || 0), 0);
-      const imp = D.despesa.filter(d => (d.data_pagto || '').slice(0,7) === m && d.grupo_dre === 'IMPOSTOS').reduce((s,r) => s + Number(r.valor_pago || 0), 0);
-      const desp = D.despesa.filter(d => (d.data_pagto || '').slice(0,7) === m && d.grupo_dre !== 'IMPOSTOS').reduce((s,r) => s + Number(r.valor_pago || 0), 0);
+      const rec = D.receita.filter(r => ((r.mes||(r.data_pagto||'').slice(0,7)) === m)).reduce((s,r) => s + Number(r.valor_pago || 0), 0);
+      const imp = D.despesa.filter(d => ((d.mes||(d.data_pagto||'').slice(0,7)) === m) && ((d.categoria_texto||'').match(/Imposto|Simples Nacional|ISS|PIS|COFINS|IRPJ|CSLL|IRRF|INSS/i))).reduce((s,r) => s + Number(r.valor_pago || 0), 0);
+      const desp = D.despesa.filter(d => ((d.mes||(d.data_pagto||'').slice(0,7)) === m) && !((d.categoria_texto||'').match(/Imposto|Simples Nacional|ISS|PIS|COFINS|IRPJ|CSLL|IRRF|INSS/i))).reduce((s,r) => s + Number(r.valor_pago || 0), 0);
       const rl = rec - imp;
       return { label: mesesLabels(m), valor: rl > 0 ? ((rl - desp) / rl * 100) : 0 };
     });
     const gruposDesp = {};
     D.despesa.forEach(d => {
-      const mes = (d.data_pagto || '').slice(0,7);
+      const mes = d.mes || (d.data_pagto || '').slice(0,7);
       if (mes === K.mesRef.key || mes === _kpiV3MesAnterior(K.mesRef.key) || mes === _kpiV3MesAnterior(_kpiV3MesAnterior(K.mesRef.key))) {
-        gruposDesp[d.grupo_dre] = (gruposDesp[d.grupo_dre] || 0) + Number(d.valor_pago || 0);
+        const grp = _kpiV3GrupoDespesa(d.categoria_texto); gruposDesp[grp] = (gruposDesp[grp] || 0) + Number(d.valor_pago || 0);
       }
     });
     const breakdownDesp = Object.entries(gruposDesp).sort((a,b) => b[1] - a[1]).map(([g, v]) => ({ label: g, valor: v, display: _fmtRsCurto(v) }));
@@ -5770,28 +5858,60 @@ function _kpiV3IndDefs(id, K, inputs, D) {
 // CARREGAMENTO / CÁLCULOS
 // ============================================================
 async function _kpiV3CarregarDados() {
-  // Estratégia robusta: tentar múltiplas fontes de cliente Supabase
-  let supa = (window._authState && window._authState.supabase) || (window._syncV4 && window._syncV4.cliente) || null;
-  
-  // Se ainda não tem, tenta criar via window.supabase
-  if (!supa && window.supabase && window.supabase.createClient) {
-    const URL = 'https://dfaydkiqbhpzxosffurs.supabase.co';
-    const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmYXlka2lxYmhwenhvc2ZmdXJzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyMTg1OTYsImV4cCI6MjEwMDc5NDU5Nn0.EJ50JLQw0dufwintmmp_0vR7Cfg9avjDTrmyuC4mfbM';
-    supa = window.supabase.createClient(URL, KEY);
+  // Fonte primária: RAW_DATA_CAIXA (mesma que alimenta o menu Financeiro Principal e o M&A)
+  // Se ainda não estiver carregado, dispara omieBootstrap para popular.
+  if (!window.RAW_DATA_CAIXA || window.RAW_DATA_CAIXA.length === 0) {
+    if (typeof window.omieBootstrap === 'function') {
+      try { await window.omieBootstrap(); } catch(e) { /* segue tentando */ }
+    }
   }
+  const raw = window.RAW_DATA_CAIXA || [];
+  if (raw.length === 0) throw new Error('Base de dados vazia. Aguarde a sincronização com o OMIE terminar e recarregue.');
   
-  if (!supa) throw new Error('Cliente Supabase indisponível. Verifique se está logado e conectado.');
+  // Separar em receita e despesa no formato esperado pelo cálculo (mesma lógica do M&A)
+  // Filtro contas: apenas Banco Inter, Itaú Unibanco e Cartão 2130 (operacional)
+  const contasOperacionais = new Set(['Banco Inter', 'Itaú Unibanco', 'Cartão 2130']);
+  const receita = [];
+  const despesa = [];
+  raw.forEach(r => {
+    if (!contasOperacionais.has(r.conta)) return;
+    const cat = String(r.categoria || '');
+    if (cat.includes('Ajuste') || cat.includes('Transferência')) return; // exclui movimentos internos
+    if (r.tipo === '1. Contas a Receber') {
+      receita.push({
+        data_pagto: r.dataPagto || (r.mesPagto + '-01'),
+        valor_pago: Math.abs(r.valorPago || 0),
+        categoria_texto: cat,
+        cliente_nome: String(r.fornecedor || '').trim(),
+        mes: r.mesPagto
+      });
+    } else if (r.tipo === '2. Contas a Pagar') {
+      despesa.push({
+        data_pagto: r.dataPagto || (r.mesPagto + '-01'),
+        valor_pago: Math.abs(r.valorPago || 0),
+        categoria_texto: cat,
+        fornecedor_nome: String(r.fornecedor || '').trim(),
+        mes: r.mesPagto
+      });
+    }
+  });
+  
+  // Títulos abertos (inadimplência/aging) — ainda vem do Supabase pois RAW_DATA_CAIXA só tem pagos
+  let titulos = [];
+  try {
+    let supa = (window._authState && window._authState.supabase) || (window._syncV4 && window._syncV4.cliente) || null;
+    if (!supa && window.supabase && window.supabase.createClient) {
+      const URL = 'https://dfaydkiqbhpzxosffurs.supabase.co';
+      const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmYXlka2lxYmhwenhvc2ZmdXJzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyMTg1OTYsImV4cCI6MjEwMDc5NDU5Nn0.EJ50JLQw0dufwintmmp_0vR7Cfg9avjDTrmyuC4mfbM';
+      supa = window.supabase.createClient(URL, KEY);
+    }
+    if (supa) {
+      const r = await supa.from('titulos').select('id_titulo,tipo,status,cancelado,data_vencimento,valor_documento,valor_pago,cliente_nome').eq('tipo', '1. Contas a Receber').eq('cancelado', false);
+      if (!r.error) titulos = r.data || [];
+    }
+  } catch(e) { titulos = []; }
 
-  const [rReceita, rDespesa, rTitulos] = await Promise.all([
-    supa.from('v_receita_operacional').select('data_pagto,valor_pago,categoria_codigo,cliente_codigo').gte('data_pagto', '2026-01-01').lte('data_pagto', '2026-12-31'),
-    supa.from('v_despesa_operacional').select('data_pagto,valor_pago,categoria_codigo,grupo_dre').gte('data_pagto', '2026-01-01').lte('data_pagto', '2026-12-31'),
-    supa.from('titulos').select('id_titulo,tipo,status,cancelado,data_vencimento,valor_documento,valor_pago,cliente_codigo,cliente_nome,categoria_codigo').eq('tipo', '1. Contas a Receber').eq('cancelado', false)
-  ]);
-  if (rReceita.error) throw new Error('Erro ao carregar receita: ' + rReceita.error.message);
-  if (rDespesa.error) throw new Error('Erro ao carregar despesa: ' + rDespesa.error.message);
-  if (rTitulos.error) throw new Error('Erro ao carregar títulos: ' + rTitulos.error.message);
-
-  window._kpiV3Dados = { receita: rReceita.data || [], despesa: rDespesa.data || [], titulos: rTitulos.data || [], _at: Date.now() };
+  window._kpiV3Dados = { receita, despesa, titulos, _at: Date.now() };
 }
 
 function _kpiV3Calcular(D, inputs) {
@@ -5804,7 +5924,9 @@ function _kpiV3Calcular(D, inputs) {
   const mesAntKey = _kpiV3MesAnterior(mesRefKey);
   const mesLabel = _kpiV3FormatarMes(mesRefKey);
 
-  const mrrPorMes = _kpiV3AgruparPorMes(D.receita.filter(r => (r.categoria_codigo || '').startsWith('01.01')));
+  // MRR: filtro por TEXTO da categoria contendo "Mensalidades Clientes" (mesma lógica do M&A)
+  const receitaMensalidades = D.receita.filter(r => (r.categoria_texto || '').includes('Mensalidades Clientes'));
+  const mrrPorMes = _kpiV3AgruparPorMes(receitaMensalidades);
   const mrrAtual = mrrPorMes[mesRefKey] || 0;
   const mrrAnt = mrrPorMes[mesAntKey] || 0;
   const netNewAtual = mrrAtual - mrrAnt;
@@ -5812,7 +5934,12 @@ function _kpiV3Calcular(D, inputs) {
   const mrr = { atual: mrrAtual, varPct: mrrVarPct, sem: mrrVarPct >= 3 ? 'green' : (mrrVarPct >= 0 ? 'yellow' : 'red') };
   const netNew = { atual: netNewAtual, sem: netNewAtual > 0 ? 'green' : (netNewAtual === 0 ? 'yellow' : 'red') };
 
-  const clientesMes = _kpiV3ClientesPorMes(D.receita.filter(r => (r.categoria_codigo || '').startsWith('01.01')));
+  // Ticket Médio: base ampla (Mensalidades + Inadimplentes + Taxa de Implementação) — igual M&A
+  const receitaBaseCli = D.receita.filter(r => {
+    const c = r.categoria_texto || '';
+    return c.includes('Mensalidades Clientes') || c.includes('Inadimplent') || c.includes('Taxa de Implementação') || c.includes('Taxa Implementação');
+  });
+  const clientesMes = _kpiV3ClientesPorMes(receitaBaseCli);
   const nClientesAtual = (clientesMes[mesRefKey] || new Set()).size;
   const nClientesAnt = (clientesMes[mesAntKey] || new Set()).size;
   const ticketAtual = nClientesAtual > 0 ? mrrAtual / nClientesAtual : 0;
@@ -5820,7 +5947,7 @@ function _kpiV3Calcular(D, inputs) {
   const ticketVar = ticketAnt > 0 ? ((ticketAtual - ticketAnt) / ticketAnt * 100) : null;
   const ticket = { atual: ticketAtual, varPct: ticketVar, sem: ticketVar >= 0 ? 'green' : 'yellow' };
 
-  const mrrCliente = _kpiV3MRRPorCliente(D.receita.filter(r => (r.categoria_codigo || '').startsWith('01.01')));
+  const mrrCliente = _kpiV3MRRPorCliente(receitaMensalidades);
   const mrr3mAtras = _kpiV3MesAnterior(_kpiV3MesAnterior(_kpiV3MesAnterior(mesRefKey)));
   const clientesAntigos = clientesMes[mrr3mAtras] ? Array.from(clientesMes[mrr3mAtras]) : [];
   let receitaAntigaEntao = 0, receitaAntigaHoje = 0;
@@ -5831,7 +5958,7 @@ function _kpiV3Calcular(D, inputs) {
   const nrrAtual = receitaAntigaEntao > 0 ? (receitaAntigaHoje / receitaAntigaEntao * 100) : null;
   const nrr = { atual: nrrAtual, sem: nrrAtual === null ? 'gray' : (nrrAtual >= 100 ? 'green' : (nrrAtual >= 90 ? 'yellow' : 'red')) };
 
-  const faixas = _kpiV3ClassificarFaixas(D.receita, mesRefKey);
+  const faixas = _kpiV3ClassificarFaixas(receitaMensalidades, mesRefKey);
 
   const clientesAntSet = clientesMes[mesAntKey] || new Set();
   const clientesAtualSet = clientesMes[mesRefKey] || new Set();
@@ -5870,11 +5997,12 @@ function _kpiV3Calcular(D, inputs) {
   const inadimp = { atual: inadimpPct, valorAberto: vencidoTotal, sem: inadimpPct === null ? 'gray' : (inadimpPct <= 3 ? 'green' : (inadimpPct <= 5 ? 'yellow' : 'red')) };
 
   const mesAntAntKey = _kpiV3MesAnterior(mesAntKey);
+  // Top clientes — usa nome como chave
   const receita3m = {};
-  D.receita.forEach(r => {
-    const mes = (r.data_pagto || '').slice(0, 7);
+  receitaMensalidades.forEach(r => {
+    const mes = (r.mes || (r.data_pagto || '').slice(0,7));
     if (mes === mesRefKey || mes === mesAntKey || mes === mesAntAntKey) {
-      const c = r.cliente_codigo || 'SEM';
+      const c = r.cliente_nome || 'SEM';
       receita3m[c] = (receita3m[c] || 0) + Number(r.valor_pago || 0);
     }
   });
@@ -5884,12 +6012,13 @@ function _kpiV3Calcular(D, inputs) {
   const top10Val = ranking.slice(0, 10).reduce((s, [_, v]) => s + v, 0);
   const top5Pct = totalRec3m > 0 ? (top5Val / totalRec3m * 100) : null;
   const top10Pct = totalRec3m > 0 ? (top10Val / totalRec3m * 100) : null;
-  const top5 = { atual: top5Pct, sem: top5Pct <= 30 ? 'green' : (top5Pct <= 40 ? 'yellow' : 'red') };
-  const top10 = { atual: top10Pct, sem: top10Pct <= 45 ? 'green' : (top10Pct <= 60 ? 'yellow' : 'red') };
+  const top5 = { atual: top5Pct, sem: top5Pct === null ? 'gray' : (top5Pct <= 30 ? 'green' : (top5Pct <= 40 ? 'yellow' : 'red')) };
+  const top10 = { atual: top10Pct, sem: top10Pct === null ? 'gray' : (top10Pct <= 45 ? 'green' : (top10Pct <= 60 ? 'yellow' : 'red')) };
 
+  // Margem: receita total operacional − despesas totais − impostos (mesma lógica do M&A)
   const recRef = _kpiV3SomaPeriodo(D.receita, [mesRefKey, mesAntKey, mesAntAntKey]);
-  const impostosRef = _kpiV3SomaPeriodo(D.despesa.filter(d => d.grupo_dre === 'IMPOSTOS'), [mesRefKey, mesAntKey, mesAntAntKey]);
-  const despRef = _kpiV3SomaPeriodo(D.despesa.filter(d => d.grupo_dre !== 'IMPOSTOS'), [mesRefKey, mesAntKey, mesAntAntKey]);
+  const impostosRef = _kpiV3SomaPeriodo(D.despesa.filter(d => (d.categoria_texto || '').match(/Imposto|Simples Nacional|ISS|PIS|COFINS|IRPJ|CSLL|IRRF|INSS/i)), [mesRefKey, mesAntKey, mesAntAntKey]);
+  const despRef = _kpiV3SomaPeriodo(D.despesa, [mesRefKey, mesAntKey, mesAntAntKey]) - impostosRef;
   const receitaLiq3m = recRef - impostosRef;
   const margemPct = receitaLiq3m > 0 ? ((receitaLiq3m - despRef) / receitaLiq3m * 100) : null;
   const margem = { atual: margemPct, receita: receitaLiq3m, despesa: despRef, sem: margemPct === null ? 'gray' : (margemPct >= 15 ? 'green' : (margemPct >= 10 ? 'yellow' : 'red')) };
@@ -5901,22 +6030,27 @@ function _kpiV3Calcular(D, inputs) {
     takeRate.subvalor = 'MRR: ' + _fmtRsCurto(mrrAtual) + ' · Mídia: ' + _fmtRsCurto(inputs.verbaMidiaGerenciada);
   }
 
+  // CAC: clientes cujo primeiro pagamento é do mês / despesas comerciais + marketing
   const clientesJaVistos = new Set();
   const primeirosPagamentosPorMes = {};
-  D.receita
-    .filter(r => (r.categoria_codigo || '').startsWith('01.01'))
+  receitaMensalidades
+    .slice()
     .sort((a,b) => (a.data_pagto || '').localeCompare(b.data_pagto || ''))
     .forEach(r => {
-      const c = r.cliente_codigo;
+      const c = r.cliente_nome;
       if (!c) return;
       if (!clientesJaVistos.has(c)) {
         clientesJaVistos.add(c);
-        const mes = (r.data_pagto || '').slice(0, 7);
+        const mes = r.mes || (r.data_pagto || '').slice(0, 7);
         primeirosPagamentosPorMes[mes] = (primeirosPagamentosPorMes[mes] || 0) + 1;
       }
     });
   const novosMes = primeirosPagamentosPorMes[mesRefKey] || 0;
-  const gastoComercial = _kpiV3SomaPeriodo(D.despesa.filter(d => (d.categoria_codigo || '').startsWith('02.02')), [mesRefKey]);
+  // Comercial/Marketing: categoria contém palavras-chave
+  const gastoComercial = _kpiV3SomaPeriodo(D.despesa.filter(d => {
+    const c = (d.categoria_texto || '').toLowerCase();
+    return c.includes('marketing') || c.includes('comercial') || c.includes('propaganda') || c.includes('publicidade') || c.includes('vendas');
+  }), [mesRefKey]);
   const cacAtual = novosMes > 0 ? gastoComercial / novosMes : null;
   const cac = { atual: cacAtual, novos: novosMes, sem: cacAtual === null ? 'gray' : (cacAtual < 3 * ticketAtual ? 'green' : (cacAtual < 6 * ticketAtual ? 'yellow' : 'red')) };
 
@@ -5926,9 +6060,13 @@ function _kpiV3Calcular(D, inputs) {
   const ltvCacAtual = (ltvAprox && cacAtual > 0) ? ltvAprox / cacAtual : null;
   const ltvCac = { atual: ltvCacAtual, sem: ltvCacAtual === null ? 'gray' : (ltvCacAtual >= 3 ? 'green' : (ltvCacAtual >= 1 ? 'yellow' : 'red')) };
 
-  const custoDiretoBruto = _kpiV3SomaPeriodo(D.despesa.filter(d => d.grupo_dre === 'CUSTO_DIRETO'), [mesRefKey, mesAntKey, mesAntAntKey]);
-  const repasse = _kpiV3SomaPeriodo(D.despesa.filter(d => (d.categoria_codigo || '').startsWith('02.01.95')), [mesRefKey, mesAntKey, mesAntAntKey]);
-  const custoDireto3m = custoDiretoBruto - repasse;
+  // Custo Direto: categorias que contêm "Custo Direto" ou "Remuneração Operacional" ou "Editores" etc.
+  // Exclui repasse de mídia (Gasto Tráfego Pago Clientes)
+  const custoDireto3m = _kpiV3SomaPeriodo(D.despesa.filter(d => {
+    const c = (d.categoria_texto || '');
+    if (c.includes('Gasto Tráfego Pago Clientes') || c.includes('Trafego Pago Clientes')) return false;
+    return c.includes('Remuneração Operacional') || c.includes('Editores') || c.includes('Custo Direto') || c.includes('Influenciad') || c.includes('Produção');
+  }), [mesRefKey, mesAntKey, mesAntAntKey]);
   const custoDiretoPct = receitaLiq3m > 0 ? (custoDireto3m / receitaLiq3m * 100) : null;
   const custoDireto = { atual: custoDiretoPct, valor: custoDireto3m, sem: custoDiretoPct === null ? 'gray' : (custoDiretoPct <= 30 ? 'green' : (custoDiretoPct <= 40 ? 'yellow' : 'red')) };
 
@@ -5957,7 +6095,7 @@ function _kpiV3FormatarMes(mesKey) {
 function _kpiV3AgruparPorMes(rows) {
   const acc = {};
   rows.forEach(r => {
-    const mes = (r.data_pagto || '').slice(0, 7);
+    const mes = r.mes || (r.data_pagto || '').slice(0, 7);
     if (mes) acc[mes] = (acc[mes] || 0) + Number(r.valor_pago || 0);
   });
   return acc;
@@ -5966,8 +6104,8 @@ function _kpiV3AgruparPorMes(rows) {
 function _kpiV3ClientesPorMes(rows) {
   const acc = {};
   rows.forEach(r => {
-    const mes = (r.data_pagto || '').slice(0, 7);
-    const c = r.cliente_codigo;
+    const mes = r.mes || (r.data_pagto || '').slice(0, 7);
+    const c = r.cliente_nome;
     if (!mes || !c) return;
     if (!acc[mes]) acc[mes] = new Set();
     acc[mes].add(c);
@@ -5978,8 +6116,8 @@ function _kpiV3ClientesPorMes(rows) {
 function _kpiV3MRRPorCliente(rows) {
   const acc = {};
   rows.forEach(r => {
-    const mes = (r.data_pagto || '').slice(0, 7);
-    const c = r.cliente_codigo;
+    const mes = r.mes || (r.data_pagto || '').slice(0, 7);
+    const c = r.cliente_nome;
     if (!mes || !c) return;
     if (!acc[c]) acc[c] = {};
     acc[c][mes] = (acc[c][mes] || 0) + Number(r.valor_pago || 0);
@@ -5990,7 +6128,7 @@ function _kpiV3MRRPorCliente(rows) {
 function _kpiV3SomaPeriodo(rows, meses) {
   const setM = new Set(meses);
   return rows.reduce((s, r) => {
-    const mes = (r.data_pagto || '').slice(0, 7);
+    const mes = r.mes || (r.data_pagto || '').slice(0, 7);
     return setM.has(mes) ? s + Number(r.valor_pago || 0) : s;
   }, 0);
 }
@@ -5998,10 +6136,9 @@ function _kpiV3SomaPeriodo(rows, meses) {
 function _kpiV3ClassificarFaixas(rows, mesRef) {
   const perCliente = {};
   rows.forEach(r => {
-    if (!(r.categoria_codigo || '').startsWith('01.01')) return;
-    const mes = (r.data_pagto || '').slice(0, 7);
+    const mes = r.mes || (r.data_pagto || '').slice(0, 7);
     if (mes !== mesRef) return;
-    const c = r.cliente_codigo;
+    const c = r.cliente_nome;
     if (!c) return;
     perCliente[c] = (perCliente[c] || 0) + Number(r.valor_pago || 0);
   });
@@ -6387,7 +6524,7 @@ function showSection(section) {
   // Re-aplicar destaque da categoria pai (garantia após reset)
   
   // Esconder TODAS as seções (Growper + Scalia)
-  ['mainSection','areaSection','cardSection','recebiveisSection','kpisSection','rhSection','notifSection','financeiroSection','maSection','estoqueSection','reembolsoSection','dreSection','tributarioSection','pjsSection','margemSection','ticketSection','scaliaMainSection2','scaliaCardSection2','scaliaKitsSection2'].forEach(id => {
+  ['mainSection','areaSection','cardSection','recebiveisSection','kpisSection','rhSection','notifSection','financeiroSection','maSection','estoqueSection','reembolsoSection','dreSection','tributarioSection','pjsSection','margemSection','ticketSection','conciliacaoSection','scaliaMainSection2','scaliaCardSection2','scaliaKitsSection2'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add('hidden');
   });
@@ -6400,6 +6537,7 @@ function showSection(section) {
     dre: 'DRE - Demonstração de Resultado', tributario: 'Tributário — Implantação', pjs: 'Análise de PJs',
     margem: 'Margem de Lucro', ticket: 'Ticket Médio', rh: 'RH — Departamento Pessoal', estoque: 'Estoque',
     notif: 'Notificações', ma: 'M&A / Investor Ready', reembolso: 'Reembolso — Encontros Presenciais',
+    conciliacao: 'Conciliação — Extrato Bancário',
     scaliaMain: 'Dashboard Principal', scaliaCard: 'Cartão de Crédito', scaliaKits: 'Orçamento de Kits', kits: 'Orçamento de Kits'
   };
   document.getElementById('sectionTitle').textContent = titles[section] || 'Dashboard Principal';
@@ -6412,7 +6550,7 @@ function showSection(section) {
   const selContaWrap = document.getElementById('selContaWrap');
   
   // CARTÃO DE CRÉDITO, KITS ou RH: filtros minimalistas
-  if (section === 'card' || section === 'scaliaKits' || section === 'kits' || section === 'rh' || section === 'kpis' || section === 'recebiveis' || section === 'notif' || section === 'financeiro' || section === 'ma' || section === 'estoque' || section === 'reembolso' || section === 'tributario') {
+  if (section === 'card' || section === 'scaliaKits' || section === 'kits' || section === 'rh' || section === 'kpis' || section === 'recebiveis' || section === 'notif' || section === 'financeiro' || section === 'ma' || section === 'estoque' || section === 'reembolso' || section === 'tributario' || section === 'conciliacao') {
     viewBtns.classList.add('hidden');
     if (selConta) selConta.style.display = 'none';
     if (selConciliado) selConciliado.style.display = 'none';
@@ -8127,6 +8265,7 @@ function refreshCurrent() {
   else if (currentSection === 'recebiveis') renderRecebiveis();
   else if (currentSection === 'dre') renderDRE();
   else if (currentSection === 'tributario') renderTributario();
+  else if (currentSection === 'conciliacao') renderConciliacao();
   else if (currentSection === 'pjs') renderPJs();
   else if (currentSection === 'margem') renderMargem();
   else if (currentSection === 'ticket') renderTicket();
@@ -14871,6 +15010,16 @@ window.CLIENTES_ELO = window.MENSALIDADES_ELO["2026-09"] || [];</script>
           <div style="font-size:12.5px;color:#94a3b8;line-height:1.55">Fatura Inter e conciliação para OMIE</div>
         </div>
       </div>
+      <div data-menu-key="conciliacao" onclick="abrirMenu('conciliacao')" style="background:#1e293b;border:1px solid rgba(148,163,184,0.2);border-radius:14px;padding:22px 24px;cursor:pointer;display:flex;align-items:flex-start;gap:16px;min-height:90px;box-shadow:0 4px 12px rgba(0,0,0,0.25);transition:all 0.25s ease" onmouseover="this.style.borderColor='#10b981';this.style.transform='translateY(-3px)';this.style.background='#253449'" onmouseout="this.style.borderColor='rgba(148,163,184,0.2)';this.style.transform='translateY(0)';this.style.background='#1e293b'">
+        <div style="flex-shrink:0;width:44px;height:44px;border-radius:11px;display:inline-flex;align-items:center;justify-content:center;font-size:20px;background:#10b981;color:white">🏦</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px">
+            <span style="font-size:15.5px;font-weight:700;color:#f8fafc">Conciliação</span>
+            <span style="color:#64748b;font-size:16px">→</span>
+          </div>
+          <div style="font-size:12.5px;color:#94a3b8;line-height:1.55">Importa extrato Inter, extrai cliente automático e prepara para OMIE</div>
+        </div>
+      </div>
     </div>
   </div>
   <div class="painelCat-sub" data-cat="dp" style="display:none;padding:48px 40px;max-width:1280px;margin:0 auto;color:#f8fafc">
@@ -15045,6 +15194,7 @@ window._MENU_TO_CAT = {
   main: 'financeiro',
   recebiveis: 'financeiro',
   card: 'financeiro',
+  conciliacao: 'financeiro',
   kits: 'financeiro',
   scaliaMain: 'financeiro',
   scaliaKits: 'financeiro',
@@ -15109,6 +15259,720 @@ window.showCategoryPage = abrirCategoria;
     };
   }
 })();
+
+
+// ============================================================================
+// CONCILIAÇÃO — Fase 1: importa extrato Inter, extrai cliente automático,
+// tela editável para o coordenador financeiro processar antes do OMIE.
+// Tabelas próprias: conciliacao_movimentos, conciliacao_clientes,
+// conciliacao_clientes_nomes, conciliacao_contratos.
+// NÃO toca em movimentos_financeiros nem titulos.
+// ============================================================================
+async function renderConciliacao() {
+  const container = document.getElementById('conciliacaoContent');
+  if (!container) return;
+
+  // Estado local do menu
+  if (!window._concState) {
+    window._concState = {
+      filtroMes: 'all',
+      filtroTipo: 'all', // all | CR | CP
+      filtroStatus: 'all', // all | conciliado | pendente | sem_cliente
+      busca: '',
+      loading: false,
+      erro: null,
+      dados: null // { movimentos, clientes, nomes, contratos, categorias }
+    };
+  }
+  const S = window._concState;
+
+  // ============ 1. carrega dados ============
+  if (!S.dados) {
+    container.innerHTML = _concLoadingHTML();
+    try {
+      S.dados = await _concCarregarDados();
+    } catch (e) {
+      S.erro = e.message || String(e);
+      container.innerHTML = _concErroHTML(S.erro);
+      return;
+    }
+  }
+
+  // ============ 2. renderiza ============
+  const { movimentos, clientes, nomes, contratos, categorias } = S.dados;
+  const movsFiltrados = _concFiltrar(movimentos, S);
+  const meses = [...new Set(movimentos.map(m => m.mes))].sort().reverse();
+  const stats = _concStats(movimentos);
+
+  container.innerHTML = `
+    <div style="padding:24px 28px;max-width:1600px;margin:0 auto;background:#fafafa;min-height:100vh;font-family:Poppins,sans-serif;color:#0f172a">
+      ${_concHeaderHTML(stats)}
+      ${_concFiltrosHTML(meses, S)}
+      ${_concTabelaHTML(movsFiltrados, clientes, categorias)}
+    </div>
+    ${_concModalImportar()}
+    ${_concModalEditarCliente()}
+    ${_concModalCadastrarClienteNovo()}
+    <input type="file" id="_concFileInput" accept=".csv,text/csv" style="display:none" onchange="_concProcessarArquivo(this)">
+  `;
+}
+
+// ============================================================
+// UI: Loading, Erro
+// ============================================================
+function _concLoadingHTML() {
+  return `<div style="padding:60px 40px;max-width:1500px;margin:0 auto;text-align:center;font-family:Poppins,sans-serif">
+    <div style="display:inline-flex;align-items:center;gap:12px;background:white;padding:16px 24px;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.08);border:1px solid #e2e8f0">
+      <span style="animation:_concSpin 1s linear infinite;display:inline-block;font-size:20px">🔄</span>
+      <span style="font-weight:600;color:#334155;font-size:14px">Carregando conciliação…</span>
+    </div>
+    <style>@keyframes _concSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }</style>
+  </div>`;
+}
+
+function _concErroHTML(msg) {
+  return `<div style="padding:40px;max-width:1500px;margin:0 auto;font-family:Poppins,sans-serif">
+    <div style="background:#fee2e2;border-left:4px solid #dc2626;padding:20px 24px;border-radius:8px">
+      <div style="font-size:14px;font-weight:800;color:#991b1b;margin-bottom:6px">❌ Erro ao carregar dados</div>
+      <div style="font-size:13px;color:#7f1d1d;margin-bottom:10px">${String(msg).replace(/[<>&]/g,c=>({['<']:'&lt;',['>']:'&gt;',['&']:'&amp;'}[c]))}</div>
+      <button onclick="window._concState.dados=null; window._concState.erro=null; renderConciliacao()" style="padding:8px 14px;background:#dc2626;color:white;border:none;border-radius:6px;font-family:Poppins;font-weight:700;cursor:pointer">Tentar novamente</button>
+    </div>
+  </div>`;
+}
+
+// ============================================================
+// Carregar dados do Supabase
+// ============================================================
+async function _concCarregarDados() {
+  const supa = _concSupa();
+  if (!supa) throw new Error('Cliente Supabase indisponível. Faça login e recarregue a página.');
+
+  const [rMov, rCli, rNomes, rContr, rCat] = await Promise.all([
+    supa.from('conciliacao_movimentos').select('*').order('data_lancamento', { ascending: false }),
+    supa.from('conciliacao_clientes').select('*').order('nome', { ascending: true }),
+    supa.from('conciliacao_clientes_nomes').select('*'),
+    supa.from('conciliacao_contratos').select('*'),
+    supa.from('cadastro_categorias').select('codigo,descricao').order('codigo', { ascending: true })
+  ]);
+
+  if (rMov.error) throw new Error('Movimentos: ' + rMov.error.message);
+  if (rCli.error) throw new Error('Clientes: ' + rCli.error.message);
+  if (rNomes.error) throw new Error('Nomes de banco: ' + rNomes.error.message);
+  if (rContr.error) throw new Error('Contratos: ' + rContr.error.message);
+  // categorias podem falhar sem quebrar (usa lista vazia)
+  const categorias = (rCat.error ? [] : (rCat.data || [])).map(c => {
+    // Formato: "1.01.01 01.01 Receita..." → guardar "01.01 Receita..." (formato da planilha)
+    const desc = String(c.descricao || '');
+    // Se tem prefixo tipo "X.XX.XX", tira
+    const clean = desc.replace(/^\d+\.\d+(\.\d+)?\s+/, '');
+    return { codigo: c.codigo, label: clean };
+  });
+
+  return {
+    movimentos: rMov.data || [],
+    clientes: rCli.data || [],
+    nomes: rNomes.data || [],
+    contratos: rContr.data || [],
+    categorias
+  };
+}
+
+function _concSupa() {
+  let s = (window._authState && window._authState.supabase) || (window._syncV4 && window._syncV4.cliente) || null;
+  if (!s && window.supabase && window.supabase.createClient) {
+    s = window.supabase.createClient(
+      'https://dfaydkiqbhpzxosffurs.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmYXlka2lxYmhwenhvc2ZmdXJzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyMTg1OTYsImV4cCI6MjEwMDc5NDU5Nn0.EJ50JLQw0dufwintmmp_0vR7Cfg9avjDTrmyuC4mfbM'
+    );
+  }
+  return s;
+}
+
+// ============================================================
+// UI: Header + Filtros + Tabela
+// ============================================================
+function _concHeaderHTML(stats) {
+  return `<div style="margin-bottom:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;margin-bottom:16px">
+      <div>
+        <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1.5px;font-weight:800">🏦 Financeiro › Conciliação</div>
+        <h1 style="margin:6px 0 0;font-size:26px;font-weight:800;color:#0f172a;letter-spacing:-0.5px">Extrato Bancário</h1>
+        <p style="margin:6px 0 0;color:#64748b;font-size:13px;line-height:1.5">Importa o extrato do Inter, identifica o cliente automaticamente pelo nome, prepara para conferir contra contrato e depois exportar para o OMIE.</p>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button onclick="_concAbrirImportar()" style="background:#059669;color:white;border:none;padding:12px 18px;border-radius:9px;font-family:Poppins;font-weight:800;font-size:13px;cursor:pointer">📥 Importar extrato Inter</button>
+        <button onclick="window._concState.dados=null; renderConciliacao()" style="background:white;color:#334155;border:1px solid #cbd5e1;padding:12px 14px;border-radius:9px;font-family:Poppins;font-weight:700;font-size:13px;cursor:pointer">🔄</button>
+      </div>
+    </div>
+
+    <!-- Cards de estatísticas -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px">
+      <div style="background:white;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px">
+        <div style="font-size:10px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:0.5px">Movimentos</div>
+        <div style="font-size:22px;font-weight:800;color:#0f172a;margin-top:4px">${stats.total}</div>
+      </div>
+      <div style="background:white;border:1px solid #bbf7d0;border-left:4px solid #10b981;border-radius:10px;padding:14px 16px">
+        <div style="font-size:10px;color:#166534;font-weight:800;text-transform:uppercase;letter-spacing:0.5px">Recebimentos (CR)</div>
+        <div style="font-size:22px;font-weight:800;color:#0f172a;margin-top:4px">${stats.cr}</div>
+        <div style="font-size:10.5px;color:#64748b;margin-top:2px">${_concFmt(stats.crValor)}</div>
+      </div>
+      <div style="background:white;border:1px solid #fecaca;border-left:4px solid #ef4444;border-radius:10px;padding:14px 16px">
+        <div style="font-size:10px;color:#991b1b;font-weight:800;text-transform:uppercase;letter-spacing:0.5px">Pagamentos (CP)</div>
+        <div style="font-size:22px;font-weight:800;color:#0f172a;margin-top:4px">${stats.cp}</div>
+        <div style="font-size:10.5px;color:#64748b;margin-top:2px">${_concFmt(stats.cpValor)}</div>
+      </div>
+      <div style="background:white;border:1px solid #fed7aa;border-left:4px solid #f97316;border-radius:10px;padding:14px 16px">
+        <div style="font-size:10px;color:#9a3412;font-weight:800;text-transform:uppercase;letter-spacing:0.5px">Sem cliente</div>
+        <div style="font-size:22px;font-weight:800;color:#0f172a;margin-top:4px">${stats.semCliente}</div>
+        <div style="font-size:10.5px;color:#64748b;margin-top:2px">Precisam de atenção</div>
+      </div>
+      <div style="background:white;border:1px solid #bfdbfe;border-left:4px solid #3b82f6;border-radius:10px;padding:14px 16px">
+        <div style="font-size:10px;color:#1e40af;font-weight:800;text-transform:uppercase;letter-spacing:0.5px">Conciliados OMIE</div>
+        <div style="font-size:22px;font-weight:800;color:#0f172a;margin-top:4px">${stats.conciliadosOmie}</div>
+        <div style="font-size:10.5px;color:#64748b;margin-top:2px">de ${stats.total}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function _concFiltrosHTML(meses, S) {
+  const opcoesMes = ['<option value="all">Todos os meses</option>']
+    .concat(meses.map(m => `<option value="${m}" ${S.filtroMes===m?'selected':''}>${_concFmtMes(m)}</option>`))
+    .join('');
+  return `<div style="background:white;border:1px solid #e2e8f0;border-radius:12px;padding:14px 18px;margin-bottom:16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+    <span style="font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:0.5px">Filtros:</span>
+    <select onchange="window._concState.filtroMes=this.value; renderConciliacao()" style="padding:8px 12px;border:1px solid #cbd5e1;border-radius:7px;font-family:Poppins;font-weight:600;font-size:12.5px;background:white;cursor:pointer">
+      ${opcoesMes}
+    </select>
+    <select onchange="window._concState.filtroTipo=this.value; renderConciliacao()" style="padding:8px 12px;border:1px solid #cbd5e1;border-radius:7px;font-family:Poppins;font-weight:600;font-size:12.5px;background:white;cursor:pointer">
+      <option value="all" ${S.filtroTipo==='all'?'selected':''}>CR e CP</option>
+      <option value="CR" ${S.filtroTipo==='CR'?'selected':''}>Só recebimentos (CR)</option>
+      <option value="CP" ${S.filtroTipo==='CP'?'selected':''}>Só pagamentos (CP)</option>
+    </select>
+    <select onchange="window._concState.filtroStatus=this.value; renderConciliacao()" style="padding:8px 12px;border:1px solid #cbd5e1;border-radius:7px;font-family:Poppins;font-weight:600;font-size:12.5px;background:white;cursor:pointer">
+      <option value="all" ${S.filtroStatus==='all'?'selected':''}>Todos status</option>
+      <option value="conciliado" ${S.filtroStatus==='conciliado'?'selected':''}>Conciliados OMIE</option>
+      <option value="pendente" ${S.filtroStatus==='pendente'?'selected':''}>Pendentes OMIE</option>
+      <option value="sem_cliente" ${S.filtroStatus==='sem_cliente'?'selected':''}>Sem cliente identificado</option>
+    </select>
+    <input type="text" value="${(S.busca||'').replace(/"/g,'&quot;')}" placeholder="Buscar por descrição ou cliente…" oninput="window._concState.busca=this.value; clearTimeout(window._concBuscaT); window._concBuscaT=setTimeout(renderConciliacao,300)" style="padding:8px 12px;border:1px solid #cbd5e1;border-radius:7px;font-family:Poppins;font-size:12.5px;flex:1;min-width:200px">
+  </div>`;
+}
+
+function _concTabelaHTML(movs, clientes, categorias) {
+  if (movs.length === 0) {
+    return `<div style="background:white;border:1px solid #e2e8f0;border-radius:12px;padding:60px 40px;text-align:center">
+      <div style="font-size:40px;margin-bottom:10px">📭</div>
+      <div style="font-size:16px;font-weight:800;color:#334155">Nenhum movimento encontrado</div>
+      <div style="font-size:13px;color:#64748b;margin-top:6px">Importe um extrato do Inter para começar ou ajuste os filtros.</div>
+    </div>`;
+  }
+
+  const opcoesCli = ['<option value="">— Sem cliente —</option>']
+    .concat(clientes.filter(c => c.ativo).map(c => `<option value="${c.codigo}">(${c.codigo}) ${_concEsc(c.nome)}</option>`))
+    .join('');
+  const opcoesCat = ['<option value="">— Sem categoria —</option>']
+    .concat(categorias.map(c => `<option value="${_concEsc(c.label)}">${_concEsc(c.label)}</option>`))
+    .join('');
+
+  const linhas = movs.map(m => {
+    const semCli = m.tipo === 'CR' && !m.cliente_codigo;
+    const bgLinha = semCli ? '#fef3c7' : (m.exportado_omie ? '#f0fdf4' : 'white');
+    const clienteVal = m.cliente_codigo || '';
+    const clienteExibicao = m.cliente_codigo ? `(${m.cliente_codigo}) ${_concEsc(m.cliente_nome || '')}` : '';
+    const compet = m.competencia || m.mes;
+    const dif = (m.valor_contrato != null && m.valor != null) ? (Number(m.valor_contrato) - Math.abs(Number(m.valor))) : null;
+    const statusContr = (m.valor_contrato != null) ? (Math.abs(dif) < 0.005 ? 'Conciliado' : 'Analisar') : '—';
+    const corStatusContr = statusContr === 'Conciliado' ? '#10b981' : (statusContr === 'Analisar' ? '#f97316' : '#94a3b8');
+    return `<tr style="background:${bgLinha};border-bottom:1px solid #f1f5f9" data-mov-id="${m.id}">
+      <td style="padding:8px 10px;font-size:11.5px;color:#334155;white-space:nowrap">${_concFmtData(m.data_lancamento)}</td>
+      <td style="padding:8px 10px;font-size:11.5px;color:#0f172a;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${_concEsc(m.descricao)}">${_concEsc(m.descricao)}</td>
+      <td style="padding:8px 10px;font-size:11.5px;text-align:right;font-weight:800;color:${m.valor >= 0 ? '#059669' : '#dc2626'};white-space:nowrap">${_concFmt(m.valor)}</td>
+      <td style="padding:8px 10px;font-size:11px;color:#64748b;white-space:nowrap">${m.banco || '—'}</td>
+      <td style="padding:8px 10px;font-size:10.5px;text-align:center">
+        <span style="background:${m.tipo==='CR'?'#dcfce7':'#fee2e2'};color:${m.tipo==='CR'?'#166534':'#991b1b'};padding:3px 8px;border-radius:4px;font-weight:800">${m.tipo}</span>
+      </td>
+      <td style="padding:6px 8px;font-size:11px">
+        <input type="text" value="${_concEsc(compet)}" data-campo="competencia" onchange="_concSalvarCampo(${m.id},'competencia',this.value)" style="width:80px;padding:5px 7px;border:1px solid #cbd5e1;border-radius:5px;font-family:Poppins;font-size:11px;text-align:center">
+      </td>
+      <td style="padding:6px 8px;font-size:11px">
+        ${m.tipo === 'CR' ? `
+          <div style="display:flex;gap:4px;align-items:center">
+            <select data-campo="cliente_codigo" onchange="_concEditarCliente(${m.id}, this.value, '${_concEsc(m.nome_extraido||'').replace(/'/g,'\\\'')}');" style="padding:5px 7px;border:1px solid #cbd5e1;border-radius:5px;font-family:Poppins;font-size:11px;flex:1;min-width:140px">
+              <option value="">— Sem cliente —</option>
+              ${clientes.filter(c => c.ativo).map(c => `<option value="${c.codigo}" ${c.codigo===clienteVal?'selected':''}>(${c.codigo}) ${_concEsc(c.nome)}</option>`).join('')}
+            </select>
+          </div>
+        ` : `<span style="color:#94a3b8;font-style:italic;font-size:11px">Fornecedor</span>`}
+      </td>
+      <td style="padding:6px 8px;font-size:11px">
+        <select data-campo="categoria" onchange="_concSalvarCampo(${m.id},'categoria',this.value)" style="padding:5px 7px;border:1px solid #cbd5e1;border-radius:5px;font-family:Poppins;font-size:11px;width:100%;min-width:160px">
+          <option value="">— Sem categoria —</option>
+          ${categorias.map(c => `<option value="${_concEsc(c.label)}" ${c.label===m.categoria?'selected':''}>${_concEsc(c.label)}</option>`).join('')}
+        </select>
+      </td>
+      <td style="padding:6px 8px;font-size:11px;text-align:center">
+        <select data-campo="conciliacao_omie" onchange="_concSalvarCampo(${m.id},'conciliacao_omie',this.value)" style="padding:5px 7px;border:1px solid #cbd5e1;border-radius:5px;font-family:Poppins;font-size:11px;font-weight:700;background:${m.conciliacao_omie==='Conciliado'?'#dcfce7':'white'}">
+          <option value="Pendente" ${m.conciliacao_omie==='Pendente'?'selected':''}>Pendente</option>
+          <option value="Conciliado" ${m.conciliacao_omie==='Conciliado'?'selected':''}>Conciliado</option>
+        </select>
+      </td>
+      <td style="padding:8px 10px;font-size:11px;text-align:right;color:#64748b;white-space:nowrap">${m.valor_contrato != null ? _concFmt(m.valor_contrato) : '—'}</td>
+      <td style="padding:8px 10px;font-size:11px;text-align:center;font-weight:700;color:${corStatusContr}">${statusContr}</td>
+      <td style="padding:6px 8px;font-size:11px;text-align:center">
+        <select data-campo="emissao_nf" onchange="_concSalvarCampo(${m.id},'emissao_nf',this.value)" style="padding:5px 7px;border:1px solid #cbd5e1;border-radius:5px;font-family:Poppins;font-size:11px;font-weight:700;background:${m.emissao_nf==='OK'?'#dcfce7':'white'}">
+          <option value="Pendente" ${m.emissao_nf==='Pendente'?'selected':''}>Pendente</option>
+          <option value="OK" ${m.emissao_nf==='OK'?'selected':''}>OK</option>
+        </select>
+      </td>
+      <td style="padding:6px 8px;font-size:11px">
+        <input type="text" value="${_concEsc(m.observacao || '')}" data-campo="observacao" onchange="_concSalvarCampo(${m.id},'observacao',this.value)" style="width:100%;min-width:100px;padding:5px 7px;border:1px solid #cbd5e1;border-radius:5px;font-family:Poppins;font-size:11px">
+      </td>
+    </tr>`;
+  }).join('');
+
+  return `<div style="background:white;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden">
+    <div style="padding:12px 18px;border-bottom:1px solid #e2e8f0;background:#f8fafc;display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:12px;font-weight:800;color:#334155">${movs.length} movimento(s) exibido(s)</div>
+      <div style="font-size:11px;color:#64748b">
+        <span style="display:inline-block;width:10px;height:10px;background:#fef3c7;border:1px solid #f59e0b;border-radius:2px;vertical-align:middle;margin-right:4px"></span>Sem cliente identificado
+        &nbsp;·&nbsp;
+        <span style="display:inline-block;width:10px;height:10px;background:#f0fdf4;border:1px solid #10b981;border-radius:2px;vertical-align:middle;margin-right:4px"></span>Exportado ao OMIE
+      </div>
+    </div>
+    <div style="overflow-x:auto;max-height:70vh;overflow-y:auto">
+      <table style="width:100%;border-collapse:collapse;font-family:Poppins,sans-serif">
+        <thead style="background:#f8fafc;position:sticky;top:0;z-index:1">
+          <tr style="border-bottom:2px solid #e2e8f0">
+            ${['Data','Descrição','Valor','Banco','Tipo','Competência','Cliente','Plano de contas','Concil. OMIE','Valor Contrato','Contrato','Emissão NF','Observação'].map(h => `<th style="padding:10px 10px;text-align:left;font-weight:800;color:#334155;font-size:10.5px;text-transform:uppercase;letter-spacing:0.3px;white-space:nowrap">${h}</th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>${linhas}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+// ============================================================
+// MODAL: Importar CSV Inter
+// ============================================================
+function _concModalImportar() {
+  return `<div id="_concModalImp" style="display:none;position:fixed;inset:0;z-index:10003;background:rgba(0,0,0,0.6);padding:20px;overflow-y:auto" onclick="if(event.target===this)this.style.display='none'">
+    <div style="background:white;max-width:600px;margin:60px auto;border-radius:14px;padding:26px 28px;font-family:Poppins,sans-serif;color:#0f172a;box-shadow:0 20px 60px rgba(0,0,0,0.5)">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px">
+        <div>
+          <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1.5px;font-weight:800">📥 Importar</div>
+          <h2 style="margin:4px 0 0;font-size:20px;font-weight:800">Extrato Bancário Inter</h2>
+        </div>
+        <button onclick="document.getElementById('_concModalImp').style.display='none'" style="background:#f1f5f9;border:none;padding:8px 12px;border-radius:6px;font-family:Poppins;font-weight:700;cursor:pointer;font-size:12px;color:#334155">✕</button>
+      </div>
+      <div style="background:#eff6ff;border-left:4px solid #3b82f6;padding:14px 16px;border-radius:0 8px 8px 0;margin-bottom:18px">
+        <div style="font-size:12.5px;color:#1e3a8a;line-height:1.6">
+          Selecione o arquivo <strong>CSV do Banco Inter</strong> (formato padrão: 4 linhas de cabeçalho + coluna com data, descrição, valor e saldo). O sistema vai:
+          <ul style="margin:8px 0 0;padding-left:20px">
+            <li>Extrair automaticamente o nome do cliente da descrição</li>
+            <li>Aplicar o de-para para identificar o cliente</li>
+            <li>Ignorar linhas que já foram importadas antes (chave única: banco + data + valor + descrição)</li>
+          </ul>
+        </div>
+      </div>
+      <button onclick="document.getElementById('_concFileInput').click()" style="width:100%;background:#059669;color:white;border:none;padding:14px 18px;border-radius:10px;font-family:Poppins;font-weight:800;font-size:14px;cursor:pointer">📁 Escolher arquivo CSV do Inter</button>
+      <div id="_concImpStatus" style="margin-top:16px;font-size:12.5px;color:#334155"></div>
+    </div>
+  </div>`;
+}
+
+function _concModalEditarCliente() {
+  return `<div id="_concModalEdCli" style="display:none;position:fixed;inset:0;z-index:10004;background:rgba(0,0,0,0.6);padding:20px" onclick="if(event.target===this)this.style.display='none'">
+    <div style="background:white;max-width:500px;margin:120px auto;border-radius:14px;padding:26px 28px;font-family:Poppins,sans-serif;color:#0f172a;box-shadow:0 20px 60px rgba(0,0,0,0.5)">
+      <div style="font-size:20px;font-weight:800;margin-bottom:12px">💡 Cadastrar nome do banco?</div>
+      <div style="font-size:13px;color:#334155;line-height:1.6;margin-bottom:18px" id="_concEdCliMsg">…</div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button onclick="_concEdCliCancelar()" style="background:#f1f5f9;color:#334155;border:none;padding:10px 16px;border-radius:7px;font-family:Poppins;font-weight:700;font-size:13px;cursor:pointer">Não, só este</button>
+        <button onclick="_concEdCliConfirmar()" style="background:#059669;color:white;border:none;padding:10px 16px;border-radius:7px;font-family:Poppins;font-weight:700;font-size:13px;cursor:pointer">Sim, cadastrar</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function _concModalCadastrarClienteNovo() {
+  return `<div id="_concModalNovoCli" style="display:none;position:fixed;inset:0;z-index:10005;background:rgba(0,0,0,0.6);padding:20px" onclick="if(event.target===this)this.style.display='none'">
+    <div style="background:white;max-width:500px;margin:120px auto;border-radius:14px;padding:26px 28px;font-family:Poppins,sans-serif;color:#0f172a;box-shadow:0 20px 60px rgba(0,0,0,0.5)">
+      <div style="font-size:20px;font-weight:800;margin-bottom:12px">➕ Cadastrar cliente novo</div>
+      <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:4px">Código (formato "067"):</label>
+      <input type="text" id="_concNovoCliCod" style="width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:7px;font-family:Poppins;font-size:14px;margin-bottom:12px" placeholder="067">
+      <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:4px">Nome do cliente:</label>
+      <input type="text" id="_concNovoCliNome" style="width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:7px;font-family:Poppins;font-size:14px;margin-bottom:18px" placeholder="Ativa">
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button onclick="document.getElementById('_concModalNovoCli').style.display='none'" style="background:#f1f5f9;color:#334155;border:none;padding:10px 16px;border-radius:7px;font-family:Poppins;font-weight:700;font-size:13px;cursor:pointer">Cancelar</button>
+        <button onclick="_concCadastrarNovoConfirmar()" style="background:#059669;color:white;border:none;padding:10px 16px;border-radius:7px;font-family:Poppins;font-weight:700;font-size:13px;cursor:pointer">Cadastrar</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ============================================================
+// Filtros / Stats / Format
+// ============================================================
+function _concFiltrar(movs, S) {
+  return movs.filter(m => {
+    if (S.filtroMes !== 'all' && m.mes !== S.filtroMes) return false;
+    if (S.filtroTipo !== 'all' && m.tipo !== S.filtroTipo) return false;
+    if (S.filtroStatus === 'conciliado' && m.conciliacao_omie !== 'Conciliado') return false;
+    if (S.filtroStatus === 'pendente' && m.conciliacao_omie !== 'Pendente') return false;
+    if (S.filtroStatus === 'sem_cliente' && (m.cliente_codigo || m.tipo !== 'CR')) return false;
+    if (S.busca) {
+      const q = S.busca.toLowerCase();
+      const alvo = ((m.descricao || '') + ' ' + (m.cliente_nome || '') + ' ' + (m.nome_extraido || '')).toLowerCase();
+      if (!alvo.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function _concStats(movs) {
+  const s = { total: movs.length, cr: 0, cp: 0, crValor: 0, cpValor: 0, semCliente: 0, conciliadosOmie: 0 };
+  movs.forEach(m => {
+    if (m.tipo === 'CR') { s.cr++; s.crValor += Math.abs(Number(m.valor) || 0); if (!m.cliente_codigo) s.semCliente++; }
+    if (m.tipo === 'CP') { s.cp++; s.cpValor += Math.abs(Number(m.valor) || 0); }
+    if (m.conciliacao_omie === 'Conciliado') s.conciliadosOmie++;
+  });
+  return s;
+}
+
+function _concFmt(v) {
+  if (v == null || isNaN(v)) return '—';
+  return 'R$ ' + Number(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+
+function _concFmtData(d) {
+  if (!d) return '—';
+  try {
+    const dt = new Date(d + (String(d).length===10?'T12:00:00':''));
+    return dt.toLocaleDateString('pt-BR');
+  } catch(e) { return String(d); }
+}
+
+function _concFmtMes(m) {
+  if (!m) return '—';
+  const nomes = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const [y, mm] = m.split('-');
+  return nomes[parseInt(mm)-1] + '/' + y;
+}
+
+function _concEsc(s) {
+  return String(s || '').replace(/[<>&"']/g, ch => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+
+// ============================================================
+// EXTRAÇÃO AUTOMÁTICA DO NOME DA DESCRIÇÃO (substitui colunas I e J da planilha)
+// ============================================================
+window._concExtrairNome = function(descricao) {
+  const desc = String(descricao || '');
+  const m = desc.match(/"([^"]+)"/);
+  if (!m) return null;
+  const inside = m[1].trim();
+
+  // Formato 1: "Cp :18236120-Jessica Menendez" ou "Cp :60746948-HAWK CAPITAL SOLUTIONS LTDA"
+  const f1 = inside.match(/^[A-Za-zÀ-ÿ]+\s*:\s*\d+\s*-\s*(.+)$/);
+  if (f1) return f1[1].trim();
+
+  // Formato 1b: número-nome direto, sem prefixo
+  const f1b = inside.match(/^\d+\s*-\s*(.+)$/);
+  if (f1b) return f1b[1].trim();
+
+  // Formato 2: "00019 487863666 WALLTRIX SOLUTIONS LTDA" (2 números + nome)
+  const f2 = inside.match(/^\d+\s+\d+\s+(.+)$/);
+  if (f2) return f2[1].trim();
+
+  // Formato 3: texto começando com letra (nome direto)
+  if (/^[A-Za-zÀ-ÿ]/.test(inside)) return inside;
+
+  // Só números / boleto → sem nome
+  return null;
+};
+
+// ============================================================
+// PARSER DO CSV INTER
+// ============================================================
+window._concProcessarArquivo = async function(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const status = document.getElementById('_concImpStatus');
+  status.innerHTML = '<div style="color:#0284c7">⏳ Lendo arquivo…</div>';
+  
+  try {
+    const texto = await _concLerCSV(file);
+    const linhas = _concParseInter(texto);
+    if (linhas.length === 0) {
+      status.innerHTML = '<div style="color:#dc2626">❌ Nenhum lançamento encontrado. Confirme que é um CSV do Inter (4 linhas de cabeçalho + linha em branco antes dos dados).</div>';
+      input.value = '';
+      return;
+    }
+    status.innerHTML = `<div style="color:#0284c7">⏳ ${linhas.length} lançamento(s) lidos. Aplicando de-para e salvando…</div>`;
+    const resultado = await _concSalvarMovimentos(linhas);
+    let msg = `<div style="background:#f0fdf4;border-left:4px solid #10b981;padding:12px 14px;border-radius:0 6px 6px 0"><div style="font-weight:800;color:#166534;margin-bottom:6px">✓ Importação concluída</div>`;
+    msg += `<div style="font-size:12px;color:#0f172a;line-height:1.7">`;
+    msg += `<strong>${resultado.novos}</strong> novo(s) lançamento(s) importado(s)<br>`;
+    msg += `<strong>${resultado.duplicados}</strong> ignorado(s) por já existirem (mesma chave)<br>`;
+    msg += `<strong>${resultado.identificados}</strong> cliente(s) identificado(s) automaticamente pelo de-para`;
+    if (resultado.semCliente > 0) msg += `<br><strong style="color:#f97316">${resultado.semCliente}</strong> recebimento(s) sem cliente — precisam de atenção`;
+    msg += `</div></div>`;
+    status.innerHTML = msg;
+    input.value = '';
+    // Recarrega dados
+    window._concState.dados = null;
+    setTimeout(() => {
+      document.getElementById('_concModalImp').style.display = 'none';
+      renderConciliacao();
+    }, 2500);
+  } catch(e) {
+    console.error('[Concil] erro processando arquivo:', e);
+    status.innerHTML = `<div style="color:#dc2626">❌ Erro: ${String(e.message||e)}</div>`;
+    input.value = '';
+  }
+};
+
+function _concLerCSV(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('Falha ao ler o arquivo'));
+    // Inter é ISO-8859-1 tradicionalmente; tenta essa primeiro
+    reader.readAsText(file, 'ISO-8859-1');
+  });
+}
+
+function _concParseInter(texto) {
+  // Layout Inter: linhas 1-4 são cabeçalho, linha 5 vazia, linha 6 é header real "Data Lançamento;Descrição;Valor;Saldo"
+  // Linhas 7+ são os dados
+  const linhas = texto.split(/\r?\n/);
+  const out = [];
+  let comecou = false;
+  for (let i = 0; i < linhas.length; i++) {
+    const linha = linhas[i].trim();
+    if (!linha) continue;
+    // Header oficial contém "Data Lançamento" e "Descrição"
+    if (!comecou) {
+      if (linha.toLowerCase().includes('data lan') && linha.toLowerCase().includes('descri')) {
+        comecou = true;
+      }
+      continue;
+    }
+    // linha de dado
+    const partes = linha.split(';');
+    if (partes.length < 3) continue;
+    const dataStr = (partes[0] || '').trim(); // DD/MM/YYYY
+    const desc = (partes[1] || '').trim();
+    const valorStr = (partes[2] || '').trim();
+    const saldoStr = (partes[3] || '').trim();
+    if (!dataStr || !valorStr) continue;
+    // Converte data BR → ISO
+    const dm = dataStr.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (!dm) continue;
+    const dataISO = `${dm[3]}-${dm[2]}-${dm[1]}`;
+    // Converte valor "1.500,00" → 1500.00, "-2.000,00" → -2000.00
+    const valor = _concParseNum(valorStr);
+    if (valor === null) continue;
+    const saldo = _concParseNum(saldoStr);
+    const mes = dataISO.slice(0, 7);
+    const tipo = valor >= 0 ? 'CR' : 'CP';
+    const nomeExtraido = window._concExtrairNome(desc);
+    // Chave única para dedup
+    const hash = `Banco Inter|${dataISO}|${valor.toFixed(2)}|${desc}`;
+    out.push({
+      data_lancamento: dataISO,
+      descricao: desc,
+      valor,
+      saldo,
+      banco: 'Banco Inter',
+      nome_extraido: nomeExtraido,
+      tipo,
+      mes,
+      competencia: mes,
+      hash_unico: hash
+    });
+  }
+  return out;
+}
+
+function _concParseNum(s) {
+  if (!s) return null;
+  const t = String(s).trim().replace(/\./g, '').replace(',', '.');
+  const n = parseFloat(t);
+  return isNaN(n) ? null : n;
+}
+
+// ============================================================
+// SALVAR movimentos com de-para automático
+// ============================================================
+async function _concSalvarMovimentos(linhas) {
+  const supa = _concSupa();
+  if (!supa) throw new Error('Cliente Supabase indisponível');
+
+  // Carrega de-para atual: nomes de banco → cliente_codigo
+  const rNomes = await supa.from('conciliacao_clientes_nomes').select('nome_banco,cliente_codigo');
+  const mapa = {};
+  (rNomes.data || []).forEach(n => { if (n.nome_banco) mapa[n.nome_banco.toUpperCase().trim()] = n.cliente_codigo; });
+
+  // Carrega clientes para pegar o nome do cliente
+  const rCli = await supa.from('conciliacao_clientes').select('codigo,nome');
+  const mapCli = {};
+  (rCli.data || []).forEach(c => mapCli[c.codigo] = c.nome);
+
+  // Verifica quais já existem (por hash_unico)
+  const hashesNovos = linhas.map(l => l.hash_unico);
+  const rExist = await supa.from('conciliacao_movimentos').select('hash_unico').in('hash_unico', hashesNovos);
+  const existentes = new Set((rExist.data || []).map(x => x.hash_unico));
+
+  const paraInserir = [];
+  let identificados = 0;
+  let semCliente = 0;
+
+  linhas.forEach(l => {
+    if (existentes.has(l.hash_unico)) return;
+    const nome = l.nome_extraido;
+    let cliCod = null;
+    if (nome) {
+      cliCod = mapa[nome.toUpperCase().trim()] || null;
+    }
+    if (cliCod) identificados++;
+    else if (l.tipo === 'CR') semCliente++;
+    paraInserir.push({
+      data_lancamento: l.data_lancamento,
+      descricao: l.descricao,
+      valor: l.valor,
+      saldo: l.saldo,
+      banco: l.banco,
+      nome_extraido: l.nome_extraido,
+      tipo: l.tipo,
+      mes: l.mes,
+      competencia: l.competencia,
+      cliente_codigo: cliCod,
+      cliente_nome: cliCod ? (mapCli[cliCod] || null) : null,
+      conciliacao_omie: 'Pendente',
+      emissao_nf: 'Pendente',
+      hash_unico: l.hash_unico
+    });
+  });
+
+  if (paraInserir.length > 0) {
+    // Insere em lotes de 500 pra não estourar limite
+    for (let i = 0; i < paraInserir.length; i += 500) {
+      const lote = paraInserir.slice(i, i + 500);
+      const rIns = await supa.from('conciliacao_movimentos').insert(lote);
+      if (rIns.error) throw new Error('Erro ao inserir: ' + rIns.error.message);
+    }
+  }
+
+  return {
+    total: linhas.length,
+    novos: paraInserir.length,
+    duplicados: linhas.length - paraInserir.length,
+    identificados,
+    semCliente
+  };
+}
+
+// ============================================================
+// SALVAR campos editados na tabela
+// ============================================================
+window._concSalvarCampo = async function(id, campo, valor) {
+  const supa = _concSupa();
+  if (!supa) { alert('Sem conexão com o banco'); return; }
+  const update = { [campo]: valor || null, atualizado_em: new Date().toISOString() };
+  const r = await supa.from('conciliacao_movimentos').update(update).eq('id', id);
+  if (r.error) {
+    alert('Erro ao salvar: ' + r.error.message);
+    return;
+  }
+  // Atualiza cache local
+  if (window._concState && window._concState.dados) {
+    const mov = window._concState.dados.movimentos.find(m => m.id === id);
+    if (mov) mov[campo] = valor || null;
+  }
+};
+
+// ============================================================
+// EDITAR CLIENTE — abre modal perguntando se quer cadastrar nome
+// ============================================================
+window._concEditarCliente = async function(movId, novoCodigoCli, nomeExtraido) {
+  const supa = _concSupa();
+  if (!supa) { alert('Sem conexão'); return; }
+  const mov = window._concState.dados.movimentos.find(m => m.id === movId);
+  if (!mov) return;
+  
+  // Se limpou (sem cliente), só salva
+  if (!novoCodigoCli) {
+    await supa.from('conciliacao_movimentos').update({ cliente_codigo: null, cliente_nome: null, atualizado_em: new Date().toISOString() }).eq('id', movId);
+    mov.cliente_codigo = null;
+    mov.cliente_nome = null;
+    renderConciliacao();
+    return;
+  }
+  
+  // Pega o nome do cliente
+  const cli = window._concState.dados.clientes.find(c => c.codigo === novoCodigoCli);
+  const cliNome = cli ? cli.nome : null;
+  
+  // Salva o cliente no movimento
+  await supa.from('conciliacao_movimentos').update({ cliente_codigo: novoCodigoCli, cliente_nome: cliNome, atualizado_em: new Date().toISOString() }).eq('id', movId);
+  mov.cliente_codigo = novoCodigoCli;
+  mov.cliente_nome = cliNome;
+  
+  // Se o movimento tem nome_extraido e esse nome ainda não está no de-para, oferece cadastrar
+  if (nomeExtraido && cli) {
+    const jaExiste = window._concState.dados.nomes.find(n => n.nome_banco && n.nome_banco.toUpperCase().trim() === nomeExtraido.toUpperCase().trim());
+    if (!jaExiste) {
+      // Abre modal
+      window._concEdCliCtx = { movId, nomeExtraido, cliCodigo: novoCodigoCli, cliNome };
+      const msg = document.getElementById('_concEdCliMsg');
+      if (msg) msg.innerHTML = `Quer cadastrar o nome <strong>"${_concEsc(nomeExtraido)}"</strong> como sendo do cliente <strong>(${_concEsc(novoCodigoCli)}) ${_concEsc(cliNome || '')}</strong>?<br><br>Na próxima importação, todo pagamento com esse nome já vem preenchido automaticamente com esse cliente.`;
+      document.getElementById('_concModalEdCli').style.display = 'block';
+      return;
+    }
+  }
+  renderConciliacao();
+};
+
+window._concEdCliCancelar = function() {
+  document.getElementById('_concModalEdCli').style.display = 'none';
+  renderConciliacao();
+};
+
+window._concEdCliConfirmar = async function() {
+  const ctx = window._concEdCliCtx;
+  if (!ctx) return;
+  const supa = _concSupa();
+  const r = await supa.from('conciliacao_clientes_nomes').insert({
+    cliente_codigo: ctx.cliCodigo,
+    nome_banco: ctx.nomeExtraido
+  });
+  if (r.error) {
+    alert('Erro ao cadastrar nome: ' + r.error.message);
+  } else {
+    // Aplica retroativamente: atualiza todos os movimentos passados que tem esse nome_extraido sem cliente
+    await supa.from('conciliacao_movimentos').update({
+      cliente_codigo: ctx.cliCodigo,
+      cliente_nome: ctx.cliNome,
+      atualizado_em: new Date().toISOString()
+    }).is('cliente_codigo', null).eq('nome_extraido', ctx.nomeExtraido);
+  }
+  document.getElementById('_concModalEdCli').style.display = 'none';
+  window._concState.dados = null;
+  renderConciliacao();
+};
+
+// ============================================================
+// Abrir modal importar
+// ============================================================
+window._concAbrirImportar = function() {
+  const el = document.getElementById('_concModalImp');
+  if (el) {
+    document.getElementById('_concImpStatus').innerHTML = '';
+    el.style.display = 'block';
+  }
+};
 
 
 // ============================================================================
