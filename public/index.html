@@ -15311,6 +15311,7 @@ async function renderConciliacao() {
       ${_concTabelaHTML(movsFiltrados, clientes, categorias)}
     </div>
     ${_concModalImportar()}
+    ${_concModalImportarPlanilha()}
     ${_concModalEditarCliente()}
     ${_concModalCadastrarClienteNovo()}
     <input type="file" id="_concFileInput" accept=".csv,text/csv" style="display:none" onchange="_concProcessarArquivo(this)">
@@ -15369,7 +15370,22 @@ async function _concCarregarDados() {
   });
 
   return {
-    movimentos: rMov.data || [],
+    movimentos: (rMov.data || []).map(m => {
+      // Enriquece valor_contrato dinamicamente: se tem cliente e competencia,
+      // busca da tabela conciliacao_contratos (que é a fonte da verdade).
+      // Isso garante que futuros extratos CSV importados sem valor_contrato
+      // recebam o valor correto automaticamente.
+      if (m.cliente_codigo && m.competencia && m.tipo === 'CR') {
+        const contr = (rContr.data || []).find(c => c.cliente_codigo === m.cliente_codigo && c.mes === m.competencia);
+        if (contr) {
+          const vc = Number(contr.valor_contrato);
+          m.valor_contrato = vc;
+          const valAbs = Math.abs(Number(m.valor) || 0);
+          m.diferenca_contrato = vc - valAbs;
+        }
+      }
+      return m;
+    }),
     clientes: rCli.data || [],
     nomes: rNomes.data || [],
     contratos: rContr.data || [],
@@ -15401,6 +15417,7 @@ function _concHeaderHTML(stats) {
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button onclick="_concAbrirImportar()" style="background:#059669;color:white;border:none;padding:12px 18px;border-radius:9px;font-family:Poppins;font-weight:800;font-size:13px;cursor:pointer">📥 Importar extrato Inter</button>
+        <button onclick="_concAbrirImportarPlanilha()" style="background:#7c3aed;color:white;border:none;padding:12px 18px;border-radius:9px;font-family:Poppins;font-weight:800;font-size:13px;cursor:pointer" title="Carrega a planilha completa (base + extrato) — usar apenas na configuração inicial ou quando reprocessar tudo">📚 Importar planilha completa</button>
         <button onclick="window._concState.dados=null; renderConciliacao()" style="background:white;color:#334155;border:1px solid #cbd5e1;padding:12px 14px;border-radius:9px;font-family:Poppins;font-weight:700;font-size:13px;cursor:pointer">🔄</button>
       </div>
     </div>
@@ -15581,6 +15598,251 @@ function _concModalImportar() {
     </div>
   </div>`;
 }
+
+function _concModalImportarPlanilha() {
+  return `<div id="_concModalImpPl" style="display:none;position:fixed;inset:0;z-index:10003;background:rgba(0,0,0,0.6);padding:20px;overflow-y:auto" onclick="if(event.target===this)this.style.display='none'">
+    <div style="background:white;max-width:640px;margin:40px auto;border-radius:14px;padding:26px 28px;font-family:Poppins,sans-serif;color:#0f172a;box-shadow:0 20px 60px rgba(0,0,0,0.5)">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px">
+        <div>
+          <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1.5px;font-weight:800">📚 Planilha completa</div>
+          <h2 style="margin:4px 0 0;font-size:20px;font-weight:800">Base de clientes + Extrato</h2>
+        </div>
+        <button onclick="document.getElementById('_concModalImpPl').style.display='none'" style="background:#f1f5f9;border:none;padding:8px 12px;border-radius:6px;font-family:Poppins;font-weight:700;cursor:pointer;font-size:12px;color:#334155">✕</button>
+      </div>
+      <div style="background:#faf5ff;border-left:4px solid #7c3aed;padding:14px 16px;border-radius:0 8px 8px 0;margin-bottom:18px">
+        <div style="font-size:12.5px;color:#5b21b6;line-height:1.6">
+          Carrega a <strong>planilha .xlsx completa</strong> (formato Conciliação com abas <em>Base - Clientes</em> e <em>Extrato Inter</em>). O sistema vai:
+          <ul style="margin:8px 0 0;padding-left:20px">
+            <li>Cadastrar/atualizar clientes (código + nome) da base</li>
+            <li>Cadastrar as nomenclaturas Inter (colunas K e L) no de-para</li>
+            <li>Gravar os valores de contrato por mês (colunas C a J)</li>
+            <li>Importar os movimentos do extrato, ligando cada linha ao cliente pelo de-para e calculando a diferença contra o contrato</li>
+            <li>Duplicatas (mesmo hash) são ignoradas — pode rodar de novo sem risco</li>
+          </ul>
+        </div>
+      </div>
+      <div style="background:#fef2f2;border-left:4px solid #dc2626;padding:12px 14px;border-radius:0 6px 6px 0;margin-bottom:18px">
+        <div style="font-size:12px;color:#7f1d1d;line-height:1.5"><strong>Atenção:</strong> essa importação é para configuração inicial ou reprocessamento total. Para o dia a dia, use "📥 Importar extrato Inter" com o CSV.</div>
+      </div>
+      <input type="file" id="_concFileInputPl" accept=".xlsx,.xls" style="display:none" onchange="_concProcessarPlanilhaInicial(this.files[0])">
+      <button onclick="document.getElementById('_concFileInputPl').click()" style="width:100%;background:#7c3aed;color:white;border:none;padding:14px 18px;border-radius:10px;font-family:Poppins;font-weight:800;font-size:14px;cursor:pointer">📁 Escolher planilha (.xlsx)</button>
+      <div id="_concImpPlStatus" style="margin-top:16px;font-size:12.5px;color:#334155;line-height:1.7"></div>
+    </div>
+  </div>`;
+}
+
+window._concAbrirImportarPlanilha = function() {
+  document.getElementById('_concImpPlStatus').innerHTML = '';
+  document.getElementById('_concModalImpPl').style.display = 'block';
+};
+
+window._concProcessarPlanilhaInicial = async function(file) {
+  if (!file) return;
+  const st = document.getElementById('_concImpPlStatus');
+  st.innerHTML = '<div style="color:#7c3aed;font-weight:700">⏳ Lendo arquivo…</div>';
+  try {
+    const buffer = await file.arrayBuffer();
+    const wb = XLSX.read(buffer, {type:'array', cellDates:true});
+    if (!wb.SheetNames.includes('Base - Clientes') || !wb.SheetNames.includes('Extrato Inter')) {
+      throw new Error('A planilha precisa ter as abas "Base - Clientes" e "Extrato Inter".');
+    }
+
+    // ==== BASE DE CLIENTES ====
+    st.innerHTML = '<div style="color:#7c3aed;font-weight:700">⏳ Processando base de clientes…</div>';
+    const wsBase = wb.Sheets['Base - Clientes'];
+    const linhasBase = XLSX.utils.sheet_to_json(wsBase, {header:1, defval:null, raw:true});
+    const clientes = [];
+    const nomesBanco = [];
+    const contratos = [];
+    const MESES_MAP = {0:'2026-01',1:'2026-02',2:'2026-03',3:'2026-04',4:'2026-05',5:'2026-06',6:'2026-07',7:'2026-08'};
+    const codigosVistos = new Set();
+    const nomesVistos = new Set();
+    const contratosVistos = new Set();
+
+    for (let i = 2; i < linhasBase.length; i++) {
+      const row = linhasBase[i];
+      if (!row || !row[0]) continue;
+      const m = String(row[0]).trim().match(/^\((\d+)\)\s*(.+)/);
+      if (!m) continue;
+      const codigo = m[1].padStart(3,'0');
+      const nome = m[2].trim();
+      if (!codigosVistos.has(codigo)) {
+        codigosVistos.add(codigo);
+        clientes.push({codigo, nome, ativo:true});
+      }
+      // Contratos C-J = índices 2..9
+      for (let k = 0; k < 8; k++) {
+        const val = row[2+k];
+        if (val !== null && val !== '' && !isNaN(parseFloat(val)) && parseFloat(val) > 0) {
+          const key = codigo + '|' + MESES_MAP[k];
+          if (!contratosVistos.has(key)) {
+            contratosVistos.add(key);
+            contratos.push({cliente_codigo:codigo, mes:MESES_MAP[k], valor_contrato:parseFloat(val)});
+          }
+        }
+      }
+      // Nomenclaturas Inter K (10) e L (11)
+      for (const idx of [10,11]) {
+        if (row[idx]) {
+          const nb = String(row[idx]).trim().replace(/"$/,'').trim();
+          if (nb && nb !== 'null' && !nomesVistos.has(nb.toUpperCase())) {
+            nomesVistos.add(nb.toUpperCase());
+            nomesBanco.push({cliente_codigo:codigo, nome_banco:nb});
+          }
+        }
+      }
+    }
+
+    // ==== EXTRATO INTER ====
+    st.innerHTML = `<div style="color:#7c3aed;font-weight:700">⏳ Base OK: ${clientes.length} clientes, ${nomesBanco.length} nomes, ${contratos.length} valores de contrato.<br>Processando extrato…</div>`;
+    const wsExt = wb.Sheets['Extrato Inter'];
+    const linhasExt = XLSX.utils.sheet_to_json(wsExt, {header:1, defval:null, raw:true});
+    const movimentos = [];
+    const hashVistos = new Set();
+
+    function normData(v) {
+      if (!v) return null;
+      if (v instanceof Date) {
+        const y = v.getFullYear(), mo = String(v.getMonth()+1).padStart(2,'0'), d = String(v.getDate()).padStart(2,'0');
+        return `${y}-${mo}-${d}`;
+      }
+      if (typeof v === 'number') {
+        const d = new Date(Date.UTC(1899,11,30) + v*86400000);
+        return d.toISOString().slice(0,10);
+      }
+      if (typeof v === 'string') {
+        const m = v.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+        if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+        if (/^\d{4}-\d{2}-\d{2}/.test(v)) return v.slice(0,10);
+      }
+      return null;
+    }
+
+    function normComp(v, dataStr) {
+      if (v === null || v === undefined || v === '') return dataStr ? dataStr.slice(0,7) : null;
+      const num = parseInt(v);
+      if (isNaN(num) || num < 1 || num > 12) return dataStr ? dataStr.slice(0,7) : null;
+      let ano = dataStr ? parseInt(dataStr.slice(0,4)) : 2026;
+      const mesReal = dataStr ? parseInt(dataStr.slice(5,7)) : 1;
+      if (num > mesReal + 6) ano--;
+      else if (num < mesReal - 6) ano++;
+      return `${ano}-${String(num).padStart(2,'0')}`;
+    }
+
+    function parseCli(cli) {
+      if (!cli) return {codigo:null, nome:null};
+      const m = String(cli).trim().match(/^\((\d+)\)\s*(.+)/);
+      if (!m) return {codigo:null, nome:null};
+      return {codigo:m[1].padStart(3,'0'), nome:m[2].trim()};
+    }
+
+    for (let i = 2; i < linhasExt.length; i++) {
+      const row = linhasExt[i];
+      if (!row) continue;
+      const data = normData(row[0]);
+      if (!data) continue;
+      const descricao = String(row[1]||'').trim();
+      if (!descricao) continue;
+      const valor = parseFloat(row[2]);
+      if (isNaN(valor)) continue;
+      const saldo = row[3]!==null && !isNaN(parseFloat(row[3])) ? parseFloat(row[3]) : null;
+      let tipo = String(row[4]||'').trim().toUpperCase();
+      if (tipo!=='CR' && tipo!=='CP') tipo = valor >= 0 ? 'CR' : 'CP';
+      const comp = normComp(row[7], data);
+      const nomeExtraido = row[9] ? String(row[9]).trim().replace(/"$/,'').trim() : null;
+      const {codigo:cliCod, nome:cliNome} = parseCli(row[10]);
+      const categoria = row[11] ? String(row[11]).trim() : null;
+      let concOmie = row[12] ? String(row[12]).trim() : 'Pendente';
+      if (concOmie !== 'Conciliado' && concOmie !== 'Pendente') concOmie = 'Pendente';
+      let concContr = row[13] ? String(row[13]).trim() : null;
+      if (concContr && concContr !== 'Conciliado' && concContr !== 'Analisar') concContr = null;
+      const difContr = row[14]!==null && !isNaN(parseFloat(row[14])) ? parseFloat(row[14]) : null;
+      const valContr = row[15]!==null && !isNaN(parseFloat(row[15])) ? parseFloat(row[15]) : null;
+      let emissaoNf = row[16] ? String(row[16]).trim() : 'Pendente';
+      if (emissaoNf !== 'OK' && emissaoNf !== 'Pendente') emissaoNf = 'Pendente';
+      const observacao = row[17] ? String(row[17]).trim() : null;
+      const hash = `Banco Inter|${data}|${valor.toFixed(2)}|${descricao}`;
+      if (hashVistos.has(hash)) continue;
+      hashVistos.add(hash);
+      movimentos.push({
+        data_lancamento:data, descricao, valor, saldo, banco:'Banco Inter',
+        nome_extraido:nomeExtraido, tipo, mes:data.slice(0,7), competencia:comp,
+        cliente_codigo:cliCod, cliente_nome:cliCod?cliNome:null,
+        categoria, conciliacao_omie:concOmie, conciliacao_contratos:concContr,
+        valor_contrato:valContr, diferenca_contrato:difContr,
+        emissao_nf:emissaoNf, observacao, hash_unico:hash
+      });
+    }
+
+    // Filtrar movimentos com cliente_codigo inválido (que não está na base carregada)
+    const codigosValidos = new Set(clientes.map(c => c.codigo));
+    let ajustados = 0;
+    for (const m of movimentos) {
+      if (m.cliente_codigo && !codigosValidos.has(m.cliente_codigo)) {
+        m.cliente_codigo = null; m.cliente_nome = null; ajustados++;
+      }
+    }
+
+    // ==== ESCREVER NO SUPABASE ====
+    const supa = _concSupa();
+    st.innerHTML = `<div style="color:#7c3aed;font-weight:700">⏳ Extrato OK: ${movimentos.length} movimentos únicos.<br>Enviando ao banco…</div>`;
+
+    // 1. Clientes (upsert)
+    st.innerHTML += '<div>→ Salvando clientes…</div>';
+    for (let i = 0; i < clientes.length; i += 200) {
+      const lote = clientes.slice(i, i+200);
+      const r = await supa.from('conciliacao_clientes').upsert(lote, {onConflict:'codigo'});
+      if (r.error) throw new Error('clientes: ' + r.error.message);
+    }
+
+    // 2. Nomes de banco (upsert)
+    st.innerHTML += '<div>→ Salvando nomes de banco (de-para)…</div>';
+    for (let i = 0; i < nomesBanco.length; i += 200) {
+      const lote = nomesBanco.slice(i, i+200);
+      const r = await supa.from('conciliacao_clientes_nomes').upsert(lote, {onConflict:'nome_banco', ignoreDuplicates:true});
+      if (r.error) throw new Error('nomes: ' + r.error.message);
+    }
+
+    // 3. Contratos (upsert por cliente+mes)
+    st.innerHTML += '<div>→ Salvando valores de contrato mês a mês…</div>';
+    for (let i = 0; i < contratos.length; i += 300) {
+      const lote = contratos.slice(i, i+300);
+      const r = await supa.from('conciliacao_contratos').upsert(lote, {onConflict:'cliente_codigo,mes'});
+      if (r.error) throw new Error('contratos: ' + r.error.message);
+    }
+
+    // 4. Movimentos (upsert por hash, ignora duplicatas)
+    st.innerHTML += `<div>→ Enviando ${movimentos.length} movimentos…</div>`;
+    let inseridos = 0;
+    const LOTE_MOV = 200;
+    for (let i = 0; i < movimentos.length; i += LOTE_MOV) {
+      const lote = movimentos.slice(i, i+LOTE_MOV);
+      const r = await supa.from('conciliacao_movimentos').upsert(lote, {onConflict:'hash_unico', ignoreDuplicates:true});
+      if (r.error) throw new Error('movimentos: ' + r.error.message);
+      inseridos += lote.length;
+      st.querySelector('div:last-child').innerHTML = `→ Enviando movimentos… <strong>${inseridos}/${movimentos.length}</strong>`;
+    }
+
+    st.innerHTML = `<div style="background:#f0fdf4;border-left:4px solid #10b981;padding:14px 16px;border-radius:0 8px 8px 0">
+      <div style="font-weight:800;color:#166534;margin-bottom:8px">✓ Importação completa</div>
+      <div style="font-size:12.5px;color:#0f172a;line-height:1.7">
+        <strong>${clientes.length}</strong> clientes cadastrados/atualizados<br>
+        <strong>${nomesBanco.length}</strong> nomes de banco no de-para<br>
+        <strong>${contratos.length}</strong> valores de contrato (mês a mês)<br>
+        <strong>${movimentos.length}</strong> movimentos processados${ajustados>0?` (${ajustados} sem cliente na base foram ajustados)`:''}<br>
+        <br>A tabela vai recarregar em 3 segundos.
+      </div>
+    </div>`;
+    setTimeout(() => {
+      document.getElementById('_concModalImpPl').style.display = 'none';
+      window._concState.dados = null;
+      renderConciliacao();
+    }, 3000);
+  } catch (e) {
+    console.error(e);
+    st.innerHTML = `<div style="background:#fef2f2;border-left:4px solid #dc2626;padding:14px 16px;border-radius:0 8px 8px 0;color:#7f1d1d;font-weight:700">❌ Erro: ${e.message}</div>`;
+  }
+};
 
 function _concModalEditarCliente() {
   return `<div id="_concModalEdCli" style="display:none;position:fixed;inset:0;z-index:10004;background:rgba(0,0,0,0.6);padding:20px" onclick="if(event.target===this)this.style.display='none'">
