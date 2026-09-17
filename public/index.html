@@ -4877,6 +4877,7 @@ async function renderKPIs() {
   const D = window._kpiV3Dados;
   const inputs = _kpiV3LoadInputs();
   const K = _kpiV3Calcular(D, inputs);
+  window._kpiV3State.K = K; // exposto para handlers dinâmicos (ex: click no gráfico do MRR)
 
   const view = window._kpiV3State.view;
   if (view === 'home') _kpiV3RenderHome(container, K, inputs, D);
@@ -5117,17 +5118,39 @@ function _kpiV3RenderIndicador(container, id, K, inputs, D) {
       </div>
     </div>
     
-    <!-- Evolução histórica -->
+    <!-- Evolução histórica (com click quando serieClickHandler está setado) -->
     ${def.serie && def.serie.length > 0 ? `<div style="background:white;border:1px solid #e2e8f0;border-radius:14px;padding:22px 26px;margin-bottom:16px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
         <div>
           <div style="font-size:11px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:0.5px">📈 Evolução histórica</div>
           <div style="font-size:16px;font-weight:800;color:#0f172a;margin-top:2px">${def.serieTitulo || 'Últimos meses'}</div>
+          ${def.serieClickHandler ? `<div style="font-size:11.5px;color:#059669;margin-top:4px;font-weight:600">💡 Clique em qualquer mês para ver a composição por faixa</div>` : ''}
         </div>
         <div style="font-size:11px;color:#64748b">Marco zero: julho/2026</div>
       </div>
-      ${_kpiV3ChartLinha(def.serie, cor, def.serieFmt || 'money')}
+      <div id="${def.serieClickHandler ? '_kpiV3ChartMRR' : '_kpiV3Chart_' + id}">${_kpiV3ChartLinha(def.serie, cor, def.serieFmt || 'money', def.serieClickHandler ? { onClick: def.serieClickHandler, mesSelecionado: def.mesSelecionadoInicial } : {})}</div>
     </div>` : ''}
+    
+    <!-- Faixas dinâmicas (quando aplicável, ex: MRR) -->
+    ${def.faixasDinamicas ? `<div style="background:white;border:1px solid #e2e8f0;border-radius:14px;padding:22px 26px;margin-bottom:16px">
+      <div style="margin-bottom:16px">
+        <div style="font-size:11px;color:${def.faixasCor || cor};font-weight:800;text-transform:uppercase;letter-spacing:0.5px">🎚️ Composição por faixa</div>
+        <div style="font-size:16px;font-weight:800;color:#0f172a;margin-top:2px">Distribuição do MRR nas faixas de contrato</div>
+      </div>
+      <div id="_kpiV3FaixasBox">${_kpiV3RenderFaixasMes(def.mesSelecionadoInicial, def.faixasCor || cor)}</div>
+    </div>` : ''}
+    
+    <!-- Meta + Cuidados na leitura -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px;margin-bottom:16px">
+      <div style="background:white;border:1px solid #e2e8f0;border-radius:12px;padding:20px 22px">
+        <div style="font-size:11px;color:#0284c7;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px">🎯 Meta e faixas</div>
+        <div style="font-size:13.5px;color:#334155;line-height:1.7">${def.metaTexto}</div>
+      </div>
+      <div style="background:white;border:1px solid #e2e8f0;border-radius:12px;padding:20px 22px">
+        <div style="font-size:11px;color:#f59e0b;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px">⚠️ Cuidados na leitura</div>
+        <ul style="margin:0;padding-left:18px;font-size:13.5px;color:#334155;line-height:1.7">${def.armadilhas.map(a => `<li style="margin-bottom:6px">${a}</li>`).join('')}</ul>
+      </div>
+    </div>
     
     <!-- LEITURA EXECUTIVA (texto interpretativo) -->
     <div style="background:white;border:1px solid #e2e8f0;border-radius:14px;padding:24px 28px;margin-bottom:16px">
@@ -5144,8 +5167,8 @@ function _kpiV3RenderIndicador(container, id, K, inputs, D) {
       </div>
     </div>
     
-    <!-- De onde vem este número (SEM query SQL) -->
-    <div style="background:white;border:1px solid #e2e8f0;border-radius:14px;padding:22px 26px;margin-bottom:16px">
+    <!-- De onde vem este número (ocultável por indicador) -->
+    ${def.ocultarFonte ? '' : `<div style="background:white;border:1px solid #e2e8f0;border-radius:14px;padding:22px 26px;margin-bottom:16px">
       <div style="margin-bottom:16px">
         <div style="font-size:11px;color:#059669;font-weight:800;text-transform:uppercase;letter-spacing:0.5px">🔌 De onde vem este número</div>
         <div style="font-size:16px;font-weight:800;color:#0f172a;margin-top:2px">Origem e forma de cálculo</div>
@@ -5168,19 +5191,7 @@ function _kpiV3RenderIndicador(container, id, K, inputs, D) {
         <div style="font-size:11px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Como o cálculo é feito</div>
         <div style="font-size:13.5px;color:#334155;line-height:1.7">${def.fonteExpl}</div>
       </div>
-    </div>
-    
-    <!-- Meta + Cuidados na leitura -->
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px;margin-bottom:16px">
-      <div style="background:white;border:1px solid #e2e8f0;border-radius:12px;padding:20px 22px">
-        <div style="font-size:11px;color:#0284c7;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px">🎯 Meta e faixas</div>
-        <div style="font-size:13.5px;color:#334155;line-height:1.7">${def.metaTexto}</div>
-      </div>
-      <div style="background:white;border:1px solid #e2e8f0;border-radius:12px;padding:20px 22px">
-        <div style="font-size:11px;color:#f59e0b;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px">⚠️ Cuidados na leitura</div>
-        <ul style="margin:0;padding-left:18px;font-size:13.5px;color:#334155;line-height:1.7">${def.armadilhas.map(a => `<li style="margin-bottom:6px">${a}</li>`).join('')}</ul>
-      </div>
-    </div>
+    </div>`}
     
     ${def.inputManual ? `<div style="background:white;border:2px dashed #cbd5e1;border-radius:12px;padding:20px 22px;margin-bottom:16px">
       <div style="font-size:11px;color:#7c3aed;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px">✏️ Preenchimento manual</div>
@@ -5218,6 +5229,60 @@ function _kpiV3FaixaLider(f) {
   return arr.length > 0 ? arr[0][0] : '—';
 }
 
+// Renderiza o painel de faixas para um mês específico
+function _kpiV3RenderFaixasMes(mesKey, cor) {
+  cor = cor || '#059669';
+  const D = window._kpiV3Dados;
+  if (!D) return '<div style="padding:20px;text-align:center;color:#94a3b8">Dados indisponíveis</div>';
+  const receitaMensalidades = D.receita.filter(r => (r.categoria_texto || '').includes('Mensalidades Clientes'));
+  const f = _kpiV3ClassificarFaixas(receitaMensalidades, mesKey);
+  const faixasBar = [
+    { label: 'Basic (R$ 1.500)', valor: f.basic },
+    { label: 'Starter (R$ 2.000)', valor: f.starter },
+    { label: 'Plus (R$ 3.000)', valor: f.plus },
+    { label: 'Premium (R$ 4.500)', valor: f.premium },
+    { label: 'Master (R$ 5.500)', valor: f.master },
+    { label: 'Business (R$ 6.500)', valor: f.business }
+  ].filter(x => x.valor > 0);
+  const total = faixasBar.reduce((s, x) => s + x.valor, 0);
+  const lider = _kpiV3FaixaLider(f);
+  const mesFmt = _kpiV3FormatarMes(mesKey);
+  if (faixasBar.length === 0) {
+    return `<div style="text-align:center;padding:30px 20px;color:#94a3b8">
+      <div style="font-size:15px;font-weight:700;color:#334155;margin-bottom:6px">Sem receita registrada em ${mesFmt}</div>
+      <div style="font-size:12.5px">Nenhum cliente pagou mensalidade nesse mês ou os dados ainda não foram sincronizados.</div>
+    </div>`;
+  }
+  return `<div>
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+      <div style="font-size:13px;color:#334155"><strong>${mesFmt}</strong> · Total ${_fmtRsCurto(total)} · Faixa líder <strong style="color:${cor}">${lider}</strong></div>
+      <div style="font-size:11px;color:#94a3b8">Clique em outro mês do gráfico para atualizar</div>
+    </div>
+    ${_kpiV3Breakdown(faixasBar, cor)}
+  </div>`;
+}
+
+// Handler global chamado pelo click nas bolinhas do gráfico do MRR
+window._kpiV3ClickMesMRR = function(mesKey) {
+  const box = document.getElementById('_kpiV3FaixasBox');
+  if (!box) return;
+  window._kpiV3State.mesSelecionadoMRR = mesKey;
+  box.innerHTML = _kpiV3RenderFaixasMes(mesKey, '#059669');
+  // Re-render o gráfico com destaque no mês selecionado
+  const g = document.getElementById('_kpiV3ChartMRR');
+  if (g) {
+    const D = window._kpiV3Dados;
+    const K = window._kpiV3State.K;
+    if (D && K) {
+      const mrrPorMes = _kpiV3AgruparPorMes(D.receita.filter(r => (r.categoria_texto || '').includes('Mensalidades Clientes')));
+      const mesesAno = _kpiV3MesesAno(K.mesRef.key);
+      const mesesLabels = m => ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'][parseInt(m.split('-')[1]) - 1];
+      const serie = mesesAno.map(m => ({ label: mesesLabels(m), valor: mrrPorMes[m] || 0, mesKey: m }));
+      g.innerHTML = _kpiV3ChartLinha(serie, '#059669', 'money', { onClick: '_kpiV3ClickMesMRR', mesSelecionado: mesKey });
+    }
+  }
+};
+
 function _kpiV3TotalTiers(i) {
   const t = (i.tierBronze||0) + (i.tierSilver||0) + (i.tierGold||0) + (i.tierPlatinum||0) + (i.tierSuperstar||0);
   return t > 0 ? t + ' clientes' : '—';
@@ -5235,7 +5300,8 @@ function _kpiV3GrupoDespesa(txt) {
 }
 
 // Chart linha SVG
-function _kpiV3ChartLinha(serie, cor, formato) {
+function _kpiV3ChartLinha(serie, cor, formato, opts) {
+  opts = opts || {};
   const w = 1000, h = 240, mL = 70, mR = 30, mT = 24, mB = 46;
   const inW = w - mL - mR, inH = h - mT - mB;
   const vals = serie.map(s => s.valor);
@@ -5259,8 +5325,13 @@ function _kpiV3ChartLinha(serie, cor, formato) {
     ${serie.map((s, i) => {
       const x = mL + i * xStep;
       const y = mT + inH - ((s.valor - min) / range) * inH;
-      return `<circle cx="${x}" cy="${y}" r="5" fill="white" stroke="${cor}" stroke-width="3"/>
-              <text x="${x}" y="${h - 24}" text-anchor="middle" fill="#64748b" font-size="10.5" font-family="Poppins" font-weight="700">${s.label}</text>
+      const clickable = !!(opts.onClick && s.mesKey);
+      const cursor = clickable ? 'pointer' : 'default';
+      const handler = clickable ? `onclick="${opts.onClick}('${s.mesKey}')" ` : '';
+      const hitR = clickable ? 14 : 5;
+      return `<circle ${handler}cx="${x}" cy="${y}" r="${hitR}" fill="transparent" style="cursor:${cursor}"/>
+              <circle ${handler}cx="${x}" cy="${y}" r="5" fill="${s.mesKey===opts.mesSelecionado?cor:'white'}" stroke="${cor}" stroke-width="3" style="cursor:${cursor};pointer-events:none"/>
+              <text x="${x}" y="${h - 24}" text-anchor="middle" fill="${s.mesKey===opts.mesSelecionado?cor:'#64748b'}" font-size="10.5" font-family="Poppins" font-weight="${s.mesKey===opts.mesSelecionado?'800':'700'}">${s.label}</text>
               <text x="${x}" y="${h - 8}" text-anchor="middle" fill="#334155" font-size="11" font-family="Poppins" font-weight="600">${fmt(s.valor)}</text>`;
     }).join('')}
   </svg>`;
@@ -5302,15 +5373,8 @@ function _kpiV3IndDefs(id, K, inputs, D) {
   // === MRR ===
   if (id === 'mrr') {
     const mrrPorMes = _kpiV3AgruparPorMes(D.receita.filter(r => (r.categoria_texto || '').includes('Mensalidades Clientes')));
-    const serie = meses6.map(m => ({ label: mesesLabels(m), valor: mrrPorMes[m] || 0 }));
-    const faixasBar = [
-      { label: 'Basic (R$ 1.500)', valor: K.faixas.basic },
-      { label: 'Starter (R$ 2.000)', valor: K.faixas.starter },
-      { label: 'Plus (R$ 3.000)', valor: K.faixas.plus },
-      { label: 'Premium (R$ 4.500)', valor: K.faixas.premium },
-      { label: 'Master (R$ 5.500)', valor: K.faixas.master },
-      { label: 'Business (R$ 6.500)', valor: K.faixas.business }
-    ].filter(f => f.valor > 0);
+    const mesesAno = _kpiV3MesesAno(K.mesRef.key);
+    const serie = mesesAno.map(m => ({ label: mesesLabels(m), valor: mrrPorMes[m] || 0, mesKey: m }));
     const varTxt = K.mrr.varPct != null ? (K.mrr.varPct >= 0 ? 'cresceu ' : 'caiu ') + Math.abs(K.mrr.varPct).toFixed(1) + '%' : 'não tem comparação';
     return {
       icone: '💵', grupo: 'Receita e Previsibilidade', grupoId: 'b1', titulo: 'MRR — Receita Mensal Recorrente',
@@ -5318,18 +5382,16 @@ function _kpiV3IndDefs(id, K, inputs, D) {
       valor: _fmtRsCurto(K.mrr.atual), subvalor: K.mrr.varPct != null ? (K.mrr.varPct >= 0 ? '▲ +' : '▼ ') + K.mrr.varPct.toFixed(1) + '% vs mês anterior' : 'Sem comparação',
       semaforo: K.mrr.sem, confiab: 'ALTA', metaTag: 'Meta > +3% MoM',
       metaTexto: 'A referência esperada é <strong>crescimento de pelo menos 3% ao mês</strong> vs o mês anterior. Verde quando ≥ 3%, amarelo entre 0-3%, vermelho quando cai. Se cair dois meses seguidos, é sinal para revisar comercial e retenção.',
-      serie, serieTitulo: 'MRR mensal (últimos 6 meses)', serieFmt: 'money',
+      serie, serieTitulo: `MRR mensal — ${mesesAno[0].split('-')[0]}`, serieFmt: 'money',
+      serieClickHandler: '_kpiV3ClickMesMRR', mesSelecionadoInicial: K.mesRef.key,
+      faixasDinamicas: true, faixasCor: '#059669',
+      ocultarFonte: true,
       leitura: [
         { titulo: 'Como interpretar este número', texto: `O MRR fechou o mês em <strong>${_fmtRsCurto(K.mrr.atual)}</strong> e ${varTxt} em relação ao mês anterior. Este é o volume de dinheiro que entra <strong>previsivelmente</strong> todo mês pelo contrato com clientes — não inclui projetos pontuais, implantações ou receitas extraordinárias. É o número mais importante para saber se o negócio está crescendo.` },
-        { titulo: 'O que está por trás desse movimento', texto: `Quando o MRR sobe, uma das três coisas aconteceu: (1) entraram clientes novos, (2) clientes existentes subiram de faixa, ou (3) parte da base atrasada regularizou pagamento. Quando cai, ou saíram clientes (churn), ou clientes rebaixaram faixa (downgrade), ou houve atraso concentrado. A distribuição atual da receita por faixa está mostrada abaixo — a faixa <strong>${_kpiV3FaixaLider(K.faixas)}</strong> lidera hoje.`,
-          visual: faixasBar.length > 0 ? `<div style="background:#fafafa;border:1px solid #e2e8f0;border-radius:10px;padding:16px 18px">${_kpiV3Breakdown(faixasBar, '#059669')}</div>` : '' },
+        { titulo: 'O que está por trás desse movimento', texto: `Quando o MRR sobe, uma das três coisas aconteceu: (1) entraram clientes novos, (2) clientes existentes subiram de faixa, ou (3) parte da base atrasada regularizou pagamento. Quando cai, ou saíram clientes (churn), ou clientes rebaixaram faixa (downgrade), ou houve atraso concentrado. A composição por faixa está no painel acima — clique em qualquer mês do gráfico para ver como a receita se distribuía naquele momento.` },
         { titulo: 'Contexto do mercado', texto: 'Em agências digitais com modelo recorrente, considera-se saudável o crescimento consistente entre 3% e 8% ao mês. Acima de 10% é excelente mas geralmente insustentável por muitos meses. Abaixo de 3% por mais de dois meses seguidos indica saturação do canal comercial ou concorrência ganhando espaço.' },
         { titulo: 'Quando agir', texto: `Se o MRR cair sem explicação óbvia (churn concentrado, sazonalidade), a primeira ação é olhar o <strong>Aging de Recebíveis</strong>: pode ser só atraso de pagamento, não perda real. Depois, cruzar com <strong>Churn de Receita</strong> — se este subiu junto, é perda estrutural. Se o MRR cresce mas o Ticket Médio cai, a base está diluindo em faixas menores.` }
       ],
-      fonteOrigem: 'OMIE (Contas a Receber)',
-      fonteBase: 'A mesma base que alimenta o menu Financeiro Principal',
-      fonteFreq: 'Diária (sync do OMIE)',
-      fonteExpl: 'O número vem direto do <strong>OMIE</strong> — sistema onde o financeiro registra todos os pagamentos recebidos. Para chegar ao MRR, o dashboard filtra apenas as categorias marcadas como <em>Receita de Prestação de Serviços (Mensalidade)</em>, remove valores duplicados que o OMIE gera por questão de previsão/baixa efetiva, e soma tudo do último mês fechado. É a mesma origem que aparece na coluna "Receitas Operacionais" do menu Financeiro Principal.',
       armadilhas: [
         'O mês corrente <strong>nunca</strong> é usado — pode não ter fechado ainda',
         'Taxa de implementação (contratos novos) não conta no MRR — só a mensalidade recorrente',
@@ -6077,6 +6139,14 @@ function _kpiV3UltimosMeses(mesRefKey, n) {
   const arr = [];
   let cur = mesRefKey;
   for (let i = 0; i < n; i++) { arr.unshift(cur); cur = _kpiV3MesAnterior(cur); }
+  return arr;
+}
+
+function _kpiV3MesesAno(mesRefKey) {
+  // Retorna todos os meses do ano do mesRef, de janeiro até mesRef (inclusive).
+  const [y, m] = mesRefKey.split('-').map(Number);
+  const arr = [];
+  for (let i = 1; i <= m; i++) arr.push(y + '-' + String(i).padStart(2, '0'));
   return arr;
 }
 
