@@ -5234,7 +5234,7 @@ function _kpiV3RenderFaixasMes(mesKey, cor) {
   cor = cor || '#059669';
   const D = window._kpiV3Dados;
   if (!D) return '<div style="padding:20px;text-align:center;color:#94a3b8">Dados indisponíveis</div>';
-  const receitaMensalidades = D.receita.filter(r => (r.categoria_texto || '').includes('Mensalidades Clientes'));
+  const receitaMensalidades = D.receita_comp.filter(r => (r.categoria_texto || '').includes('Mensalidades Clientes'));
   const f = _kpiV3ClassificarFaixas(receitaMensalidades, mesKey);
   const faixasBar = [
     { label: 'Basic (R$ 1.500)', valor: f.basic },
@@ -5274,7 +5274,7 @@ window._kpiV3ClickMesMRR = function(mesKey) {
     const D = window._kpiV3Dados;
     const K = window._kpiV3State.K;
     if (D && K) {
-      const mrrPorMes = _kpiV3AgruparPorMes(D.receita.filter(r => (r.categoria_texto || '').includes('Mensalidades Clientes')));
+      const mrrPorMes = _kpiV3AgruparPorMes(D.receita_comp.filter(r => (r.categoria_texto || '').includes('Mensalidades Clientes')));
       const mesesAno = _kpiV3MesesAno(K.mesRef.key);
       const mesesLabels = m => ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'][parseInt(m.split('-')[1]) - 1];
       const serie = mesesAno.map(m => ({ label: mesesLabels(m), valor: mrrPorMes[m] || 0, mesKey: m }));
@@ -5372,7 +5372,7 @@ function _kpiV3IndDefs(id, K, inputs, D) {
 
   // === MRR ===
   if (id === 'mrr') {
-    const mrrPorMes = _kpiV3AgruparPorMes(D.receita.filter(r => (r.categoria_texto || '').includes('Mensalidades Clientes')));
+    const mrrPorMes = _kpiV3AgruparPorMes(D.receita_comp.filter(r => (r.categoria_texto || '').includes('Mensalidades Clientes')));
     const mesesAno = _kpiV3MesesAno(K.mesRef.key);
     const serie = mesesAno.map(m => ({ label: mesesLabels(m), valor: mrrPorMes[m] || 0, mesKey: m }));
     const varTxt = K.mrr.varPct != null ? (K.mrr.varPct >= 0 ? 'cresceu ' : 'caiu ') + Math.abs(K.mrr.varPct).toFixed(1) + '%' : 'não tem comparação';
@@ -5402,7 +5402,7 @@ function _kpiV3IndDefs(id, K, inputs, D) {
 
   // === Net New MRR ===
   if (id === 'netNew') {
-    const mrrPorMes = _kpiV3AgruparPorMes(D.receita.filter(r => (r.categoria_texto || '').includes('Mensalidades Clientes')));
+    const mrrPorMes = _kpiV3AgruparPorMes(D.receita_comp.filter(r => (r.categoria_texto || '').includes('Mensalidades Clientes')));
     const serie = meses6.map(m => {
       const ant = _kpiV3MesAnterior(m);
       return { label: mesesLabels(m), valor: (mrrPorMes[m] || 0) - (mrrPorMes[ant] || 0) };
@@ -5462,8 +5462,8 @@ function _kpiV3IndDefs(id, K, inputs, D) {
 
   // === Ticket Médio ===
   if (id === 'ticket') {
-    const mrrPorMes = _kpiV3AgruparPorMes(D.receita.filter(r => (r.categoria_texto || '').includes('Mensalidades Clientes')));
-    const cliMes = _kpiV3ClientesPorMes(D.receita.filter(r => (r.categoria_texto || '').includes('Mensalidades Clientes')));
+    const mrrPorMes = _kpiV3AgruparPorMes(D.receita_comp.filter(r => (r.categoria_texto || '').includes('Mensalidades Clientes')));
+    const cliMes = _kpiV3ClientesPorMes(D.receita_comp.filter(r => (r.categoria_texto || '').includes('Mensalidades Clientes')));
     const serie = meses6.map(m => ({ label: mesesLabels(m), valor: cliMes[m] && cliMes[m].size > 0 ? (mrrPorMes[m] || 0) / cliMes[m].size : 0 }));
     return {
       icone: '🏷️', grupo: 'Receita e Previsibilidade', grupoId: 'b1', titulo: 'Ticket Médio Recorrente',
@@ -5957,6 +5957,26 @@ async function _kpiV3CarregarDados() {
       });
     }
   });
+
+  // ============ RECEITA POR COMPETÊNCIA ============
+  // Fonte: v_raw_data_comp (tabela titulos + data_registro). NÃO usa contas bancárias
+  // porque no modo competência o título existe antes de qualquer baixa. NÃO filtra por
+  // conta operacional — a receita conta pela emissão do título.
+  // valor_documento (valorPago na view) por mesRegistro. Ignora ajustes/transferências.
+  const receita_comp = [];
+  const rawComp = (typeof RAW_DATA_COMP !== 'undefined' && RAW_DATA_COMP) ? RAW_DATA_COMP : [];
+  rawComp.forEach(r => {
+    if (r.tipo !== '1. Contas a Receber') return;
+    if (!r.mesRegistro) return;
+    const cat = String(r.categoria || '');
+    if (cat.includes('Ajuste') || cat.includes('Transferência')) return;
+    receita_comp.push({
+      valor_pago: Math.abs(r.valorPago || 0),
+      categoria_texto: cat,
+      cliente_nome: String(r.fornecedor || '').trim(),
+      mes: r.mesRegistro
+    });
+  });
   
   // Títulos abertos (inadimplência/aging) — ainda vem do Supabase pois RAW_DATA_CAIXA só tem pagos
   let titulos = [];
@@ -5973,7 +5993,7 @@ async function _kpiV3CarregarDados() {
     }
   } catch(e) { titulos = []; }
 
-  window._kpiV3Dados = { receita, despesa, titulos, _at: Date.now() };
+  window._kpiV3Dados = { receita, receita_comp, despesa, titulos, _at: Date.now() };
 }
 
 function _kpiV3Calcular(D, inputs) {
@@ -5987,7 +6007,7 @@ function _kpiV3Calcular(D, inputs) {
   const mesLabel = _kpiV3FormatarMes(mesRefKey);
 
   // MRR: filtro por TEXTO da categoria contendo "Mensalidades Clientes" (mesma lógica do M&A)
-  const receitaMensalidades = D.receita.filter(r => (r.categoria_texto || '').includes('Mensalidades Clientes'));
+  const receitaMensalidades = D.receita_comp.filter(r => (r.categoria_texto || '').includes('Mensalidades Clientes'));
   const mrrPorMes = _kpiV3AgruparPorMes(receitaMensalidades);
   const mrrAtual = mrrPorMes[mesRefKey] || 0;
   const mrrAnt = mrrPorMes[mesAntKey] || 0;
@@ -5997,7 +6017,7 @@ function _kpiV3Calcular(D, inputs) {
   const netNew = { atual: netNewAtual, sem: netNewAtual > 0 ? 'green' : (netNewAtual === 0 ? 'yellow' : 'red') };
 
   // Ticket Médio: base ampla (Mensalidades + Inadimplentes + Taxa de Implementação) — igual M&A
-  const receitaBaseCli = D.receita.filter(r => {
+  const receitaBaseCli = D.receita_comp.filter(r => {
     const c = r.categoria_texto || '';
     return c.includes('Mensalidades Clientes') || c.includes('Inadimplent') || c.includes('Taxa de Implementação') || c.includes('Taxa Implementação');
   });
@@ -13139,7 +13159,9 @@ if (document.readyState === 'loading') {
     if (section === 'dre' || section === 'margem' || section === 'ticket' || section === 'pjs')
       return r.mesPrevisao || r.mesRegistro || r.mesPagto || '';
     // Menu principal e outros: respeita view
-    if (view === 'competencia') return r.mesPrevisao || r.mesRegistro || r.mesPagto || '';
+    // Competência = MÊS de data_registro (mesRegistro). Nunca data_previsao.
+    // Se não houver mesRegistro (ex: linha de baixa), cai pro mesPrevisao/mesPagto só como último recurso.
+    if (view === 'competencia') return r.mesRegistro || r.mesPrevisao || r.mesPagto || '';
     // caixa
     return r.mesPagto || r.mesPrevisao || r.mesRegistro || '';
   };
