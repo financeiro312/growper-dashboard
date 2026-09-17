@@ -3997,7 +3997,7 @@ function renderEstoque() {
 
 // Detalhamento clicável do MRR — mostra os pagamentos daquele mês em modal
 window._maAbrirDetalhesMRR = function(mes) {
-  const data = window.RAW_DATA_CAIXA || [];
+  const data = (typeof RAW_DATA_CAIXA !== 'undefined' && RAW_DATA_CAIXA) ? RAW_DATA_CAIXA : [];
   const pagamentos = data.filter(r => 
     r.tipo === '1. Contas a Receber' && 
     r.mesPagto === mes &&
@@ -5860,12 +5860,12 @@ function _kpiV3IndDefs(id, K, inputs, D) {
 async function _kpiV3CarregarDados() {
   // Fonte primária: RAW_DATA_CAIXA (mesma que alimenta o menu Financeiro Principal e o M&A)
   // Se ainda não estiver carregado, dispara omieBootstrap para popular.
-  if (!window.RAW_DATA_CAIXA || window.RAW_DATA_CAIXA.length === 0) {
+  if (typeof RAW_DATA_CAIXA === 'undefined' || !RAW_DATA_CAIXA || RAW_DATA_CAIXA.length === 0) {
     if (typeof window.omieBootstrap === 'function') {
       try { await window.omieBootstrap(); } catch(e) { /* segue tentando */ }
     }
   }
-  const raw = window.RAW_DATA_CAIXA || [];
+  const raw = (typeof RAW_DATA_CAIXA !== 'undefined' && RAW_DATA_CAIXA) ? RAW_DATA_CAIXA : [];
   if (raw.length === 0) throw new Error('Base de dados vazia. Aguarde a sincronização com o OMIE terminar e recarregue.');
   
   // Separar em receita e despesa no formato esperado pelo cálculo (mesma lógica do M&A)
