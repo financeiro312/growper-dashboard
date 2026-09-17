@@ -15714,7 +15714,9 @@ window._concProcessarArquivo = async function(input) {
     let msg = `<div style="background:#f0fdf4;border-left:4px solid #10b981;padding:12px 14px;border-radius:0 6px 6px 0"><div style="font-weight:800;color:#166534;margin-bottom:6px">✓ Importação concluída</div>`;
     msg += `<div style="font-size:12px;color:#0f172a;line-height:1.7">`;
     msg += `<strong>${resultado.novos}</strong> novo(s) lançamento(s) importado(s)<br>`;
-    msg += `<strong>${resultado.duplicados}</strong> ignorado(s) por já existirem (mesma chave)<br>`;
+    if (resultado.duplicadosNoArquivo > 0) msg += `<strong>${resultado.duplicadosNoArquivo}</strong> linha(s) duplicada(s) dentro do próprio arquivo (ignoradas)<br>`;
+    const jaNoBanco = resultado.duplicados - (resultado.duplicadosNoArquivo || 0);
+    if (jaNoBanco > 0) msg += `<strong>${jaNoBanco}</strong> ignorado(s) por já existirem no banco<br>`;
     msg += `<strong>${resultado.identificados}</strong> cliente(s) identificado(s) automaticamente pelo de-para`;
     if (resultado.semCliente > 0) msg += `<br><strong style="color:#f97316">${resultado.semCliente}</strong> recebimento(s) sem cliente — precisam de atenção`;
     msg += `</div></div>`;
@@ -15826,11 +15828,15 @@ async function _concSalvarMovimentos(linhas) {
   const existentes = new Set((rExist.data || []).map(x => x.hash_unico));
 
   const paraInserir = [];
+  const jaVistosNoArquivo = new Set(); // dedup interno do próprio arquivo
   let identificados = 0;
   let semCliente = 0;
+  let duplicadosNoArquivo = 0;
 
   linhas.forEach(l => {
     if (existentes.has(l.hash_unico)) return;
+    if (jaVistosNoArquivo.has(l.hash_unico)) { duplicadosNoArquivo++; return; }
+    jaVistosNoArquivo.add(l.hash_unico);
     const nome = l.nome_extraido;
     let cliCod = null;
     if (nome) {
@@ -15857,10 +15863,14 @@ async function _concSalvarMovimentos(linhas) {
   });
 
   if (paraInserir.length > 0) {
-    // Insere em lotes de 500 pra não estourar limite
+    // upsert com onConflict: ignora silenciosamente linhas que já existem
+    // (caso alguma tenha sido criada entre o SELECT e o INSERT — race condition)
     for (let i = 0; i < paraInserir.length; i += 500) {
       const lote = paraInserir.slice(i, i + 500);
-      const rIns = await supa.from('conciliacao_movimentos').insert(lote);
+      const rIns = await supa.from('conciliacao_movimentos').upsert(lote, {
+        onConflict: 'hash_unico',
+        ignoreDuplicates: true
+      });
       if (rIns.error) throw new Error('Erro ao inserir: ' + rIns.error.message);
     }
   }
@@ -15869,6 +15879,7 @@ async function _concSalvarMovimentos(linhas) {
     total: linhas.length,
     novos: paraInserir.length,
     duplicados: linhas.length - paraInserir.length,
+    duplicadosNoArquivo,
     identificados,
     semCliente
   };
