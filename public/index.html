@@ -4969,70 +4969,121 @@ function _kpiV3Grupos(K, inputs) {
 function _kpiV3RenderHome(container, K, inputs, D) {
   const grupos = _kpiV3Grupos(K, inputs);
 
-  // ===== Camada executiva: 6 indicadores prioritários =====
-  // MRR, Net New, Churn Receita, Margem, Custo Direto, Inadimplência
   function _semCor(sem) { return _kpiV3Cor(sem); }
-  function _lin(label, valor, sub, sem, id, aviso) {
-    const cor = _semCor(sem);
-    return `<div onclick="_kpiV3IrPara('ind:${id}')" style="background:white;border:1px solid #e2e8f0;border-top:4px solid ${cor};border-radius:12px;padding:18px 20px;cursor:pointer;transition:all 0.15s"
-      onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 20px rgba(0,0,0,0.08)'"
-      onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='none'">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start">
-        <div style="font-size:11px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:0.5px">${label}</div>
-        <span style="width:9px;height:9px;background:${cor};border-radius:50%;margin-top:5px"></span>
-      </div>
-      <div style="font-size:26px;font-weight:800;color:${cor};letter-spacing:-0.6px;line-height:1.1;margin-top:6px">${valor}</div>
-      <div style="font-size:11.5px;color:#475569;margin-top:4px">${sub}</div>
-      ${aviso ? `<div style="font-size:11px;color:#334155;line-height:1.5;padding-top:10px;border-top:1px solid #f1f5f9;margin-top:10px">${aviso}</div>` : ''}
-    </div>`;
-  }
 
-  // Narrativa dinâmica — três linhas contando o momento do negócio
+  // Narrativa dinâmica — três linhas conectadas
+  // Diagnóstico correto: o problema é PERMANÊNCIA (61% saem em ≤3 meses),
+  // não volume de entrada.
   function _narrativa() {
     const parts = [];
-    // 1. Movimento da base
     if (K.faixas && K.faixas._total > 0) {
       const tot = K.faixas._total;
       const pctBS = (K.faixas.basic + K.faixas.starter) / tot * 100;
-      if (pctBS > 40) parts.push(`A base está concentrada em <strong>Basic e Starter</strong> (${pctBS.toFixed(0)}% do MRR).`);
-      else parts.push(`A base tem distribuição saudável entre faixas (${pctBS.toFixed(0)}% em Basic+Starter).`);
+      parts.push(`A base cresceu pela ponta de baixo — <strong>${pctBS.toFixed(0)}%</strong> do MRR hoje está em Basic e Starter.`);
     }
-    // 2. Movimento do churn recente
-    if (K.churnLogo && K.churnLogo.qtdSairam != null) {
-      if (K.churnLogo.qtdSairam >= 10) parts.push(`Nos últimos meses a saída acelerou (${K.churnLogo.qtdSairam} clientes em ${K.mesRef.label}) — quem sai é sistematicamente menor que a média da base.`);
-      else if (K.churnLogo.qtdSairam > 0) parts.push(`O churn segue controlado (${K.churnLogo.qtdSairam} clientes em ${K.mesRef.label}).`);
+    // Ritmo de saída — comparar julho/agosto contra a média fev-jun
+    if (K.churnLogoPorMes) {
+      const mesesSerie = Object.keys(K.churnLogoPorMes).sort();
+      if (mesesSerie.length >= 3) {
+        const ultimos2 = mesesSerie.slice(-2);
+        const anteriores = mesesSerie.slice(0, -2);
+        const qtdRecente = ultimos2.reduce((s, m) => s + (K.churnLogoPorMes[m].qtd || 0), 0) / ultimos2.length;
+        const qtdMedia = anteriores.length > 0 ? anteriores.reduce((s, m) => s + (K.churnLogoPorMes[m].qtd || 0), 0) / anteriores.length : 0;
+        if (qtdRecente > qtdMedia + 3) {
+          parts.push(`As saídas aceleraram: média de <strong>${qtdMedia.toFixed(0)} cancelamentos/mês</strong> entre ${_kpiV3FormatarMes(anteriores[0]).split('/')[0]} e ${_kpiV3FormatarMes(anteriores[anteriores.length-1]).split('/')[0]}, contra <strong>${qtdRecente.toFixed(0)}/mês</strong> nos dois últimos.`);
+        }
+      }
     }
-    // 3. Movimento do Net New
-    if (K.netNew && K.netNew.decomp) {
-      const d = K.netNew.decomp;
-      if (d.netNew < 0 && d.entraram > 0) parts.push(`Net New negativo (${_kpiV3FmtRsSigned(d.netNew)}) com <strong>${d.entraram} novos e ${d.sairam} saídas</strong> — o comercial não está compensando a base pela ponta baixa.`);
-      else if (d.netNew > 0) parts.push(`Net New positivo (${_kpiV3FmtRsSigned(d.netNew)}), com ${d.entraram} novos e ${d.sairam} saídas.`);
-    }
+    // Diagnóstico correto (permanência, não volume)
+    parts.push(`O problema não é volume de entrada, é <strong>permanência</strong> — historicamente, 61% de quem cancela sai em até 3 meses de casa.`);
     return parts.join(' ');
   }
 
-  const mrrSubvalor = K.mrr.varPct != null ? (K.mrr.varPct >= 0 ? '▲ +' : '▼ ') + K.mrr.varPct.toFixed(1) + '% MoM' : (K.mesRef.temDado ? 'Sem comparação' : 'Sem dados');
-  const netNewSub = K.netNew.decomp ? `${K.netNew.decomp.entraram} entraram · ${K.netNew.decomp.sairam} saíram` : 'Aguardando';
-  const churnRecSub = K.churnRec.atual != null ? `Cancel. ${(K.churnRec.cancelamento||0).toFixed(1)}% · Downgrade ${(K.churnRec.downgrade||0).toFixed(1)}%` : 'Aguardando';
-  const margemSub = K.margem.atual != null ? `Receita ${_kpiV3FmtRs(K.margem.receita)}` : 'Aguardando';
-  const custoDirSub = K.custoDireto.valor > 0 ? `Custo direto ${_kpiV3FmtRs(K.custoDireto.valor)}` : 'Aguardando';
-  const inadimpSub = K.inadimp.valorAberto > 0 ? `${_kpiV3FmtRs(K.inadimp.valorAberto)} vencido em aberto` : 'Sem vencidos';
+  // Seletor de competência
+  const mesesDisponiveis = K.mrrPorMes ? Object.keys(K.mrrPorMes).sort().reverse() : [K.mesRef.key];
+  const mesSelecionado = (window._kpiV3State && window._kpiV3State.mesSelecionado) || K.mesRef.key;
+
+  // Se o usuário trocou o mês, recomputa os valores desse mês
+  const mrrDoMes = K.mrrPorMes[mesSelecionado] || 0;
+  const netNewDoMes = K.netNewPorMes[mesSelecionado] || null;
+  const churnRecDoMes = K.churnRecPorMes[mesSelecionado] || null;
+  const margemDoMes = K.margemPorMes[mesSelecionado] || null;
+  const custoDirDoMes = K.custoDiretoPorMes[mesSelecionado] || null;
+  const mesLabelSel = _kpiV3FormatarMes(mesSelecionado);
+
+  const mrrSubvalor = mesSelecionado === K.mesRef.key && K.mrr.varPct != null
+    ? (K.mrr.varPct >= 0 ? '▲ +' : '▼ ') + K.mrr.varPct.toFixed(1) + '% vs mês anterior'
+    : (mrrDoMes > 0 ? 'Fechado' : 'Sem dados');
+  const netNewSub = netNewDoMes ? `${netNewDoMes.entraram} entraram · ${netNewDoMes.sairam} saíram` : 'Aguardando';
+  const churnRecSub = churnRecDoMes ? `Cancel. ${churnRecDoMes.cancelamento.toFixed(1)}% · Down. ${churnRecDoMes.downgrade.toFixed(1)}%` : 'Aguardando';
+  const margemSub = margemDoMes ? `Receita ${_kpiV3FmtRs(margemDoMes.receita)} · Despesa ${_kpiV3FmtRs(margemDoMes.despesa)}` : 'Aguardando';
+  const custoDirSub = custoDirDoMes ? _kpiV3FmtRs(custoDirDoMes.valor) : 'Aguardando';
+
+  const netNewVal = netNewDoMes ? _kpiV3FmtRsSigned(netNewDoMes.netNew) : '—';
+  const netNewSem = netNewDoMes ? (netNewDoMes.netNew > 0 ? 'green' : (netNewDoMes.netNew === 0 ? 'yellow' : 'red')) : 'gray';
+  const churnRecVal = churnRecDoMes ? churnRecDoMes.total.toFixed(1) + '%' : '—';
+  const churnRecSem = churnRecDoMes ? (churnRecDoMes.total <= 5 ? 'green' : (churnRecDoMes.total <= 8 ? 'yellow' : 'red')) : 'gray';
+  const margemVal = margemDoMes ? margemDoMes.pct.toFixed(1) + '%' : '—';
+  const margemSem = margemDoMes ? (margemDoMes.pct >= 15 ? 'green' : (margemDoMes.pct >= 10 ? 'yellow' : 'red')) : 'gray';
+  const custoDirVal = custoDirDoMes ? custoDirDoMes.pct.toFixed(1) + '%' : '—';
+  const custoDirSem = custoDirDoMes ? (custoDirDoMes.pct <= 30 ? 'green' : (custoDirDoMes.pct <= 40 ? 'yellow' : 'red')) : 'gray';
+
+  // Foto de HOJE (não escopado por competência)
+  const inadimpVal = K.inadimp.atual != null ? K.inadimp.atual.toFixed(1) + '%' : '—';
+  const inadimpSub = K.inadimp.valorAberto > 0 ? `${_kpiV3FmtRs(K.inadimp.valorAberto)} · ${K.inadimp.qtdInadimplente} título(s)` : 'Sem vencidos além da carência';
+  const clientesAtivos = (K.clientesMes[mesSelecionado] && K.clientesMes[mesSelecionado].size) || 0;
+
+  function _cardMini(label, valor, sub, sem, id, tipo) {
+    const cor = _semCor(sem);
+    return `<div onclick="_kpiV3IrPara('ind:${id}')" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:14px 16px;cursor:pointer;transition:all 0.15s"
+      onmouseover="this.style.background='rgba(255,255,255,0.14)'"
+      onmouseout="this.style.background='rgba(255,255,255,0.08)'">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div style="font-size:10.5px;color:#93c5fd;font-weight:800;text-transform:uppercase;letter-spacing:0.5px">${label}</div>
+        <span style="width:8px;height:8px;background:${cor};border-radius:50%;margin-top:4px;box-shadow:0 0 6px ${cor}"></span>
+      </div>
+      <div style="font-size:22px;font-weight:800;color:white;letter-spacing:-0.4px;line-height:1.1;margin-top:6px">${valor}</div>
+      <div style="font-size:11px;color:#cbd5e1;margin-top:3px">${sub}</div>
+    </div>`;
+  }
 
   let html = `<div style="padding:20px 24px;max-width:1500px;margin:0 auto;background:#f5f5f7;min-height:100vh">
-    <!-- HERO EXECUTIVO -->
-    <div style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#1e40af 100%);border-radius:20px;padding:30px 34px;margin-bottom:22px;color:white;position:relative;overflow:hidden">
+    <!-- HERO com indicadores dentro -->
+    <div style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#1e40af 100%);border-radius:20px;padding:28px 32px;margin-bottom:22px;color:white;position:relative;overflow:hidden">
       <div style="position:absolute;top:0;right:0;width:400px;height:400px;background:radial-gradient(circle,rgba(59,130,246,0.15) 0%,transparent 70%);pointer-events:none"></div>
       <div style="position:relative;z-index:1">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;margin-bottom:22px">
           <div style="flex:1;min-width:320px">
-            <div style="font-size:11px;color:#93c5fd;text-transform:uppercase;letter-spacing:2px;font-weight:700;margin-bottom:6px">📊 Painel do CEO</div>
-            <h1 style="margin:0;font-size:30px;font-weight:800;letter-spacing:-1px;line-height:1.1">KPIs Financeiros — Growper Digital</h1>
-            <p style="margin:10px 0 0;color:#cbd5e1;font-size:13.5px;line-height:1.5;max-width:700px">${K.mesRef.temDado ? `Mês de referência: <strong style="color:white">${K.mesRef.label}</strong>. Competência do OMIE começa em <strong style="color:white">dezembro/2025</strong>.` : 'Aguardando fechamento da competência mais recente.'}</p>
+            <div style="font-size:11px;color:#93c5fd;text-transform:uppercase;letter-spacing:2px;font-weight:700;margin-bottom:6px">📊 KPIs Financeiros</div>
+            <h1 style="margin:0;font-size:28px;font-weight:800;letter-spacing:-1px;line-height:1.1">Growper Digital</h1>
+            <p style="margin:8px 0 0;color:#cbd5e1;font-size:13px;line-height:1.5;max-width:700px">Competência do OMIE começa em <strong style="color:white">dezembro/2025</strong>. Escolha a competência abaixo para navegar no tempo.</p>
           </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button onclick="_kpiV3AbrirManual()" style="background:rgba(255,255,255,0.1);color:white;border:1px solid rgba(255,255,255,0.25);padding:10px 16px;border-radius:8px;font-family:Poppins;font-weight:700;font-size:12.5px;cursor:pointer">📖 Manual de Leitura</button>
-            <button onclick="window._kpiV3Dados=null; renderKPIs()" title="Recarregar" style="background:rgba(255,255,255,0.1);color:white;border:1px solid rgba(255,255,255,0.25);padding:10px 14px;border-radius:8px;font-family:Poppins;font-weight:700;font-size:12.5px;cursor:pointer">🔄</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <label style="font-size:11px;color:#93c5fd;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Competência:</label>
+            <select id="_kpiV3SelectMes" onchange="_kpiV3TrocarMes(this.value)" style="background:rgba(255,255,255,0.12);color:white;border:1px solid rgba(255,255,255,0.25);padding:8px 12px;border-radius:8px;font-family:Poppins;font-weight:700;font-size:13px;cursor:pointer">
+              ${mesesDisponiveis.map(m => `<option value="${m}" ${m===mesSelecionado?'selected':''} style="background:#1e293b;color:white">${_kpiV3FormatarMes(m)}</option>`).join('')}
+            </select>
+            <button onclick="_kpiV3AbrirManual()" style="background:rgba(255,255,255,0.1);color:white;border:1px solid rgba(255,255,255,0.25);padding:8px 14px;border-radius:8px;font-family:Poppins;font-weight:700;font-size:12px;cursor:pointer">📖 Manual</button>
+            <button onclick="window._kpiV3Dados=null; renderKPIs()" title="Recarregar" style="background:rgba(255,255,255,0.1);color:white;border:1px solid rgba(255,255,255,0.25);padding:8px 12px;border-radius:8px;font-family:Poppins;font-weight:700;font-size:12px;cursor:pointer">🔄</button>
           </div>
+        </div>
+
+        <!-- FECHADO — mês selecionado -->
+        <div style="font-size:10px;color:#93c5fd;font-weight:800;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:8px">Fechado · ${mesLabelSel}</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin-bottom:16px">
+          ${_cardMini('MRR', mrrDoMes > 0 ? _kpiV3FmtRs(mrrDoMes) : '—', mrrSubvalor, K.mrr.sem, 'mrr')}
+          ${_cardMini('Net New MRR', netNewVal, netNewSub, netNewSem, 'netNew')}
+          ${_cardMini('Churn de Receita', churnRecVal, churnRecSub, churnRecSem, 'churnRec')}
+          ${_cardMini('Margem Líquida', margemVal, margemSub, margemSem, 'margem')}
+          ${_cardMini('Custo Direto', custoDirVal, custoDirSub, custoDirSem, 'custoDir')}
+        </div>
+
+        <!-- AGORA — foto de hoje -->
+        <div style="font-size:10px;color:#93c5fd;font-weight:800;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:8px">Agora · ${new Date().toLocaleDateString('pt-BR')}</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px">
+          ${_cardMini('Títulos vencidos em aberto', _kpiV3FmtRs(K.inadimp.valorAberto || 0), inadimpSub, K.inadimp.sem, 'inadimp')}
+          ${_cardMini('Em conciliação', _kpiV3FmtRs(K.inadimp.valorConciliacao || 0), `${K.inadimp.qtdConciliacao} título(s) · competência corrente`, 'blue', 'inadimp')}
+          ${_cardMini('Clientes ativos', clientesAtivos.toString(), `Pagaram mensalidade em ${mesLabelSel}`, 'blue', 'ticket')}
         </div>
       </div>
     </div>
@@ -5043,20 +5094,9 @@ function _kpiV3RenderHome(container, K, inputs, D) {
       <div style="font-size:14px;color:#0f172a;line-height:1.7;max-width:1100px">${_narrativa() || 'Sem eventos relevantes no período.'}</div>
     </div>` : ''}
 
-    <!-- CAMADA EXECUTIVA — 6 números -->
-    <div style="font-size:11px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;padding:0 4px">Indicadores do CEO</div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-bottom:24px">
-      ${_lin('MRR', K.mesRef.temDado ? _kpiV3FmtRs(K.mrr.atual) : '—', mrrSubvalor, K.mrr.sem, 'mrr', 'O número do negócio')}
-      ${_lin('Net New MRR', K.mesRef.temDado ? _kpiV3FmtRsSigned(K.netNew.atual) : '—', netNewSub, K.netNew.sem, 'netNew', 'Está crescendo ou encolhendo')}
-      ${_lin('Churn de Receita', K.churnRec.atual != null ? K.churnRec.atual.toFixed(1) + '%' : '—', churnRecSub, K.churnRec.sem, 'churnRec', 'O problema atual')}
-      ${_lin('Margem Líquida', K.margem.atual != null ? K.margem.atual.toFixed(1) + '%' : '—', margemSub, K.margem.sem, 'margem', 'Sobrou dinheiro')}
-      ${_lin('Custo Direto', K.custoDireto.atual != null ? K.custoDireto.atual.toFixed(1) + '%' : '—', custoDirSub, K.custoDireto.sem, 'custoDir', 'O problema estrutural')}
-      ${_lin('Inadimplência', K.inadimp.atual != null ? K.inadimp.atual.toFixed(1) + '%' : '—', inadimpSub, K.inadimp.sem, 'inadimp', 'O dinheiro está entrando')}
-    </div>
-    
     <div style="font-size:11px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;padding:0 4px">Áreas de análise</div>`;
 
-  // Botões grandes de grupo (agora na nova ordem: Receita → Rentabilidade → Risco → Retenção → Performance)
+  // Botões grandes de grupo
   grupos.forEach(g => {
     const previewInds = g.inds.slice(0, 4);
     html += `<div onclick="_kpiV3IrPara('grupo:${g.id}')"
@@ -5086,6 +5126,13 @@ function _kpiV3RenderHome(container, K, inputs, D) {
   html += '</div>';
   container.innerHTML = html;
 }
+
+// Handler do seletor de competência da Home
+window._kpiV3TrocarMes = function(mesKey) {
+  if (!window._kpiV3State) window._kpiV3State = { view: 'home' };
+  window._kpiV3State.mesSelecionado = mesKey;
+  renderKPIs();
+};
 
 // ============================================================
 // NÍVEL 2 — GRUPO (mostra os indicadores do grupo escolhido)
@@ -6668,7 +6715,7 @@ async function _kpiV3CarregarDados() {
     }
     if (supa) {
       const r = await supa.from('titulos')
-        .select('id_titulo,tipo,status,cancelado,data_vencimento,valor_documento,valor_pago,cliente_nome')
+        .select('id_titulo,tipo,status,cancelado,data_registro,data_vencimento,valor_documento,valor_pago,cliente_nome')
         .eq('tipo', '1. Contas a Receber')
         .eq('cancelado', false);
       if (!r.error) titulos = r.data || [];
@@ -6765,12 +6812,9 @@ function _kpiV3Calcular(D, inputs) {
     }
   });
 
-  // Ticket Médio: base ampla (Mensalidades + Inadimplentes + Taxa de Implementação) — igual M&A
-  const receitaBaseCli = D.receita_comp.filter(r => {
-    const c = r.categoria_texto || '';
-    return c.includes('Mensalidades Clientes') || c.includes('Inadimplent') || c.includes('Taxa de Implementação') || c.includes('Taxa Implementação');
-  });
-  const clientesMes = _kpiV3ClientesPorMes(receitaBaseCli);
+  // Ticket Médio: contagem baseada APENAS em quem pagou mensalidade (categoria 1.01.01),
+  // não a base ampla — para que MRR ÷ clientes bata exatamente com a referência.
+  const clientesMes = _kpiV3ClientesPorMes(receitaMensalidades);
   const nClientesAtual = (clientesMes[mesRefKey] || new Set()).size;
   const nClientesAnt = (clientesMes[mesAntKey] || new Set()).size;
   const ticketAtual = nClientesAtual > 0 ? mrrAtual / nClientesAtual : 0;
@@ -6930,7 +6974,10 @@ function _kpiV3Calcular(D, inputs) {
   aging._totalVencido = aging.a0_30 + aging.a31_60 + aging.a61_90 + aging.a90_mais;
 
   // ============ INADIMPLÊNCIA REAL — todo título vencido em aberto, sem janela de 90d ============
-  // Carência de 5 dias após vencimento antes de considerar inadimplente.
+  // Regras:
+  //  1. Títulos com data_registro NA COMPETÊNCIA CORRENTE (última que foi lançada) ficam em
+  //     "conciliação" independente da carência — a competência ainda está sendo baixada.
+  //  2. Fora da competência corrente, aplica carência de 5 dias após vencimento.
   const cutoffCarencia = new Date(hoje0); cutoffCarencia.setDate(cutoffCarencia.getDate() - 5);
   let valorInadimplente = 0;
   let valorEmConciliacao = 0;
@@ -6945,12 +6992,15 @@ function _kpiV3Calcular(D, inputs) {
     if (val <= 0) return;
     if (venc >= hoje0) return; // ainda a vencer
     const dias = Math.floor((hoje0 - venc) / (1000 * 60 * 60 * 24));
-    if (dias <= 5) {
+    // Título da competência corrente (mesRefKey) → sempre em conciliação
+    const dataReg = t.data_registro ? String(t.data_registro).slice(0, 7) : null;
+    const emCompCorrente = dataReg && dataReg === mesRefKey;
+    if (emCompCorrente || dias <= 5) {
       valorEmConciliacao += val;
-      listaConciliacao.push({ cliente: t.cliente_nome || '—', valor: val, vencimento: t.data_vencimento, dias });
+      listaConciliacao.push({ cliente: t.cliente_nome || '—', valor: val, vencimento: t.data_vencimento, dias, competencia: dataReg });
     } else {
       valorInadimplente += val;
-      listaInadimp.push({ cliente: t.cliente_nome || '—', valor: val, vencimento: t.data_vencimento, dias });
+      listaInadimp.push({ cliente: t.cliente_nome || '—', valor: val, vencimento: t.data_vencimento, dias, competencia: dataReg });
     }
   });
   listaInadimp.sort((a, b) => b.dias - a.dias);
@@ -7042,16 +7092,22 @@ function _kpiV3Calcular(D, inputs) {
 
   // CAC — usa contagem correta via decomposição do Net New (novos = clientes 1ª vez no mês)
   const novosMes = netNewDecomp.entraram;
-  // Categoria 2.02 (Comercial e Marketing) + tentar isolar dept comercial se D.despesa_comp tem departamento
+  // Isolamento do custo comercial:
+  //   - Categoria 2.02 (Comercial e Marketing) — sempre inclui
+  //   - Departamentos comerciais via campo `departamento` (D001 Performance, D002 CS, D007+ Comercial)
+  //   - Nunca inclui 2.01.95 (repasse de mídia)
   const gastoComercial = despesa_comp.filter(d => {
+    if (d.mes !== mesRefKey) return false;
     const c = (d.categoria_texto || '').toLowerCase();
     const dep = (d.departamento || '').toLowerCase();
     if (c.includes('gasto tráfego pago clientes') || c.includes('trafego pago clientes')) return false;
-    if (d.mes !== mesRefKey) return false;
-    // Comercial + marketing por categoria
+    // Categoria 2.02 (marketing/comercial)
     if (c.includes('marketing') || c.includes('comercial') || c.includes('propaganda') || c.includes('publicidade') || c.includes('vendas')) return true;
-    // Ou pessoal do departamento comercial
-    if (dep.includes('comercial')) return true;
+    // Departamento comercial (D001 Performance, D002 CS, D007+ Comercial, ...)
+    // Excluir: D010 Tributárias, D011 Não Operacionais, D012 Sócios, D014 Scalia
+    if (!dep) return false;
+    if (dep.includes('tributári') || dep.includes('não operacional') || dep.includes('sócios') || dep.includes('scalia')) return false;
+    if (dep.includes('performance') || dep.includes('comercial') || dep.includes('customer success') || dep.includes(' cs ') || dep.endsWith(' cs')) return true;
     return false;
   }).reduce((s, d) => s + Number(d.valor_pago || 0), 0);
   const cacAtual = novosMes > 0 ? gastoComercial / novosMes : null;
@@ -7063,13 +7119,14 @@ function _kpiV3Calcular(D, inputs) {
   // LTV: ticket ÷ churn de logos mensal · margem bruta (aprox. 1 − custo direto)
   //   → mesmo sem CAC, LTV é calculável e útil
   const churnMensal = churnLogoAtual !== null ? churnLogoAtual / 100 : null;
-  const custoDireto3m_prev = _kpiV3SomaPeriodo(D.despesa.filter(d => {
-    const c = (d.categoria_texto || '');
+  // Custo direto do MÊS DE REFERÊNCIA (não 3m — padronizar janelas)
+  function _isCustoDireto(cat) {
+    const c = String(cat || '');
     if (c.includes('Gasto Tráfego Pago Clientes') || c.includes('Trafego Pago Clientes')) return false;
-    return c.includes('Remuneração Operacional') || c.includes('Editores') || c.includes('Custo Direto') || c.includes('Influenciad') || c.includes('Produção');
-  }), [mesRefKey, mesAntKey, mesAntAntKey]);
-  const receitaLiq3m_prev = _kpiV3SomaPeriodo(D.receita, [mesRefKey, mesAntKey, mesAntAntKey]);
-  const custoDiretoPctAprox = receitaLiq3m_prev > 0 ? custoDireto3m_prev / receitaLiq3m_prev : null;
+    return c.includes('Remuneração Operacional') || c.includes('Editores') || c.includes('Custo Direto') || c.includes('Influenciad') || c.includes('Produção') || /^2\.01/.test(c);
+  }
+  const custoDiretoMesRef = despesa_comp.filter(d => d.mes === mesRefKey && _isCustoDireto(d.categoria_texto)).reduce((s, d) => s + Number(d.valor_pago || 0), 0);
+  const custoDiretoPctAprox = receitaMesRef > 0 ? custoDiretoMesRef / receitaMesRef : null;
   const margemBrutaAprox = custoDiretoPctAprox !== null ? (1 - custoDiretoPctAprox) : 0.59;
   const ltvAprox = (ticketAtual > 0 && churnMensal > 0) ? ticketAtual * (1 / churnMensal) * margemBrutaAprox : null;
   const ltvCacAtual = (ltvAprox && cacAtual > 0) ? ltvAprox / cacAtual : null;
@@ -7079,22 +7136,16 @@ function _kpiV3Calcular(D, inputs) {
     sem: ltvCacAtual === null ? 'gray' : (ltvCacAtual >= 3 ? 'green' : (ltvCacAtual >= 1 ? 'yellow' : 'red'))
   };
 
-  // Custo Direto sobre Receita — por competência
-  const custoDireto3m = custoDireto3m_prev;
-  const custoDiretoPct = receitaLiq3m_prev > 0 ? (custoDireto3m / receitaLiq3m_prev * 100) : null;
+  // Custo Direto sobre Receita — 1 mês, por competência (padronizado com Margem)
+  const custoDiretoPct = receitaMesRef > 0 ? (custoDiretoMesRef / receitaMesRef * 100) : null;
   const custoDiretoPorMes = {};
   Object.keys(mrrPorMes).forEach(mes => {
     const r = _somaReceitaMes(mes);
-    const cd = despesa_comp.filter(d => {
-      if (d.mes !== mes) return false;
-      const c = (d.categoria_texto || '');
-      if (c.includes('Gasto Tráfego Pago Clientes') || c.includes('Trafego Pago Clientes')) return false;
-      return c.includes('Remuneração Operacional') || c.includes('Editores') || c.includes('Custo Direto') || c.includes('Influenciad') || c.includes('Produção');
-    }).reduce((s, d) => s + Number(d.valor_pago || 0), 0);
+    const cd = despesa_comp.filter(d => d.mes === mes && _isCustoDireto(d.categoria_texto)).reduce((s, d) => s + Number(d.valor_pago || 0), 0);
     if (r > 0) custoDiretoPorMes[mes] = { valor: cd, pct: cd / r * 100 };
   });
   const custoDireto = {
-    atual: custoDiretoPct, valor: custoDireto3m,
+    atual: custoDiretoPct, valor: custoDiretoMesRef,
     sem: custoDiretoPct === null ? 'gray' : (custoDiretoPct <= 30 ? 'green' : (custoDiretoPct <= 40 ? 'yellow' : 'red'))
   };
 
