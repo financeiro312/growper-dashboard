@@ -6406,7 +6406,7 @@ function _kpiV3IndDefs(id, K, inputs, D) {
       descricao: 'A soma de todas as mensalidades da competência. Representa a receita previsível que entra todo mês pelo contrato recorrente — o motor principal do negócio. Excluída a taxa de implementação e receitas extraordinárias.',
       valor: _kpiV3FmtRs(K.mrr.atual),
       subvalor: K.mrr.varPct != null ? (K.mrr.varPct >= 0 ? '▲ +' : '▼ ') + K.mrr.varPct.toFixed(1) + '% vs mês anterior' : 'Sem comparação',
-      semaforo: K.mrr.sem, confiab: 'ALTA', metaTag: 'Meta > +3% MoM',
+      semaforo: K.mrr.sem, confiab: 'ALTA · COMPETÊNCIA', metaTag: 'Meta > +3% MoM',
       metaTexto: 'A referência esperada é <strong>crescimento de pelo menos 3% ao mês</strong> vs o mês anterior. Verde quando ≥ 3%, amarelo entre 0-3%, vermelho quando cai. Se cair dois meses seguidos, é sinal para revisar comercial e retenção.',
       serie, serieTitulo: `MRR mensal — ${mesesAno[0].split('-')[0]}`, serieFmt: 'money',
       serieClickHandler: '_kpiV3ClickMesMRR', mesSelecionadoInicial: K.mesRef.key,
@@ -6449,7 +6449,7 @@ function _kpiV3IndDefs(id, K, inputs, D) {
       descricao: 'A variação líquida do MRR entre este mês e o anterior, decomposta nas quatro parcelas que a compõem: Novos, Expansão, Contração e Churn. Mostra em uma só imagem o vetor de crescimento e o "balde furado".',
       valor: _kpiV3FmtRsSigned(K.netNew.atual),
       subvalor: K.netNew.atual >= 0 ? `Entraram ${dec.entraram} · Saíram ${dec.sairam}` : `Saíram ${dec.sairam} · Entraram ${dec.entraram}`,
-      semaforo: K.netNew.sem, confiab: 'ALTA', metaTag: 'Sempre positivo',
+      semaforo: K.netNew.sem, confiab: 'ALTA · COMPETÊNCIA', metaTag: 'Sempre positivo',
       metaTexto: 'A referência esperada é <strong>sempre positivo</strong>, idealmente ≥ 5% do MRR base. Verde quando > 0, amarelo se zerado, vermelho quando negativo. Dois meses seguidos negativos é sinal claro de que o comercial não está compensando o churn.',
       conceito: `<div style="font-size:13.5px;color:#334155;line-height:1.75">
         <p style="margin:0 0 10px"><strong>É a resposta para:</strong> <em>"a receita recorrente cresceu ou encolheu este mês, e por quê?"</em></p>
@@ -6534,7 +6534,7 @@ function _kpiV3IndDefs(id, K, inputs, D) {
       descricao: 'Quanto cada cliente ativo paga em média por mês. Na Growper, como a mensalidade vem da faixa e a faixa vem do investimento em mídia, o ticket médio é na prática "quanto o cliente médio está investindo em mídia por mês".',
       valor: _kpiV3FmtRs(K.ticket.atual),
       subvalor: `${varTxt} · ${K.ticket.nClientes} clientes ativos (${K.ticket.nClientes >= K.ticket.nClientesAnt ? '+' : ''}${K.ticket.nClientes - K.ticket.nClientesAnt} vs mês anterior)`,
-      semaforo: K.ticket.sem, confiab: 'ALTA', metaTag: 'Ver ticket + base',
+      semaforo: K.ticket.sem, confiab: 'ALTA · COMPETÊNCIA', metaTag: 'Ver ticket + base',
       metaTexto: 'Semáforo composto: <strong>ticket + contagem de clientes</strong> juntos. Ticket cai + base cresce = neutro (entrada de menores). Ticket cai + base encolhe = vermelho (perda de maiores). Ticket sobe + base cresce = verde. Ticket sobe + base encolhe = amarelo. Olhar ticket sem base induz leitura errada.',
       serie, serieTitulo: `Ticket Médio mensal — ${mesesAno[0].split('-')[0]}`, serieFmt: 'money',
       serieClickHandler: '_kpiV3ClickMesTicket', mesSelecionadoInicial: K.mesRef.key,
@@ -6620,7 +6620,7 @@ function _kpiV3IndDefs(id, K, inputs, D) {
       descricao: 'Percentual do MRR do mês anterior que sumiu, decomposto em CANCELAMENTO (cliente saiu) e DOWNGRADE (cliente ficou mas em faixa menor). São problemas com donos diferentes.',
       valor: K.churnRec.atual != null ? K.churnRec.atual.toFixed(1) + '%' : '—',
       subvalor: K.churnRec.atual != null ? `Cancel. ${(K.churnRec.cancelamento||0).toFixed(1)}% · Downgrade ${(K.churnRec.downgrade||0).toFixed(1)}%` : 'Sem comparação',
-      semaforo: K.churnRec.sem, confiab: 'ALTA', metaTag: 'Meta < 5%',
+      semaforo: K.churnRec.sem, confiab: 'ALTA · COMPETÊNCIA', metaTag: 'Meta < 5%',
       metaTexto: 'A referência esperada é <strong>abaixo de 5% ao mês</strong>. Verde ≤ 5%, amarelo entre 5-8%, vermelho acima de 8%. Alerta forte acima de 10%. Cancelamento e downgrade devem ser avaliados separadamente: cancelamento é problema de CS/produto; downgrade é problema comercial (cliente cortou orçamento).',
       serie, serieTitulo: `Churn de Receita mensal — ${mesesAno[0].split('-')[0]}`, serieFmt: 'pct',
       serieClickHandler: '_kpiV3ClickMesChurnRec', mesSelecionadoInicial: K.mesRef.key,
@@ -6658,7 +6658,7 @@ function _kpiV3IndDefs(id, K, inputs, D) {
       descricao: 'Percentual de clientes que cancelaram este mês. Mede o "balanço de cabeças" — quantos deixam de pagar, independente do valor.',
       valor: K.churnLogo.atual != null ? K.churnLogo.atual.toFixed(1) + '%' : '—',
       subvalor: K.churnLogo.atual != null ? `${K.churnLogo.qtdSairam} clientes saíram · ticket ${_kpiV3FmtRs(K.churnLogo.ticketQuemSaiu||0)}` : 'Sem dados',
-      semaforo: K.churnLogo.sem, confiab: 'ALTA', metaTag: 'Meta < 5%',
+      semaforo: K.churnLogo.sem, confiab: 'ALTA · COMPETÊNCIA', metaTag: 'Meta < 5%',
       metaTexto: 'A referência esperada é <strong>abaixo de 5% ao mês</strong>. Verde ≤ 5%, amarelo entre 5-8%, vermelho acima de 8%. Comparar sempre com a parcela de <strong>cancelamento</strong> do Churn de Receita (nunca com o total, que inclui downgrade).',
       serie, serieTitulo: `Churn de Logos mensal — ${mesesAno[0].split('-')[0]}`, serieFmt: 'pct',
       serieClickHandler: '_kpiV3ClickMesChurnLogo', mesSelecionadoInicial: K.mesRef.key,
@@ -6742,7 +6742,7 @@ function _kpiV3IndDefs(id, K, inputs, D) {
       valor: K.inadimp.atual != null ? K.inadimp.atual.toFixed(1) + '%' : '—',
       subvalor: `${_kpiV3FmtRs(K.inadimp.valorAberto)} vencido · ${_kpiV3FmtRs(K.inadimp.valorConciliacao)} em conciliação`,
       mesRefLabel: 'HOJE · ' + hojeStr,
-      semaforo: K.inadimp.sem, confiab: 'ALTA', metaTag: 'Meta < 3% do MRR',
+      semaforo: K.inadimp.sem, confiab: 'ALTA · FOTO DE HOJE', metaTag: 'Meta < 3% do MRR',
       metaTexto: 'A referência esperada é <strong>abaixo de 3% do MRR</strong>. Verde ≤ 3%, amarelo entre 3-5%, vermelho acima de 5%. A carência de 5 dias evita que a conciliação em andamento seja lida como inadimplência real. Títulos da competência corrente ficam sempre em "conciliação".',
       serie, serieTitulo: `% em aberto por competência — ${mesesAno[0].split('-')[0]}`, serieFmt: 'pct',
       serieClickHandler: '_kpiV3ClickMesInadimp', mesSelecionadoInicial: K.mesRef.key,
@@ -6776,7 +6776,7 @@ function _kpiV3IndDefs(id, K, inputs, D) {
       subvalor: `${_kpiV3FmtRs(totVencido)} vencido · 90+ = ${pct90.toFixed(1)}%`,
       mesRefLabel: 'HOJE · ' + hojeStr,
       semaforo: pct90 > 10 ? 'red' : (pct90 > 5 ? 'yellow' : 'green'),
-      confiab: 'ALTA', metaTag: '90+ dias < 10%',
+      confiab: 'ALTA · FOTO DE HOJE', metaTag: '90+ dias < 10%',
       metaTexto: 'A referência esperada é <strong>menos de 10% do total em aberto na faixa 90+ dias</strong>. Verde < 10%, amarelo 10-30%, vermelho acima de 30%. Faixa 90+ concentra dívida com baixa probabilidade de recebimento — candidata a baixa contábil.',
       agingDetalhe: true, agingCor: '#f97316',
       leitura: [
@@ -6809,7 +6809,7 @@ function _kpiV3IndDefs(id, K, inputs, D) {
       descricao: 'Percentual do MRR concentrado nos 5 e 10 maiores clientes. Mede o risco de dependência de conta grande.',
       valor: K.top5.atual != null ? K.top5.atual.toFixed(1) + '%' : '—',
       subvalor: `Top 5: ${K.top5.atual != null ? K.top5.atual.toFixed(1) + '%' : '—'} · Top 10: ${K.top10.atual != null ? K.top10.atual.toFixed(1) + '%' : '—'}`,
-      semaforo: K.top5.sem, confiab: 'ALTA', metaTag: 'Top 5 < 30%',
+      semaforo: K.top5.sem, confiab: 'ALTA · COMPETÊNCIA', metaTag: 'Top 5 < 30%',
       metaTexto: 'Referência: <strong>Top 5 < 30%</strong> e <strong>Top 10 < 45%</strong>. Verde nos dois limites, amarelo entre limites e o dobro, vermelho acima. Concentração baixa é sinal de base pulverizada — bom para risco de perda pontual, mas o risco migra para churn de volume.',
       concentracaoDetalhe: true, concentracaoCor: '#0284c7',
       serie, serieTitulo: `Top 5 · % do MRR mensal — ${mesesAno[0].split('-')[0]}`, serieFmt: 'pct',
@@ -6846,8 +6846,8 @@ function _kpiV3IndDefs(id, K, inputs, D) {
       descricao: 'Percentual da receita que sobra após todas as despesas operacionais. Cálculo por competência: receita e despesa agrupadas pelo mês de data_registro.',
       valor: K.margem.atual != null ? K.margem.atual.toFixed(1) + '%' : '—',
       subvalor: `Receita ${_kpiV3FmtRs(K.margem.receita)} · Despesa ${_kpiV3FmtRs(K.margem.despesa)}`,
-      semaforo: K.margem.sem, confiab: 'ALTA', metaTag: 'Meta > 15%',
-      metaTexto: 'Referência: <strong>≥ 15%</strong>. Verde ≥ 15%, amarelo 10-15%, vermelho < 10%. Despesa operacional considerada: grupos 2.01 (custo direto), 2.02 (comercial), 2.03 (pessoal), 2.04 (administrativo), 2.05 (financeiro), 2.06 (impostos), 2.08 (eventuais). Excluídos: 2.07 (CAPEX) e 2.09 (distribuição de lucros).',
+      semaforo: K.margem.sem, confiab: 'ALTA · COMPETÊNCIA', metaTag: 'Meta > 15%',
+      metaTexto: '<div style="padding:10px 14px;background:#f0fdf4;border-left:4px solid #059669;border-radius:0 6px 6px 0;margin-bottom:10px;font-size:12.5px"><strong>Regime: competência</strong> (data de registro no OMIE), nos dois lados. Receita e despesa agrupadas pelo mês de <code>data_registro</code>, somando <code>valor_documento</code>.</div>Referência: <strong>≥ 15%</strong>. Verde ≥ 15%, amarelo 10-15%, vermelho < 10%. Despesa operacional considerada: grupos 2.01 (custo direto), 2.02 (comercial), 2.03 (pessoal), 2.04 (administrativo), 2.05 (financeiro), 2.06 (impostos), 2.08 (eventuais). Excluídos: 2.07 (CAPEX) e 2.09 (distribuição de lucros).',
       serie, serieTitulo: `Margem Líquida mensal — ${mesesAno[0].split('-')[0]}`, serieFmt: 'pct',
       serieClickHandler: '_kpiV3ClickMesMargem', mesSelecionadoInicial: K.mesRef.key,
       margemDetalhe: true, margemCor: '#059669',
@@ -6987,8 +6987,8 @@ function _kpiV3IndDefs(id, K, inputs, D) {
       descricao: 'Percentual do MRR consumido pela Remuneração Operacional PJ. Duas séries: <strong>Entrega</strong> (Performance + CS + Criação) e <strong>Total PJ</strong> (todos os departamentos).',
       valor: K.custoDireto.atual != null ? K.custoDireto.atual.toFixed(1) + '%' : '—',
       subvalor: `Entrega: ${_kpiV3FmtRs(K.custoDireto.valor)} · Total PJ: ${_kpiV3FmtRs(K.custoDireto.valorTotal)} (${K.custoDireto.pctTotal != null ? K.custoDireto.pctTotal.toFixed(1) + '%' : '—'})`,
-      semaforo: K.custoDireto.sem, confiab: 'ALTA', metaTag: 'Entrega ≤ 30%',
-      metaTexto: 'A meta de <strong>≤ 30%</strong> se aplica à linha <strong>Entrega</strong> (D001 Performance + D002 CS + D003 Criação) — o custo de manter a operação que atende clientes. A linha <strong>Total PJ</strong> mostra o peso da folha PJ inteira sobre o MRR, é acompanhamento e não tem meta rígida. <br><br><strong>Denominador:</strong> MRR (categoria 1.01.01). <br><strong>Numerador:</strong> só categoria <code>2.03.01 Remuneração Operacional PJ</code>. <br><strong>Nunca inclui</strong> categoria 2.01 nem 2.01.95 (repasse de mídia).',
+      semaforo: K.custoDireto.sem, confiab: 'ALTA · COMPETÊNCIA', metaTag: 'Entrega ≤ 30%',
+      metaTexto: '<div style="padding:10px 14px;background:#f0fdf4;border-left:4px solid #059669;border-radius:0 6px 6px 0;margin-bottom:10px;font-size:12.5px"><strong>Regime: competência</strong> (data de registro no OMIE), nos dois lados do cálculo. MRR = mensalidades de clientes · Custo = remuneração de prestadores PJ.</div>A meta de <strong>≤ 30%</strong> se aplica à linha <strong>Entrega</strong> (D001 Performance + D002 CS + D003 Criação) — o custo de manter a operação que atende clientes. A linha <strong>Total PJ</strong> mostra o peso da folha PJ inteira sobre o MRR, é acompanhamento e não tem meta rígida. <br><br><strong>Numerador:</strong> categoria <code>2.03.01</code>, agrupada pelo mês de <code>data_registro</code>, somando <code>valor_documento</code>. <br><strong>Denominador:</strong> categoria <code>1.01.01</code> (MRR), mesmo tratamento. <br><br><strong>Proibido:</strong> usar <code>data_pagto</code> ou <code>valor_pago</code> em qualquer lado. <strong>Nunca inclui</strong> categoria 2.01 nem 2.01.95 (repasse de mídia).',
       serieMultipla: seriesMulti, serieTitulo: `Custo Direto sobre MRR — ${mesesAno[0].split('-')[0]}`, serieFmt: 'pct',
       serieClickHandler: '_kpiV3ClickMesCustoDir', mesSelecionadoInicial: K.mesRef.key, serieMeta: 30,
       custoDirDetalhe: true, custoDirCor: '#059669',
@@ -7156,6 +7156,12 @@ async function _kpiV3CarregarDados() {
   });
 
   // ============ TÍTULOS ABERTOS (Aging / Inadimplência) ============
+  // A tabela `titulos` tem RLS ativa sem políticas — a chave anon do navegador
+  // não enxerga nada dela. Por isso lemos da view `v_titulos_abertos_mensalidade`
+  // (RLS off por design, sob o padrão de `v_raw_data_comp`), que já pré-filtra:
+  //   tipo = '1. Contas a Receber' · cancelado = false · status = 'Não'
+  //   · categoria_nome LIKE '1.01.01%' · data_registro IS NOT NULL
+  // Retorna as mesmas 190 linhas / R$ 445.500 validadas no SQL Editor.
   let titulos = [];
   const SUPA_URL = 'https://dfaydkiqbhpzxosffurs.supabase.co';
   const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmYXlka2lxYmhwenhvc2ZmdXJzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyMTg1OTYsImV4cCI6MjEwMDc5NDU5Nn0.EJ50JLQw0dufwintmmp_0vR7Cfg9avjDTrmyuC4mfbM';
@@ -7165,33 +7171,29 @@ async function _kpiV3CarregarDados() {
       supa = window.supabase.createClient(SUPA_URL, SUPA_KEY);
     }
     if (supa) {
-      // Filtra: contas a receber + só mensalidades + títulos abertos (status='Não').
-      // A tabela `titulos` não tem coluna data_pagto — status='Não' + cancelado=false
-      // já delimita os títulos em aberto corretamente. NÃO usar valor_pago=0 como
-      // critério: esse campo fica zerado mesmo em títulos já pagos.
-      const r = await supa.from('titulos')
-        .select('id_titulo,tipo,status,cancelado,categoria_nome,data_registro,data_vencimento,valor_documento,cliente_nome')
-        .eq('tipo', '1. Contas a Receber')
-        .eq('cancelado', false)
-        .eq('status', 'Não')
-        .like('categoria_nome', '1.01.01%')
-        .not('data_registro', 'is', null)
+      const r = await supa.from('v_titulos_abertos_mensalidade')
+        .select('id_titulo,cliente_nome,data_registro,data_vencimento,valor_documento')
         .limit(10000);
-      if (!r.error) titulos = r.data || [];
+      if (!r.error) titulos = (r.data || []).map(t => ({
+        id_titulo: t.id_titulo, tipo: '1. Contas a Receber', status: 'Não', cancelado: false,
+        cliente_nome: t.cliente_nome, data_registro: t.data_registro,
+        data_vencimento: t.data_vencimento, valor_documento: t.valor_documento
+      }));
     }
   } catch(e) {}
-  // Fallback via fetch direto se o cliente Supabase JS não estiver disponível
+  // Fallback via fetch direto (também na view)
   if (titulos.length === 0) {
     try {
-      const url = SUPA_URL + "/rest/v1/titulos?select=id_titulo,tipo,status,cancelado,categoria_nome,data_registro,data_vencimento,valor_documento,cliente_nome"
-        + "&tipo=eq.1.%20Contas%20a%20Receber"
-        + "&cancelado=eq.false"
-        + "&status=eq.N%C3%A3o"
-        + "&categoria_nome=like.1.01.01*"
-        + "&data_registro=not.is.null"
-        + "&limit=10000";
+      const url = SUPA_URL + "/rest/v1/v_titulos_abertos_mensalidade?select=id_titulo,cliente_nome,data_registro,data_vencimento,valor_documento&limit=10000";
       const resp = await fetch(url, { headers: { apikey: SUPA_KEY, Authorization: 'Bearer ' + SUPA_KEY } });
-      if (resp.ok) titulos = await resp.json();
+      if (resp.ok) {
+        const raw = await resp.json();
+        titulos = raw.map(t => ({
+          id_titulo: t.id_titulo, tipo: '1. Contas a Receber', status: 'Não', cancelado: false,
+          cliente_nome: t.cliente_nome, data_registro: t.data_registro,
+          data_vencimento: t.data_vencimento, valor_documento: t.valor_documento
+        }));
+      }
     } catch(e) {}
   }
   window._kpiV3DebugTitulos = titulos.length;
