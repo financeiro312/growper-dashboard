@@ -5255,7 +5255,7 @@ function _kpiV3RenderIndicador(container, id, K, inputs, D) {
       <div style="padding:0 26px 22px">${def.conceito}</div>
     </details>` : ''}
 
-    ${def.serie && def.serie.length > 0 ? `<div style="background:white;border:1px solid #e2e8f0;border-radius:14px;padding:22px 26px;margin-bottom:16px">
+    ${(def.serie && def.serie.length > 0) || def.serieMultipla ? `<div style="background:white;border:1px solid #e2e8f0;border-radius:14px;padding:22px 26px;margin-bottom:16px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
         <div>
           <div style="font-size:11px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:0.5px">📈 Evolução histórica</div>
@@ -5263,7 +5263,11 @@ function _kpiV3RenderIndicador(container, id, K, inputs, D) {
           ${def.serieClickHandler ? `<div style="font-size:11.5px;color:#059669;margin-top:4px;font-weight:600">💡 Clique em qualquer mês para ver o detalhamento</div>` : ''}
         </div>
       </div>
-      <div id="${def.serieClickHandler ? '_kpiV3ChartMRR' : '_kpiV3Chart_' + id}">${_kpiV3ChartLinha(def.serie, cor, def.serieFmt || 'money', def.serieClickHandler ? { onClick: def.serieClickHandler, mesSelecionado: def.mesSelecionadoInicial } : {})}</div>
+      <div id="${def.serieClickHandler ? '_kpiV3ChartMRR' : '_kpiV3Chart_' + id}">${
+        def.serieMultipla
+          ? _kpiV3ChartMultiLinha(def.serieMultipla, def.serieFmt || 'money', def.serieClickHandler ? { onClick: def.serieClickHandler, mesSelecionado: def.mesSelecionadoInicial, meta: def.serieMeta } : { meta: def.serieMeta })
+          : _kpiV3ChartLinha(def.serie, cor, def.serieFmt || 'money', def.serieClickHandler ? { onClick: def.serieClickHandler, mesSelecionado: def.mesSelecionadoInicial } : {})
+      }</div>
     </div>` : ''}
     
     <!-- Faixas dinâmicas (quando aplicável, ex: MRR) -->
@@ -5275,7 +5279,7 @@ function _kpiV3RenderIndicador(container, id, K, inputs, D) {
       <div id="_kpiV3FaixasBox">${_kpiV3RenderFaixasMes(def.mesSelecionadoInicial, def.faixasCor || cor)}</div>
     </div>` : ''}
 
-    ${(def.netNewDecomp || def.churnRecDecomp || def.churnLogoDetalhe || def.nrrDetalhe || def.ticketDetalhe || def.concentracaoDetalhe || def.margemDetalhe || def.cacDetalhe || def.ltvDetalhe || def.inadimpDetalhe) ? `<div style="background:white;border:1px solid #e2e8f0;border-radius:14px;padding:22px 26px;margin-bottom:16px">
+    ${(def.netNewDecomp || def.churnRecDecomp || def.churnLogoDetalhe || def.nrrDetalhe || def.ticketDetalhe || def.concentracaoDetalhe || def.margemDetalhe || def.cacDetalhe || def.ltvDetalhe || def.inadimpDetalhe || def.custoDirDetalhe) ? `<div style="background:white;border:1px solid #e2e8f0;border-radius:14px;padding:22px 26px;margin-bottom:16px">
       <div style="margin-bottom:16px">
         <div style="font-size:11px;color:${cor};font-weight:800;text-transform:uppercase;letter-spacing:0.5px">🔍 Detalhamento por mês</div>
         <div style="font-size:16px;font-weight:800;color:#0f172a;margin-top:2px">Clique em qualquer mês do gráfico para ver a composição</div>
@@ -5290,7 +5294,8 @@ function _kpiV3RenderIndicador(container, id, K, inputs, D) {
         def.margemDetalhe ? _kpiV3RenderDetalheMargem(def.mesSelecionadoInicial || K.mesRef.key) :
         def.cacDetalhe ? _kpiV3RenderDetalheCAC(def.mesSelecionadoInicial || K.mesRef.key) :
         def.ltvDetalhe ? _kpiV3RenderDetalheLTV(def.mesSelecionadoInicial || K.mesRef.key) :
-        def.inadimpDetalhe ? _kpiV3RenderDetalheInadimp(def.mesSelecionadoInicial || K.mesRef.key) : ''
+        def.inadimpDetalhe ? _kpiV3RenderDetalheInadimp(def.mesSelecionadoInicial || K.mesRef.key) :
+        def.custoDirDetalhe ? _kpiV3RenderDetalheCustoDir(def.mesSelecionadoInicial || K.mesRef.key) : ''
       }</div>
     </div>` : ''}
 
@@ -5432,6 +5437,12 @@ function _kpiV3FaixaDeValor(v) {
   if (v < 5500) return 'Premium';
   if (v < 6500) return 'Master';
   return 'Business';
+}
+
+// Limpa o prefixo numérico do departamento: "4543375655 D001 - Performance" → "D001 - Performance"
+function _kpiV3LimparDepto(nome) {
+  if (!nome) return '—';
+  return String(nome).replace(/^\d+\s+/, '').trim() || '—';
 }
 
 function _kpiV3RoundTicks(min, max) {
@@ -5877,14 +5888,14 @@ function _kpiV3RenderDetalheMargem(mesKey) {
             <td style="padding:10px 12px;color:#166534;font-weight:800">Receita da competência</td>
             <td style="padding:10px 12px;text-align:right;color:#166534;font-weight:800;font-family:'JetBrains Mono',monospace">${_kpiV3FmtRs(m.receita)}</td>
           </tr>
-          ${linha('(−) Custo direto', c.custoDireto || 0, '2.01 (inclui Remuneração Operacional PJ e demais)')}
-          ${linha('(−) Comercial e marketing', c.comercial || 0, '2.02')}
-          ${linha('(−) Pessoal (exceto 2.03.01)', c.pessoal_resto || 0, '2.03 exceto 2.03.01 (já incluído em Custo direto)')}
-          ${linha('(−) Administrativo', c.administrativo || 0, '2.04')}
-          ${linha('(−) Financeiro e impostos', c.financeiro || 0, '2.05 + 2.06')}
-          ${linha('(−) Eventuais', c.eventuais || 0, '2.08')}
+          ${linha('(−) Custo direto <span style="color:#94a3b8;font-size:11px;font-weight:400">2.01</span>', c.custoDireto || 0, 'Categoria de custo direto genérico do plano de contas')}
+          ${linha('(−) Comercial e marketing <span style="color:#94a3b8;font-size:11px;font-weight:400">2.02</span>', c.comercial || 0)}
+          ${linha('(−) Pessoal e encargos <span style="color:#94a3b8;font-size:11px;font-weight:400">2.03 (exceto 2.03.01)</span>', c.pessoal_resto || 0, 'Remuneração Operacional PJ (2.03.01) já entra no Custo direto')}
+          ${linha('(−) Administrativo <span style="color:#94a3b8;font-size:11px;font-weight:400">2.04</span>', c.administrativo || 0)}
+          ${linha('(−) Financeiro e impostos <span style="color:#94a3b8;font-size:11px;font-weight:400">2.05 + 2.06</span>', c.financeiro || 0)}
+          ${linha('(−) Despesas eventuais <span style="color:#94a3b8;font-size:11px;font-weight:400">2.08</span>', c.eventuais || 0)}
           <tr style="background:${resultado >= 0 ? '#eff6ff' : '#fee2e2'};border-top:2px solid #94a3b8">
-            <td style="padding:12px;font-weight:800;color:#0f172a">= Resultado</td>
+            <td style="padding:12px;font-weight:800;color:#0f172a">= Resultado do mês</td>
             <td style="padding:12px;text-align:right;font-weight:800;font-size:16px;color:${resultado >= 0 ? '#1e40af' : '#991b1b'};font-family:'JetBrains Mono',monospace">${_kpiV3FmtRsSigned(resultado)}</td>
           </tr>
           <tr style="background:${m.pct >= 15 ? '#f0fdf4' : (m.pct >= 10 ? '#fef3c7' : '#fee2e2')}">
@@ -5897,11 +5908,11 @@ function _kpiV3RenderDetalheMargem(mesKey) {
         <div style="font-size:11.5px;color:#0284c7;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Estrutura da despesa</div>
         <div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px;font-size:12.5px;color:#334155;line-height:1.9">
           Custo direto: <strong>${totalDesp > 0 ? ((c.custoDireto||0)/totalDesp*100).toFixed(1) : '0'}%</strong><br>
-          Pessoal (2.03): <strong>${totalDesp > 0 ? (((c.rem_pj||0)+(c.pessoal_resto||0))/totalDesp*100).toFixed(1) : '0'}%</strong><br>
-          Comercial: <strong>${totalDesp > 0 ? ((c.comercial||0)/totalDesp*100).toFixed(1) : '0'}%</strong><br>
+          Pessoal e encargos: <strong>${totalDesp > 0 ? (((c.rem_pj||0)+(c.pessoal_resto||0))/totalDesp*100).toFixed(1) : '0'}%</strong><br>
+          Comercial e marketing: <strong>${totalDesp > 0 ? ((c.comercial||0)/totalDesp*100).toFixed(1) : '0'}%</strong><br>
           Administrativo: <strong>${totalDesp > 0 ? ((c.administrativo||0)/totalDesp*100).toFixed(1) : '0'}%</strong><br>
-          Financeiro/impostos: <strong>${totalDesp > 0 ? ((c.financeiro||0)/totalDesp*100).toFixed(1) : '0'}%</strong><br>
-          Eventuais: <strong>${totalDesp > 0 ? ((c.eventuais||0)/totalDesp*100).toFixed(1) : '0'}%</strong>
+          Financeiro e impostos: <strong>${totalDesp > 0 ? ((c.financeiro||0)/totalDesp*100).toFixed(1) : '0'}%</strong><br>
+          Despesas eventuais: <strong>${totalDesp > 0 ? ((c.eventuais||0)/totalDesp*100).toFixed(1) : '0'}%</strong>
         </div>
         <div style="font-size:11px;color:#94a3b8;margin-top:8px;padding:0 4px;line-height:1.5">Excluídos do cálculo: 2.07 (CAPEX) e 2.09 (distribuição de lucros e devolução de empréstimo).</div>
       </div>
@@ -5969,6 +5980,125 @@ function _kpiV3RenderDetalheLTV(mesKey) {
 window._kpiV3ClickMesLTV = function(mesKey) {
   const box = document.getElementById('_kpiV3DetalheBox');
   if (box) box.innerHTML = _kpiV3RenderDetalheLTV(mesKey);
+};
+
+// Chart de MÚLTIPLAS linhas — para o Custo Direto (Entrega vs Total PJ)
+function _kpiV3ChartMultiLinha(series, formato, opts) {
+  opts = opts || {};
+  const w = 1000, h = 260, mL = 80, mR = 30, mT = 32, mB = 46;
+  const inW = w - mL - mR, inH = h - mT - mB;
+  const allVals = [];
+  series.forEach(s => s.pontos.forEach(p => { if (p.temDado) allVals.push(p.valor); }));
+  if (allVals.length === 0) return `<div style="padding:60px 20px;text-align:center;color:#94a3b8;font-size:13.5px;font-style:italic">Sem dados na janela.</div>`;
+  const rawMin = Math.min(...allVals, 0), rawMax = Math.max(...allVals, 1);
+  const ticks = _kpiV3RoundTicks(rawMin, rawMax);
+  const min = ticks[0], max = ticks[ticks.length - 1], range = max - min || 1;
+  const nPontos = series[0].pontos.length;
+  const xStep = nPontos > 1 ? inW / (nPontos - 1) : 0;
+  const fmtEixo = v => formato === 'pct' ? v.toFixed(0) + '%' : (formato === 'int' ? Math.round(v).toLocaleString('pt-BR') : (Math.abs(v) >= 1e3 ? 'R$ ' + Math.round(v/1e3) + 'k' : 'R$ ' + v.toFixed(0)));
+  const fmtRot = v => formato === 'pct' ? v.toFixed(1) + '%' : (formato === 'int' ? Math.round(v).toLocaleString('pt-BR') : 'R$ ' + Math.abs(v).toLocaleString('pt-BR', { maximumFractionDigits: 0 }));
+  const yGrid = ticks.map(t => {
+    const y = mT + inH - ((t - min) / range) * inH;
+    return `<line x1="${mL}" y1="${y}" x2="${w-mR}" y2="${y}" stroke="#f1f5f9" stroke-width="1"/>
+            <text x="${mL - 10}" y="${y+4}" text-anchor="end" fill="#94a3b8" font-size="11" font-family="Poppins">${fmtEixo(t)}</text>`;
+  }).join('');
+  const linhas = series.map(s => {
+    const pts = s.pontos.map((p, i) => p.temDado ? { x: mL + i * xStep, y: mT + inH - ((p.valor - min) / range) * inH } : null);
+    const segs = []; let atual = [];
+    pts.forEach(p => { if (p) atual.push(p); else { if (atual.length) segs.push(atual); atual = []; } });
+    if (atual.length) segs.push(atual);
+    return segs.map(seg => seg.length < 2 ? '' : `<polyline points="${seg.map(p => p.x + ',' + p.y).join(' ')}" fill="none" stroke="${s.cor}" stroke-width="${s.tracejada ? 2 : 3}" stroke-linecap="round" stroke-linejoin="round"${s.tracejada ? ' stroke-dasharray="6 4"' : ''}/>`).join('');
+  }).join('');
+  // Rótulos e marcadores só na série principal
+  const principais = series[0].pontos;
+  const marcadores = principais.map((p, i) => {
+    if (!p.temDado) return '';
+    const x = mL + i * xStep;
+    const y = mT + inH - ((p.valor - min) / range) * inH;
+    const clickable = !!(opts.onClick && p.mesKey);
+    const cursor = clickable ? 'pointer' : 'default';
+    const handler = clickable ? `onclick="${opts.onClick}('${p.mesKey}')" ` : '';
+    const sel = p.mesKey === opts.mesSelecionado;
+    return `<circle ${handler}cx="${x}" cy="${y}" r="14" fill="transparent" style="cursor:${cursor}"/>
+            <circle ${handler}cx="${x}" cy="${y}" r="5" fill="${sel?series[0].cor:'white'}" stroke="${series[0].cor}" stroke-width="3" style="cursor:${cursor};pointer-events:none"/>
+            <text x="${x}" y="${h - 24}" text-anchor="middle" fill="${sel?series[0].cor:'#64748b'}" font-size="10.5" font-family="Poppins" font-weight="${sel?'800':'700'}">${p.label}</text>
+            <text x="${x}" y="${h - 8}" text-anchor="middle" fill="#334155" font-size="10.5" font-family="Poppins" font-weight="600">${fmtRot(p.valor)}</text>`;
+  }).join('');
+  // Segunda série: rótulos discretos, deslocados
+  const secundarios = series.length > 1 ? series[1].pontos.map((p, i) => {
+    if (!p.temDado) return '';
+    const x = mL + i * xStep;
+    const y = mT + inH - ((p.valor - min) / range) * inH;
+    return `<circle cx="${x}" cy="${y}" r="3" fill="${series[1].cor}"/>`;
+  }).join('') : '';
+  // Linha de meta (opcional)
+  const meta = opts.meta != null ? (() => {
+    const y = mT + inH - ((opts.meta - min) / range) * inH;
+    return `<line x1="${mL}" y1="${y}" x2="${w-mR}" y2="${y}" stroke="#dc2626" stroke-width="1.5" stroke-dasharray="4 4"/>
+            <text x="${w-mR-4}" y="${y-4}" text-anchor="end" fill="#dc2626" font-size="10" font-family="Poppins" font-weight="800">Meta ${fmtRot(opts.meta)}</text>`;
+  })() : '';
+  const legenda = `<g transform="translate(${mL},14)">
+    ${series.map((s, i) => `<g transform="translate(${i*240},0)">
+      <line x1="0" y1="0" x2="24" y2="0" stroke="${s.cor}" stroke-width="3"${s.tracejada ? ' stroke-dasharray="6 4"' : ''}/>
+      <text x="30" y="4" fill="#334155" font-size="11" font-family="Poppins" font-weight="700">${s.label}</text>
+    </g>`).join('')}
+  </g>`;
+  return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block">${legenda}${yGrid}${meta}${linhas}${secundarios}${marcadores}</svg>`;
+}
+
+// Detalhamento do Custo Direto ao clicar no mês (por time e por pessoa)
+function _kpiV3RenderDetalheCustoDir(mesKey) {
+  const K = window._kpiV3State.K;
+  if (!K || !K.custoDiretoPorMes || !K.custoDiretoPorMes[mesKey]) return `<div style="padding:20px;text-align:center;color:#94a3b8">Sem dados de ${_kpiV3FormatarMes(mesKey)}.</div>`;
+  const cd = K.custoDiretoPorMes[mesKey];
+  const mrr = K.mrrPorMes[mesKey] || 0;
+  const porDep = K.custoDiretoPorDeptoMes[mesKey] || {};
+  const porPes = K.custoDiretoPorPessoaMes[mesKey] || {};
+  const linhasDep = Object.entries(porDep).map(([depto, val]) => ({ depto, val, pctPJ: cd.valorTotal > 0 ? val / cd.valorTotal * 100 : 0, pctMRR: mrr > 0 ? val / mrr * 100 : 0 })).sort((a,b) => b.val - a.val);
+  const linhasPes = Object.entries(porPes).map(([chave, val]) => {
+    const [pessoa, depto] = chave.split('||');
+    return { pessoa, depto, val, pctMRR: mrr > 0 ? val / mrr * 100 : 0 };
+  }).sort((a,b) => b.val - a.val);
+
+  return `<div style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:#0f172a">
+      <strong>${_kpiV3FormatarMes(mesKey)}</strong>: Remuneração Operacional PJ = <strong>${_kpiV3FmtRs(cd.valorTotal)}</strong> (${cd.pctTotal.toFixed(1)}% do MRR ${_kpiV3FmtRs(mrr)}) · Entrega D001+D002+D003 = <strong>${_kpiV3FmtRs(cd.valor)}</strong> (${cd.pct.toFixed(1)}%)
+    </div>
+
+    <div style="font-size:11.5px;color:#334155;font-weight:800;margin-bottom:6px">Por time (${linhasDep.length})</div>
+    ${_kpiV3TabelaLarga(linhasDep, [
+      { label: 'Departamento', render: r => r.depto, largura: '45%' },
+      { label: 'Valor',    align: 'right', bold: true, render: r => _kpiV3FmtRs(r.val), largura: '20%' },
+      { label: '% do PJ',  align: 'right', render: r => r.pctPJ.toFixed(1) + '%', largura: '17%' },
+      { label: '% do MRR', align: 'right', bold: true, render: r => r.pctMRR.toFixed(1) + '%', largura: '18%' }
+    ])}
+
+    <div style="font-size:11.5px;color:#334155;font-weight:800;margin:14px 0 6px;display:flex;justify-content:space-between;align-items:center">
+      <span>Por pessoa (${linhasPes.length})</span>
+      <input type="text" placeholder="Buscar colaborador..." oninput="_kpiV3FiltrarLinhasCustoDir(this.value)" style="font-family:Poppins;font-size:12px;padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;width:240px">
+    </div>
+    <div id="_kpiV3TabelaPessoas">${_kpiV3TabelaLarga(linhasPes, [
+      { label: 'Colaborador', render: r => r.pessoa, largura: '38%' },
+      { label: 'Departamento', render: r => r.depto, largura: '32%' },
+      { label: 'Valor', align: 'right', bold: true, render: r => _kpiV3FmtRs(r.val), largura: '15%' },
+      { label: '% do MRR', align: 'right', render: r => r.pctMRR.toFixed(2) + '%', largura: '15%' }
+    ])}</div>`;
+}
+
+window._kpiV3ClickMesCustoDir = function(mesKey) {
+  window._kpiV3State.mesSelecionadoCustoDir = mesKey;
+  const box = document.getElementById('_kpiV3DetalheBox');
+  if (box) box.innerHTML = _kpiV3RenderDetalheCustoDir(mesKey);
+};
+
+// Filtro simples de busca por colaborador
+window._kpiV3FiltrarLinhasCustoDir = function(q) {
+  const tabela = document.getElementById('_kpiV3TabelaPessoas');
+  if (!tabela) return;
+  const lower = (q || '').toLowerCase();
+  Array.from(tabela.querySelectorAll('tbody tr')).forEach(tr => {
+    const txt = tr.textContent.toLowerCase();
+    tr.style.display = txt.includes(lower) ? '' : 'none';
+  });
 };
 
 // Inadimplência — detalhamento da competência selecionada
@@ -6745,6 +6875,15 @@ function _kpiV3IndDefs(id, K, inputs, D) {
       subvalor: K.takeRate.subvalor || 'Série disponível a partir de maio/2026',
       semaforo: K.takeRate.sem, confiab: inputs.verbaMidiaGerenciada > 0 ? 'MANUAL' : 'INDISPONÍVEL', metaTag: '14-18%',
       metaTexto: 'Meta interna: <strong>entre 14% e 18%</strong>. Abaixo de 12% indica que estamos cobrando pouco pela gestão; acima de 20% pode significar que clientes estão investindo pouco em mídia — o que compromete o resultado deles e nossa retenção.',
+      conceito: `<div style="font-size:13.5px;color:#334155;line-height:1.8">
+        <p style="margin:0 0 12px"><strong>Take Rate = verba de mídia gerenciada (MCP Elo) ÷ MRR (OMIE).</strong></p>
+        <p style="margin:0 0 12px">O dashboard não consegue chamar o MCP diretamente. O valor será alimentado na tabela <code>kpis_midia_mensal</code> do Supabase — uma rotina Claude → Supabase carrega mensalmente a mídia gerenciada retornada pelo <code>elo_investimento_historico</code>.</p>
+        <p style="margin:0 0 12px"><strong>Série disponível a partir de maio/2026</strong> — é quando começa a base do Elo.</p>
+        <div style="padding:12px 16px;background:#f0f9ff;border-left:4px solid #0284c7;border-radius:0 6px 6px 0;margin-top:12px">
+          <strong>Última referência (setembro/2026):</strong> <strong>14,2%</strong><br>
+          <span style="color:#64748b;font-size:12.5px">R$ 2.573.854 de mídia gerenciada ÷ R$ 366.000 de mensalidade</span>
+        </div>
+      </div>`,
       inputManual: { label: 'Verba total de mídia gerenciada este mês (R$)', campo: 'verbaMidiaGerenciada', valor: inputs.verbaMidiaGerenciada },
       leitura: [
         { titulo: 'Fonte dos dados', texto: 'Verba de mídia gerenciada vem do MCP <strong>Elo</strong> — base <strong>disponível a partir de maio/2026</strong>. Antes desse período o Elo não expunha o dado, então não há série reconstruível. MRR vem do OMIE (categoria 1.01.01).' },
@@ -6831,29 +6970,39 @@ function _kpiV3IndDefs(id, K, inputs, D) {
   // === Custo Direto sobre Receita ============
   if (id === 'custoDir') {
     const cPM = K.custoDiretoPorMes || {};
-    const serie = mesesAno.map(m => {
+    const serieEntrega = mesesAno.map(m => {
       const d = cPM[m];
       return { label: mesesLabels(m), mesKey: m, valor: d ? d.pct : 0, temDado: !!d };
     });
+    const serieTotal = mesesAno.map(m => {
+      const d = cPM[m];
+      return { label: mesesLabels(m), mesKey: m, valor: d ? d.pctTotal : 0, temDado: !!d };
+    });
+    const seriesMulti = [
+      { label: 'Entrega — D001+D002+D003', cor: '#059669', pontos: serieEntrega },
+      { label: 'Total PJ (todos os deptos)', cor: '#94a3b8', tracejada: true, pontos: serieTotal }
+    ];
     return {
       icone: '⚙️', grupo: 'Rentabilidade', grupoId: 'b4', titulo: 'Custo Direto sobre Receita',
-      descricao: 'Percentual do MRR consumido pela Remuneração Operacional PJ — o custo de manter os prestadores que atendem a carteira. Escala com o número de clientes.',
+      descricao: 'Percentual do MRR consumido pela Remuneração Operacional PJ. Duas séries: <strong>Entrega</strong> (Performance + CS + Criação) e <strong>Total PJ</strong> (todos os departamentos).',
       valor: K.custoDireto.atual != null ? K.custoDireto.atual.toFixed(1) + '%' : '—',
-      subvalor: `Remuneração PJ: ${_kpiV3FmtRs(K.custoDireto.valor)} ÷ MRR ${_kpiV3FmtRs(K.mrr.atual || 0)}`,
-      semaforo: K.custoDireto.sem, confiab: 'ALTA', metaTag: 'Meta < 30%',
-      metaTexto: 'Referência: <strong>≤ 30% do MRR</strong>. Verde ≤ 30%, amarelo 30-40%, vermelho acima de 40%. <br><br><strong>Numerador:</strong> apenas categoria <code>2.03.01 Remuneração Operacional PJ</code> — os prestadores que atendem clientes. <br><strong>Denominador:</strong> MRR (categoria 1.01.01), não receita total — o custo de entrega escala com a carteira de mensalidade, não com receitas pontuais. <br><br>Categoria 2.01 <strong>não entra</strong> porque contém <code>2.01.95 Gasto com Tráfego Pago Clientes</code>, que é repasse de mídia — não é custo da Growper.',
-      serie, serieTitulo: `Custo Direto sobre MRR — ${mesesAno[0].split('-')[0]}`, serieFmt: 'pct',
+      subvalor: `Entrega: ${_kpiV3FmtRs(K.custoDireto.valor)} · Total PJ: ${_kpiV3FmtRs(K.custoDireto.valorTotal)} (${K.custoDireto.pctTotal != null ? K.custoDireto.pctTotal.toFixed(1) + '%' : '—'})`,
+      semaforo: K.custoDireto.sem, confiab: 'ALTA', metaTag: 'Entrega ≤ 30%',
+      metaTexto: 'A meta de <strong>≤ 30%</strong> se aplica à linha <strong>Entrega</strong> (D001 Performance + D002 CS + D003 Criação) — o custo de manter a operação que atende clientes. A linha <strong>Total PJ</strong> mostra o peso da folha PJ inteira sobre o MRR, é acompanhamento e não tem meta rígida. <br><br><strong>Denominador:</strong> MRR (categoria 1.01.01). <br><strong>Numerador:</strong> só categoria <code>2.03.01 Remuneração Operacional PJ</code>. <br><strong>Nunca inclui</strong> categoria 2.01 nem 2.01.95 (repasse de mídia).',
+      serieMultipla: seriesMulti, serieTitulo: `Custo Direto sobre MRR — ${mesesAno[0].split('-')[0]}`, serieFmt: 'pct',
+      serieClickHandler: '_kpiV3ClickMesCustoDir', mesSelecionadoInicial: K.mesRef.key, serieMeta: 30,
+      custoDirDetalhe: true, custoDirCor: '#059669',
       leitura: [
         { titulo: 'Como interpretar', texto: K.custoDireto.atual != null
-          ? `A Remuneração Operacional PJ consumiu <strong>${K.custoDireto.atual.toFixed(1)}%</strong> do MRR do mês (${_kpiV3FmtRs(K.custoDireto.valor)} ÷ ${_kpiV3FmtRs(K.mrr.atual || 0)}). Meta é ≤ 30%; ${K.custoDireto.atual > 40 ? '<span style="color:#dc2626;font-weight:800">acima do limite de 40%</span>' : (K.custoDireto.atual > 30 ? 'entre 30 e 40% — atenção' : 'dentro da meta')}.`
+          ? `<strong>Entrega:</strong> ${K.custoDireto.atual.toFixed(1)}% (${_kpiV3FmtRs(K.custoDireto.valor)}). <strong>Total PJ:</strong> ${K.custoDireto.pctTotal.toFixed(1)}% (${_kpiV3FmtRs(K.custoDireto.valorTotal)}). Meta é aplicada apenas à Entrega — ${K.custoDireto.atual > 30 ? 'que está <span style="color:#dc2626;font-weight:800">acima do teto de 30%</span>' : 'que está dentro do teto de 30%'}.`
           : 'Aguardando dados.' },
-        { titulo: 'Por que só 2.03.01', texto: 'A categoria 2.01 (Custo Direto genérico) inclui itens que não são custo real da Growper — em particular <code>2.01.95 Gasto com Tráfego Pago Clientes</code>, que é dinheiro do cliente passando pela conta da agência para pagar mídia. Somar isso ao custo direto infla o indicador e induz decisão errada.' },
-        { titulo: 'Por que dividir pelo MRR', texto: 'Custo de entrega é proporcional à carteira de mensalidade — quanto mais cliente na base, mais prestador para atender. Dividir por receita total incluiria taxa de implementação, bonificações de plataforma e outras receitas pontuais que não geram carga operacional recorrente.' },
-        { titulo: 'Quando agir', texto: 'Acima de 40% por 2 meses seguidos: revisar produtividade da operação (clientes atendidos por prestador) e negociação com prestadores. Tendência crescente pode indicar contratações antecipadas — investimento com efeito futuro no indicador.' }
+        { titulo: 'Por que separar Entrega de Total', texto: 'A ENTREGA (D001+D002+D003) é o que escala com a carteira — quanto mais cliente, mais gente dessas áreas. Ela deve ficar sob controle relativo. O TOTAL inclui Tecnologia, Financeiro, People etc., que são estruturais e crescem com escala do negócio, não com carteira.' },
+        { titulo: 'Composição — clique num mês', texto: 'No painel abaixo, ao clicar em um mês, aparece a quebra por time (departamento) e por pessoa (colaborador PJ), com valor e % do MRR. A soma sempre bate com o total do mês.' },
+        { titulo: 'Quando agir', texto: 'Entrega acima de 40% por 2 meses seguidos: revisar produtividade da operação (clientes atendidos por prestador) e negociação com prestadores. Total PJ crescendo mais rápido que MRR pode indicar contratações antecipadas.' }
       ],
       armadilhas: [
         'Não inclui 2.01.95 (repasse de mídia) — esse é dinheiro que passa pela empresa mas não é custo',
-        'Não inclui outros itens de 2.01 (produção pontual, editores freelance) — se relevantes, exibir como componente adicional',
+        'Não inclui outros itens de 2.01 (produção pontual, editores freelance) — se relevantes, avaliar como componente adicional',
         'Custo direto por cliente é o número mais útil operacionalmente — dividir pelo total de clientes ativos'
       ]
     };
@@ -7008,24 +7157,43 @@ async function _kpiV3CarregarDados() {
 
   // ============ TÍTULOS ABERTOS (Aging / Inadimplência) ============
   let titulos = [];
+  const SUPA_URL = 'https://dfaydkiqbhpzxosffurs.supabase.co';
+  const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmYXlka2lxYmhwenhvc2ZmdXJzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyMTg1OTYsImV4cCI6MjEwMDc5NDU5Nn0.EJ50JLQw0dufwintmmp_0vR7Cfg9avjDTrmyuC4mfbM';
   try {
     let supa = (window._authState && window._authState.supabase) || (window._syncV4 && window._syncV4.cliente) || null;
     if (!supa && window.supabase && window.supabase.createClient) {
-      const URL = 'https://dfaydkiqbhpzxosffurs.supabase.co';
-      const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmYXlka2lxYmhwenhvc2ZmdXJzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyMTg1OTYsImV4cCI6MjEwMDc5NDU5Nn0.EJ50JLQw0dufwintmmp_0vR7Cfg9avjDTrmyuC4mfbM';
-      supa = window.supabase.createClient(URL, KEY);
+      supa = window.supabase.createClient(SUPA_URL, SUPA_KEY);
     }
     if (supa) {
-      // Só títulos em aberto (status = 'Não'), limite alto para não perder linhas
+      // Filtra: contas a receber + só mensalidades + títulos abertos
       const r = await supa.from('titulos')
-        .select('id_titulo,tipo,status,cancelado,data_registro,data_vencimento,valor_documento,valor_pago,cliente_nome')
+        .select('id_titulo,tipo,status,cancelado,categoria_nome,data_registro,data_vencimento,valor_documento,valor_pago,cliente_nome')
         .eq('tipo', '1. Contas a Receber')
         .eq('cancelado', false)
         .eq('status', 'Não')
+        .like('categoria_nome', '1.01.01%')
+        .not('data_registro', 'is', null)
+        .is('data_pagto', null)
         .limit(10000);
       if (!r.error) titulos = r.data || [];
     }
-  } catch(e) { titulos = []; }
+  } catch(e) {}
+  // Fallback via fetch direto se o cliente Supabase JS não estiver disponível
+  if (titulos.length === 0) {
+    try {
+      const url = SUPA_URL + "/rest/v1/titulos?select=id_titulo,tipo,status,cancelado,categoria_nome,data_registro,data_vencimento,valor_documento,valor_pago,cliente_nome"
+        + "&tipo=eq.1.%20Contas%20a%20Receber"
+        + "&cancelado=eq.false"
+        + "&status=eq.N%C3%A3o"
+        + "&categoria_nome=like.1.01.01*"
+        + "&data_registro=not.is.null"
+        + "&data_pagto=is.null"
+        + "&limit=10000";
+      const resp = await fetch(url, { headers: { apikey: SUPA_KEY, Authorization: 'Bearer ' + SUPA_KEY } });
+      if (resp.ok) titulos = await resp.json();
+    } catch(e) {}
+  }
+  window._kpiV3DebugTitulos = titulos.length;
 
   window._kpiV3Dados = { receita, receita_comp, despesa, despesa_comp, titulos, _at: Date.now() };
 }
@@ -7579,7 +7747,13 @@ function _kpiV3Calcular(D, inputs) {
   function _isRemuneracaoOperacionalPJ(cat) {
     return /2\.03\.01/.test(String(cat || ''));
   }
+  // Departamentos considerados "entrega direta" (D001 Performance + D002 CS + D003 Criação)
+  function _isDeptoEntrega(depto) {
+    const d = _kpiV3LimparDepto(depto);
+    return /^D00[123]\s*-/i.test(d) || /Performance|Customer Success|CS(\s|-|$)|Criação|Criacao/i.test(d);
+  }
   const custoDiretoMesRef = despesa_comp.filter(d => d.mes === mesRefKey && _isRemuneracaoOperacionalPJ(d.categoria_texto)).reduce((s, d) => s + Number(d.valor_pago || 0), 0);
+  const custoEntregaMesRef = despesa_comp.filter(d => d.mes === mesRefKey && _isRemuneracaoOperacionalPJ(d.categoria_texto) && _isDeptoEntrega(d.departamento)).reduce((s, d) => s + Number(d.valor_pago || 0), 0);
   const custoDiretoPctAprox = mrrAtual > 0 ? custoDiretoMesRef / mrrAtual : null;
   const margemBrutaAprox = custoDiretoPctAprox !== null ? (1 - custoDiretoPctAprox) : 0.65;
   const ltvAprox = (ticketAtual > 0 && churnMensal > 0) ? ticketAtual * (1 / churnMensal) * margemBrutaAprox : null;
@@ -7590,16 +7764,41 @@ function _kpiV3Calcular(D, inputs) {
     sem: ltvCacAtual === null ? 'gray' : (ltvCacAtual >= 3 ? 'green' : (ltvCacAtual >= 1 ? 'yellow' : 'red'))
   };
 
-  // Custo Direto sobre Receita — Remuneração Operacional PJ ÷ MRR
-  const custoDiretoPct = mrrAtual > 0 ? (custoDiretoMesRef / mrrAtual * 100) : null;
+  // Custo Direto sobre Receita — duas séries por competência
+  //   Entrega: PJ D001+D002+D003 ÷ MRR   (meta ≤ 30%)
+  //   Total:   PJ todos os deptos ÷ MRR  (peso da folha PJ)
+  const custoDiretoPct = mrrAtual > 0 ? (custoEntregaMesRef / mrrAtual * 100) : null; // usar ENTREGA como principal
+  const custoTotalPct = mrrAtual > 0 ? (custoDiretoMesRef / mrrAtual * 100) : null;
   const custoDiretoPorMes = {};
   Object.keys(mrrPorMes).forEach(mes => {
     const mrrMes = mrrPorMes[mes] || 0;
-    const cd = despesa_comp.filter(d => d.mes === mes && _isRemuneracaoOperacionalPJ(d.categoria_texto)).reduce((s, d) => s + Number(d.valor_pago || 0), 0);
-    if (mrrMes > 0) custoDiretoPorMes[mes] = { valor: cd, pct: cd / mrrMes * 100 };
+    const cdTotal = despesa_comp.filter(d => d.mes === mes && _isRemuneracaoOperacionalPJ(d.categoria_texto)).reduce((s, d) => s + Number(d.valor_pago || 0), 0);
+    const cdEntrega = despesa_comp.filter(d => d.mes === mes && _isRemuneracaoOperacionalPJ(d.categoria_texto) && _isDeptoEntrega(d.departamento)).reduce((s, d) => s + Number(d.valor_pago || 0), 0);
+    if (mrrMes > 0) custoDiretoPorMes[mes] = {
+      valor: cdEntrega, pct: cdEntrega / mrrMes * 100,
+      valorTotal: cdTotal, pctTotal: cdTotal / mrrMes * 100
+    };
+  });
+  // Composição por departamento e por pessoa (para detalhamento por clique)
+  const custoDiretoPorDeptoMes = {};
+  const custoDiretoPorPessoaMes = {};
+  Object.keys(mrrPorMes).forEach(mes => {
+    custoDiretoPorDeptoMes[mes] = {};
+    custoDiretoPorPessoaMes[mes] = {};
+    despesa_comp.forEach(d => {
+      if (d.mes !== mes) return;
+      if (!_isRemuneracaoOperacionalPJ(d.categoria_texto)) return;
+      const depto = _kpiV3LimparDepto(d.departamento);
+      const pessoa = d.fornecedor_nome || '—';
+      const val = Number(d.valor_pago || 0);
+      custoDiretoPorDeptoMes[mes][depto] = (custoDiretoPorDeptoMes[mes][depto] || 0) + val;
+      const chave = pessoa + '||' + depto;
+      custoDiretoPorPessoaMes[mes][chave] = (custoDiretoPorPessoaMes[mes][chave] || 0) + val;
+    });
   });
   const custoDireto = {
-    atual: custoDiretoPct, valor: custoDiretoMesRef,
+    atual: custoDiretoPct, valor: custoEntregaMesRef,
+    valorTotal: custoDiretoMesRef, pctTotal: custoTotalPct,
     sem: custoDiretoPct === null ? 'gray' : (custoDiretoPct <= 30 ? 'green' : (custoDiretoPct <= 40 ? 'yellow' : 'red'))
   };
 
@@ -7612,7 +7811,7 @@ function _kpiV3Calcular(D, inputs) {
     top5, top10, concentracaoPorMes,
     margem, margemPorMes, margemComponentesPorMes,
     takeRate, cac, cacPorMes, ltvCac,
-    custoDireto, custoDiretoPorMes,
+    custoDireto, custoDiretoPorMes, custoDiretoPorDeptoMes, custoDiretoPorPessoaMes,
     mrrCliente, clientesMes
   };
 }
@@ -7625,10 +7824,11 @@ function _kpiV3UltimosMeses(mesRefKey, n) {
 }
 
 function _kpiV3MesesAno(mesRefKey) {
-  // Retorna todos os meses do ano do mesRef, de janeiro até mesRef (inclusive).
-  const [y, m] = mesRefKey.split('-').map(Number);
+  // Retorna todos os 12 meses do ano do mesRef — Jan a Dez.
+  // Meses sem lançamento aparecem no gráfico com sinal "sem registro" (× cinza).
+  const [y] = mesRefKey.split('-').map(Number);
   const arr = [];
-  for (let i = 1; i <= m; i++) arr.push(y + '-' + String(i).padStart(2, '0'));
+  for (let i = 1; i <= 12; i++) arr.push(y + '-' + String(i).padStart(2, '0'));
   return arr;
 }
 
