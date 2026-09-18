@@ -6584,6 +6584,100 @@ function _kpiV3IndDefs(id, K, inputs, D) {
 }
 
 
+// ============================================================
+// CARGA DOS DADOS BRUTOS PARA O KPI (a partir de RAW_DATA_CAIXA/COMP + Supabase)
+// ============================================================
+async function _kpiV3CarregarDados() {
+  // RAW_DATA_CAIXA / RAW_DATA_COMP são globais, populadas pelo omieBootstrap
+  const rawCaixa = (typeof RAW_DATA_CAIXA !== 'undefined' && RAW_DATA_CAIXA) ? RAW_DATA_CAIXA : [];
+  const rawComp = (typeof RAW_DATA_COMP !== 'undefined' && RAW_DATA_COMP) ? RAW_DATA_COMP : [];
+  if (rawCaixa.length === 0 && rawComp.length === 0) {
+    throw new Error('Base de dados vazia. Aguarde a sincronização com o OMIE terminar e recarregue.');
+  }
+
+  // ============ CAIXA (para custo direto e outros cálculos que já eram por caixa) ============
+  // Filtro contas operacionais: Banco Inter, Itaú Unibanco, Cartão 2130
+  const contasOperacionais = new Set(['Banco Inter', 'Itaú Unibanco', 'Cartão 2130']);
+  const receita = [];
+  const despesa = [];
+  rawCaixa.forEach(r => {
+    if (!contasOperacionais.has(r.conta)) return;
+    const cat = String(r.categoria || '');
+    if (cat.includes('Ajuste') || cat.includes('Transferência')) return;
+    if (r.tipo === '1. Contas a Receber') {
+      receita.push({
+        data_pagto: r.dataPagto || (r.mesPagto + '-01'),
+        valor_pago: Math.abs(r.valorPago || 0),
+        categoria_texto: cat,
+        cliente_nome: String(r.fornecedor || '').trim(),
+        mes: r.mesPagto
+      });
+    } else if (r.tipo === '2. Contas a Pagar') {
+      despesa.push({
+        data_pagto: r.dataPagto || (r.mesPagto + '-01'),
+        valor_pago: Math.abs(r.valorPago || 0),
+        categoria_texto: cat,
+        fornecedor_nome: String(r.fornecedor || '').trim(),
+        mes: r.mesPagto
+      });
+    }
+  });
+
+  // ============ RECEITA POR COMPETÊNCIA ============
+  // Fonte: v_raw_data_comp (titulos + valor_documento por data_registro, cancelado = false).
+  // NÃO usa contas bancárias — no modo competência o título existe antes de qualquer baixa.
+  // Ignora ajustes/transferências.
+  const receita_comp = [];
+  rawComp.forEach(r => {
+    if (r.tipo !== '1. Contas a Receber') return;
+    if (!r.mesRegistro) return;
+    const cat = String(r.categoria || '');
+    if (cat.includes('Ajuste') || cat.includes('Transferência')) return;
+    receita_comp.push({
+      valor_pago: Math.abs(r.valorPago || 0),
+      categoria_texto: cat,
+      cliente_nome: String(r.fornecedor || '').trim(),
+      mes: r.mesRegistro
+    });
+  });
+
+  // ============ DESPESA POR COMPETÊNCIA ============
+  const despesa_comp = [];
+  rawComp.forEach(r => {
+    if (r.tipo !== '2. Contas a Pagar') return;
+    if (!r.mesRegistro) return;
+    const cat = String(r.categoria || '');
+    if (cat.includes('Ajuste') || cat.includes('Transferência')) return;
+    despesa_comp.push({
+      valor_pago: Math.abs(r.valorPago || 0),
+      categoria_texto: cat,
+      fornecedor_nome: String(r.fornecedor || '').trim(),
+      departamento: String(r.departamento || '').trim(),
+      mes: r.mesRegistro
+    });
+  });
+
+  // ============ TÍTULOS ABERTOS (Aging / Inadimplência) ============
+  let titulos = [];
+  try {
+    let supa = (window._authState && window._authState.supabase) || (window._syncV4 && window._syncV4.cliente) || null;
+    if (!supa && window.supabase && window.supabase.createClient) {
+      const URL = 'https://dfaydkiqbhpzxosffurs.supabase.co';
+      const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmYXlka2lxYmhwenhvc2ZmdXJzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyMTg1OTYsImV4cCI6MjEwMDc5NDU5Nn0.EJ50JLQw0dufwintmmp_0vR7Cfg9avjDTrmyuC4mfbM';
+      supa = window.supabase.createClient(URL, KEY);
+    }
+    if (supa) {
+      const r = await supa.from('titulos')
+        .select('id_titulo,tipo,status,cancelado,data_vencimento,valor_documento,valor_pago,cliente_nome')
+        .eq('tipo', '1. Contas a Receber')
+        .eq('cancelado', false);
+      if (!r.error) titulos = r.data || [];
+    }
+  } catch(e) { titulos = []; }
+
+  window._kpiV3Dados = { receita, receita_comp, despesa, despesa_comp, titulos, _at: Date.now() };
+}
+
 function _kpiV3Calcular(D, inputs) {
   const hoje = new Date();
   const anoAtual = hoje.getFullYear();
