@@ -5247,12 +5247,20 @@ function _kpiV3RenderIndicador(container, id, K, inputs, D) {
     </div>
     
     <!-- Evolução histórica (com click quando serieClickHandler está setado) -->
+    ${def.conceito ? `<details style="background:white;border:1px solid #e2e8f0;border-radius:14px;margin-bottom:16px;overflow:hidden">
+      <summary style="padding:16px 22px;cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;font-size:13px;color:#0284c7;font-weight:800;text-transform:uppercase;letter-spacing:0.5px">
+        <span>📘 Entenda este indicador</span>
+        <span style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:none;letter-spacing:0">clique para expandir</span>
+      </summary>
+      <div style="padding:0 26px 22px">${def.conceito}</div>
+    </details>` : ''}
+
     ${def.serie && def.serie.length > 0 ? `<div style="background:white;border:1px solid #e2e8f0;border-radius:14px;padding:22px 26px;margin-bottom:16px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
         <div>
           <div style="font-size:11px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:0.5px">📈 Evolução histórica</div>
           <div style="font-size:16px;font-weight:800;color:#0f172a;margin-top:2px">${def.serieTitulo || 'Últimos meses'}</div>
-          ${def.serieClickHandler ? `<div style="font-size:11.5px;color:#059669;margin-top:4px;font-weight:600">💡 Clique em qualquer mês para ver a composição por faixa</div>` : ''}
+          ${def.serieClickHandler ? `<div style="font-size:11.5px;color:#059669;margin-top:4px;font-weight:600">💡 Clique em qualquer mês para ver o detalhamento</div>` : ''}
         </div>
       </div>
       <div id="${def.serieClickHandler ? '_kpiV3ChartMRR' : '_kpiV3Chart_' + id}">${_kpiV3ChartLinha(def.serie, cor, def.serieFmt || 'money', def.serieClickHandler ? { onClick: def.serieClickHandler, mesSelecionado: def.mesSelecionadoInicial } : {})}</div>
@@ -5412,6 +5420,17 @@ function _kpiV3SyncStamp() {
 }
 
 // Ticks redondos para eixo Y (0, 100k, 200k, 300k, 400k, 500k…)
+// Retorna o nome da faixa a partir do valor
+function _kpiV3FaixaDeValor(v) {
+  if (v == null || v <= 0) return 'Outros';
+  if (v < 2000) return 'Basic';
+  if (v < 3000) return 'Starter';
+  if (v < 4500) return 'Plus';
+  if (v < 5500) return 'Premium';
+  if (v < 6500) return 'Master';
+  return 'Business';
+}
+
 function _kpiV3RoundTicks(min, max) {
   // Escolhe magnitude e passo baseado no range
   const range = max - min;
@@ -5511,45 +5530,130 @@ function _kpiV3TabelaClientes(items, cor, cols) {
   </div>`;
 }
 
-function _kpiV3RenderDetalheNetNew(mesKey) {
+function _kpiV3RenderDetalheNetNew(mesKey, aba) {
   const K = window._kpiV3State.K;
   if (!K || !K.netNewPorMes || !K.netNewPorMes[mesKey]) {
-    return `<div style="padding:20px;text-align:center;color:#94a3b8">Aguardando dados de ${_kpiV3FormatarMes(mesKey)}.</div>`;
+    return `<div style="padding:20px;text-align:center;color:#94a3b8">Sem dados para ${_kpiV3FormatarMes(mesKey)}.</div>`;
   }
+  aba = aba || (window._kpiV3State.abaNetNew || 'novos');
+  window._kpiV3State.abaNetNew = aba;
   const d = K.netNewPorMes[mesKey]._detalhe;
   const dec = K.netNewPorMes[mesKey];
-  const total = (dec.novos) + (dec.expansao) + (dec.contracao) + (dec.churn);
-  return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-bottom:14px">
-      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:14px 16px">
-        <div style="font-size:10.5px;color:#166534;font-weight:800;text-transform:uppercase;letter-spacing:0.5px">🟢 NOVOS · ${d.novos.length}</div>
-        <div style="font-size:22px;font-weight:800;color:#166534;margin-top:6px">${_kpiV3FmtRs(dec.novos)}</div>
+  const mesLabel = _kpiV3FormatarMes(mesKey);
+
+  // 4 abas coloridas — a selecionada fica destacada
+  const abas = [
+    { key: 'novos',     label: 'Novos',     qtd: d.novos.length,     valor: dec.novos,      cor: '#166534', bg: '#f0fdf4', bd: '#bbf7d0', icone: '🟢' },
+    { key: 'expansao',  label: 'Expansão',  qtd: d.expansao.length,  valor: dec.expansao,   cor: '#1e40af', bg: '#dbeafe', bd: '#93c5fd', icone: '🔵' },
+    { key: 'contracao', label: 'Contração', qtd: d.contracao.length, valor: dec.contracao,  cor: '#92400e', bg: '#fef3c7', bd: '#fbbf24', icone: '🟡' },
+    { key: 'churn',     label: 'Churn',     qtd: d.churn.length,     valor: dec.churn,      cor: '#991b1b', bg: '#fee2e2', bd: '#fca5a5', icone: '🔴' }
+  ];
+
+  // Constrói a tabela conforme a aba
+  const capFaixa = f => f;
+  function _tabelaAba() {
+    if (aba === 'novos') {
+      return `<div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:10px 14px;border-radius:0 8px 8px 0;font-size:12.5px;color:#78350f;margin-bottom:10px">
+          ⚠️ <strong>Novos</strong> conta a mensalidade INTEIRA do cliente novo — todo o valor é crescimento porque antes ele não pagava nada.
+        </div>
+        ${_kpiV3TabelaLarga(d.novos.slice().sort((a,b) => b.valor - a.valor), [
+          { label: 'Cliente', render: r => r.cliente, largura: '55%' },
+          { label: 'Faixa',   render: r => capFaixa(r.faixaDepois), largura: '20%' },
+          { label: 'Valor', align: 'right', bold: true, corValor: '#166534', render: r => _kpiV3FmtRs(r.valor), largura: '25%' }
+        ])}`;
+    }
+    if (aba === 'expansao') {
+      return `<div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:10px 14px;border-radius:0 8px 8px 0;font-size:12.5px;color:#78350f;margin-bottom:10px">
+          ⚠️ <strong>Expansão</strong> conta apenas <strong>o quanto o valor mudou</strong>, não a mensalidade inteira. Exemplo: cliente que pagava R$ 3.000 e passou a R$ 5.500 entra com R$ 2.500 (a diferença); os R$ 3.000 já estavam no MRR anterior.
+        </div>
+        ${_kpiV3TabelaLarga(d.expansao.slice().sort((a,b) => b.valor - a.valor), [
+          { label: 'Cliente', render: r => r.cliente, largura: '30%' },
+          { label: 'Faixa antes → depois', render: r => `${capFaixa(r.faixaAntes)} → <strong>${capFaixa(r.faixaDepois)}</strong>`, largura: '25%' },
+          { label: 'Antes', align: 'right', dim: true, render: r => _kpiV3FmtRs(r.valorAnterior), largura: '15%' },
+          { label: 'Depois', align: 'right', dim: true, render: r => _kpiV3FmtRs(r.valorAtual), largura: '15%' },
+          { label: 'Diferença', align: 'right', bold: true, corValor: '#1e40af', render: r => _kpiV3FmtRsSigned(r.valor), largura: '15%' }
+        ])}`;
+    }
+    if (aba === 'contracao') {
+      return `<div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:10px 14px;border-radius:0 8px 8px 0;font-size:12.5px;color:#78350f;margin-bottom:10px">
+          ⚠️ <strong>Contração</strong> conta apenas <strong>o quanto o valor caiu</strong>, não a mensalidade inteira. O cliente segue pagando — só que menos.
+        </div>
+        ${_kpiV3TabelaLarga(d.contracao.slice().sort((a,b) => a.valor - b.valor), [
+          { label: 'Cliente', render: r => r.cliente, largura: '30%' },
+          { label: 'Faixa antes → depois', render: r => `${capFaixa(r.faixaAntes)} → <strong>${capFaixa(r.faixaDepois)}</strong>`, largura: '25%' },
+          { label: 'Antes', align: 'right', dim: true, render: r => _kpiV3FmtRs(r.valorAnterior), largura: '15%' },
+          { label: 'Depois', align: 'right', dim: true, render: r => _kpiV3FmtRs(r.valorAtual), largura: '15%' },
+          { label: 'Diferença', align: 'right', bold: true, corValor: '#92400e', render: r => _kpiV3FmtRsSigned(r.valor), largura: '15%' }
+        ])}`;
+    }
+    // churn
+    return `<div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:10px 14px;border-radius:0 8px 8px 0;font-size:12.5px;color:#78350f;margin-bottom:10px">
+        ⚠️ <strong>Churn</strong> conta a mensalidade INTEIRA que o cliente pagava — todo o valor sai do MRR porque ele não paga mais nada. <strong>Tempo de casa</strong> mostra por quantos meses distintos o cliente pagou antes de sair.
       </div>
-      <div style="background:#dbeafe;border:1px solid #93c5fd;border-radius:10px;padding:14px 16px">
-        <div style="font-size:10.5px;color:#1e40af;font-weight:800;text-transform:uppercase;letter-spacing:0.5px">🔵 EXPANSÃO · ${d.expansao.length}</div>
-        <div style="font-size:22px;font-weight:800;color:#1e40af;margin-top:6px">${_kpiV3FmtRs(dec.expansao)}</div>
-      </div>
-      <div style="background:#fef3c7;border:1px solid #fbbf24;border-radius:10px;padding:14px 16px">
-        <div style="font-size:10.5px;color:#92400e;font-weight:800;text-transform:uppercase;letter-spacing:0.5px">🟡 CONTRAÇÃO · ${d.contracao.length}</div>
-        <div style="font-size:22px;font-weight:800;color:#92400e;margin-top:6px">${_kpiV3FmtRs(dec.contracao)}</div>
-      </div>
-      <div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:10px;padding:14px 16px">
-        <div style="font-size:10.5px;color:#991b1b;font-weight:800;text-transform:uppercase;letter-spacing:0.5px">🔴 CHURN · ${d.churn.length}</div>
-        <div style="font-size:22px;font-weight:800;color:#991b1b;margin-top:6px">${_kpiV3FmtRs(dec.churn)}</div>
-      </div>
+      ${_kpiV3TabelaLarga(d.churn.slice().sort((a,b) => a.valor - b.valor), [
+        { label: 'Cliente', render: r => r.cliente, largura: '40%' },
+        { label: 'Faixa', render: r => capFaixa(r.faixaAntes), largura: '20%' },
+        { label: 'Valor perdido', align: 'right', bold: true, corValor: '#991b1b', render: r => _kpiV3FmtRs(Math.abs(r.valor)), largura: '20%' },
+        { label: 'Tempo de casa', align: 'right', render: r => `${r.tempoCasa} mês${r.tempoCasa === 1 ? '' : 'es'}`, largura: '20%' }
+      ])}`;
+  }
+
+  return `<!-- Aviso pedagógico global -->
+    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px 18px;margin-bottom:16px;font-size:13px;color:#1e40af;line-height:1.6">
+      ⚠️ <strong>Cuidado ao ler:</strong> Novos e Churn contam a mensalidade <em>inteira</em> do cliente. Expansão e Contração contam apenas <em>o quanto o valor mudou</em> — as colunas Antes e Depois são contexto, a Diferença é o que entra na conta.
     </div>
-    <div style="background:#fafafa;border-left:4px solid #0284c7;padding:12px 16px;border-radius:0 8px 8px 0;margin-bottom:14px">
-      <div style="font-size:11.5px;color:#0284c7;font-weight:800;text-transform:uppercase;margin-bottom:4px">Fecha o mês</div>
-      <div style="font-size:14px;color:#0f172a"><strong>${_kpiV3FmtRsSigned(total)}</strong> = ${_kpiV3FmtRs(dec.novos)} novos + ${_kpiV3FmtRs(dec.expansao)} expansão − ${_kpiV3FmtRs(Math.abs(dec.contracao))} contração − ${_kpiV3FmtRs(Math.abs(dec.churn))} churn</div>
+
+    <!-- Cabeçalho do mês -->
+    <div style="font-size:12.5px;color:#334155;margin-bottom:10px">
+      <strong>${mesLabel}</strong> · Net New <strong>${_kpiV3FmtRsSigned(dec.netNew)}</strong> = ${_kpiV3FmtRs(dec.novos)} novos + ${_kpiV3FmtRs(dec.expansao)} expansão − ${_kpiV3FmtRs(Math.abs(dec.contracao))} contração − ${_kpiV3FmtRs(Math.abs(dec.churn))} churn
     </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px">
-      <div><div style="font-size:11.5px;color:#166534;font-weight:800;margin-bottom:6px">Novos (${d.novos.length})</div>${_kpiV3TabelaClientes(d.novos.sort((a,b) => b.valor - a.valor).slice(0,20), '#166534', [{label:'Cliente',render:r=>r.cliente},{label:'Valor',align:'right',bold:true,render:r=>_kpiV3FmtRs(r.valor)}])}</div>
-      <div><div style="font-size:11.5px;color:#1e40af;font-weight:800;margin-bottom:6px">Expansão (${d.expansao.length})</div>${_kpiV3TabelaClientes(d.expansao.sort((a,b) => b.valor - a.valor).slice(0,20), '#1e40af', [{label:'Cliente',render:r=>r.cliente},{label:'Antes',align:'right',render:r=>_kpiV3FmtRs(r.valorAnterior)},{label:'Depois',align:'right',render:r=>_kpiV3FmtRs(r.valorAtual)},{label:'Δ',align:'right',bold:true,render:r=>_kpiV3FmtRsSigned(r.valor)}])}</div>
-      <div><div style="font-size:11.5px;color:#92400e;font-weight:800;margin-bottom:6px">Contração (${d.contracao.length})</div>${_kpiV3TabelaClientes(d.contracao.sort((a,b) => a.valor - b.valor).slice(0,20), '#92400e', [{label:'Cliente',render:r=>r.cliente},{label:'Antes',align:'right',render:r=>_kpiV3FmtRs(r.valorAnterior)},{label:'Depois',align:'right',render:r=>_kpiV3FmtRs(r.valorAtual)},{label:'Δ',align:'right',bold:true,render:r=>_kpiV3FmtRsSigned(r.valor)}])}</div>
-      <div><div style="font-size:11.5px;color:#991b1b;font-weight:800;margin-bottom:6px">Churn (${d.churn.length})</div>${_kpiV3TabelaClientes(d.churn.sort((a,b) => a.valor - b.valor).slice(0,20), '#991b1b', [{label:'Cliente',render:r=>r.cliente},{label:'Perdeu',align:'right',bold:true,render:r=>_kpiV3FmtRs(Math.abs(r.valor))}])}</div>
-    </div>`;
+
+    <!-- 4 abas -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:16px">
+      ${abas.map(a => {
+        const sel = a.key === aba;
+        return `<div onclick="_kpiV3TrocarAbaNetNew('${a.key}')" style="background:${sel?a.bg:'white'};border:${sel?'2px':'1px'} solid ${sel?a.cor:'#e2e8f0'};border-radius:10px;padding:12px 14px;cursor:pointer;transition:all 0.15s"
+          onmouseover="if(!${sel})this.style.borderColor='${a.cor}88'"
+          onmouseout="if(!${sel})this.style.borderColor='#e2e8f0'">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div style="font-size:10.5px;color:${a.cor};font-weight:800;text-transform:uppercase;letter-spacing:0.4px">${a.icone} ${a.label} · ${a.qtd}</div>
+            ${sel?`<span style="font-size:10px;color:${a.cor};font-weight:800">SELECIONADO</span>`:''}
+          </div>
+          <div style="font-size:20px;font-weight:800;color:${a.cor};margin-top:4px">${_kpiV3FmtRs(a.valor)}</div>
+        </div>`;
+      }).join('')}
+    </div>
+
+    ${_tabelaAba()}`;
 }
 
+// Componente de tabela larga com colunas configuráveis (usada por Net New e outros)
+function _kpiV3TabelaLarga(items, cols) {
+  if (!items || items.length === 0) return '<div style="padding:20px;text-align:center;color:#94a3b8;font-size:12.5px;font-style:italic">Nenhum registro nesta categoria neste mês</div>';
+  return `<div style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">
+    <table style="width:100%;border-collapse:collapse;font-size:12.5px;table-layout:fixed">
+      <thead style="background:#fafafa">
+        <tr>${cols.map(c => `<th style="padding:10px 14px;text-align:${c.align||'left'};font-weight:800;color:#334155;font-size:11px;text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid #e2e8f0;width:${c.largura||'auto'}">${c.label}</th>`).join('')}</tr>
+      </thead>
+      <tbody>
+        ${items.map(row => `<tr style="border-bottom:1px solid #f1f5f9">
+          ${cols.map(c => `<td style="padding:10px 14px;text-align:${c.align||'left'};color:${c.dim ? '#94a3b8' : (c.corValor || '#334155')};font-weight:${c.bold?'800':'500'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.render(row)}</td>`).join('')}
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>`;
+}
+
+// Handler para trocar a aba do Net New
+window._kpiV3TrocarAbaNetNew = function(aba) {
+  window._kpiV3State.abaNetNew = aba;
+  const mesKey = window._kpiV3State.mesSelecionadoNetNew || (window._kpiV3State.K && window._kpiV3State.K.mesRef.key);
+  const box = document.getElementById('_kpiV3DetalheBox');
+  if (box) box.innerHTML = _kpiV3RenderDetalheNetNew(mesKey, aba);
+};
+
 window._kpiV3ClickMesNetNew = function(mesKey) {
+  window._kpiV3State.mesSelecionadoNetNew = mesKey;
   const box = document.getElementById('_kpiV3DetalheBox');
   if (box) box.innerHTML = _kpiV3RenderDetalheNetNew(mesKey);
 };
@@ -5910,7 +6014,10 @@ function _kpiV3ChartLinha(serie, cor, formato, opts) {
   const fmtRotulo = v => {
     if (formato === 'pct') return v.toFixed(1) + '%';
     if (formato === 'int') return Math.round(v).toLocaleString('pt-BR');
-    return 'R$ ' + Math.abs(v).toLocaleString('pt-BR', { maximumFractionDigits: 0 });
+    // Preserva sinal para valores negativos (Net New, variações)
+    const abs = Math.abs(v);
+    const sinal = v < 0 ? '−' : '';
+    return sinal + 'R$ ' + abs.toLocaleString('pt-BR', { maximumFractionDigits: 0 });
   };
   const fmtEixo = v => {
     if (formato === 'pct') return v.toFixed(0) + '%';
@@ -5975,7 +6082,7 @@ function _kpiV3ChartLinha(serie, cor, formato, opts) {
     return `<circle ${handler}cx="${x}" cy="${y}" r="${hitR}" fill="transparent" style="cursor:${cursor}"/>
             <circle ${handler}cx="${x}" cy="${y}" r="5" fill="${selecionado?corLinha:'white'}" stroke="${corLinha}" stroke-width="3" style="cursor:${cursor};pointer-events:none"/>
             <text x="${x}" y="${h - 24}" text-anchor="middle" fill="${selecionado?corLinha:'#64748b'}" font-size="10.5" font-family="Poppins" font-weight="${selecionado?'800':'700'}">${p.label}</text>
-            <text x="${x}" y="${h - 8}" text-anchor="middle" fill="#334155" font-size="10.5" font-family="Poppins" font-weight="600">${fmtRotulo(p.valor)}</text>`;
+            <text x="${x}" y="${h - 8}" text-anchor="middle" fill="${p.valor < 0 ? '#dc2626' : '#334155'}" font-size="10.5" font-family="Poppins" font-weight="${p.valor < 0 ? '700' : '600'}">${fmtRotulo(p.valor)}</text>`;
   }).join('');
 
   return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block">
@@ -6077,6 +6184,19 @@ function _kpiV3IndDefs(id, K, inputs, D) {
       subvalor: K.netNew.atual >= 0 ? `Entraram ${dec.entraram} · Saíram ${dec.sairam}` : `Saíram ${dec.sairam} · Entraram ${dec.entraram}`,
       semaforo: K.netNew.sem, confiab: 'ALTA', metaTag: 'Sempre positivo',
       metaTexto: 'A referência esperada é <strong>sempre positivo</strong>, idealmente ≥ 5% do MRR base. Verde quando > 0, amarelo se zerado, vermelho quando negativo. Dois meses seguidos negativos é sinal claro de que o comercial não está compensando o churn.',
+      conceito: `<div style="font-size:13.5px;color:#334155;line-height:1.75">
+        <p style="margin:0 0 10px"><strong>É a resposta para:</strong> <em>"a receita recorrente cresceu ou encolheu este mês, e por quê?"</em></p>
+        <p style="margin:0 0 10px">Pense numa caixa d'água. O <strong>MRR</strong> é quanto tem na caixa. O <strong>Net New</strong> é o que entrou menos o que vazou no mês — e ele separa por quatro torneiras:</p>
+        <table style="width:100%;border-collapse:collapse;margin:12px 0;font-size:13px">
+          <tr><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;color:#166534;font-weight:800;width:30%">🟢 Novos</td><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;color:#166534;width:8%">(+)</td><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0">torneira nova aberta</td></tr>
+          <tr><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;color:#1e40af;font-weight:800">🔵 Expansão</td><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;color:#1e40af">(+)</td><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0">torneira existente abriu mais</td></tr>
+          <tr><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;color:#92400e;font-weight:800">🟡 Contração</td><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;color:#92400e">(−)</td><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0">torneira existente fechou um pouco</td></tr>
+          <tr><td style="padding:6px 10px;color:#991b1b;font-weight:800">🔴 Churn</td><td style="padding:6px 10px;color:#991b1b">(−)</td><td style="padding:6px 10px">torneira fechada de vez</td></tr>
+        </table>
+        <p style="margin:12px 0 0;padding:10px 14px;background:#f0fdf4;border-left:4px solid #059669;border-radius:0 6px 6px 0"><strong>Net New = Novos + Expansão − Contração − Churn</strong></p>
+        <p style="margin:12px 0 0;padding:10px 14px;background:#f0f9ff;border-left:4px solid #0284c7;border-radius:0 6px 6px 0;font-size:12.5px"><strong>Contexto Growper:</strong> a mensalidade é definida pela faixa do cliente, que vem do quanto ele investe em mídia. Então mudança de faixa (Expansão/Contração) é reflexo direto do orçamento de mídia do cliente. Churn geralmente vem antes por perda de investimento — não por queda de qualidade.</p>
+        <p style="margin:12px 0 0;padding:10px 14px;background:#fef3c7;border-left:4px solid #f59e0b;border-radius:0 6px 6px 0;font-size:12.5px"><strong>Exemplo de julho:</strong> Net New de <strong>+R$ 24.400</strong> — parece um mês bom. Mas 16 clientes foram embora (a maior perda do ano) e R$ 48.900 de expansão cobriram o buraco. É exatamente isso que o número único esconde.</p>
+      </div>`,
       serie, serieTitulo: `Net New por mês — ${mesesAno[0].split('-')[0]}`, serieFmt: 'money',
       serieClickHandler: '_kpiV3ClickMesNetNew', mesSelecionadoInicial: K.mesRef.key,
       netNewDecomp: true, netNewCor: '#0284c7',
@@ -6088,9 +6208,9 @@ function _kpiV3IndDefs(id, K, inputs, D) {
         { titulo: 'Quando agir', texto: 'Se contração + churn passam de 50% dos novos + expansão, o crescimento é aparente e a base está queimando. Priorize retenção antes de gastar mais em aquisição. Se novos crescem mas churn cresce mais, é sinal de que o funil comercial está aceitando clientes que não deveriam entrar.' }
       ],
       armadilhas: [
-        'Cliente presente nos dois meses mas com valor menor entra em contração, não em churn',
-        'Uma mensalidade não lançada no OMIE aparece na coluna churn até a conciliação',
-        'Um mês novato (sem "mês anterior" na base) não gera Net New'
+        'Novos e Churn contam a mensalidade INTEIRA do cliente. Expansão e Contração contam apenas o quanto o valor mudou',
+        'Uma mensalidade não lançada no OMIE aparece na coluna Churn até a conciliação',
+        'Janeiro/2026 não gera Net New porque dezembro/2025 tinha regras de preço diferentes — comparar seria enganoso'
       ]
     };
   }
@@ -6770,6 +6890,12 @@ function _kpiV3Calcular(D, inputs) {
   //   EXPANSÃO: nos dois meses, valor maior → + a diferença
   //   CONTRAÇÃO: nos dois meses, valor menor → − a diferença
   const mrrClientePreview = _kpiV3MRRPorCliente(receitaMensalidades);
+  // Tempo de casa: quantos meses distintos cada cliente pagou mensalidade
+  const mesesCliCount = {};
+  Object.entries(mrrClientePreview).forEach(([cli, porMes]) => {
+    mesesCliCount[cli] = Object.keys(porMes).filter(m => (porMes[m] || 0) > 0).length;
+  });
+
   function _decompNetNew(mesN, mesN_1) {
     const detalhe = { novos: [], expansao: [], contracao: [], churn: [] };
     const clientesN = new Set();
@@ -6779,17 +6905,21 @@ function _kpiV3Calcular(D, inputs) {
       const vN1 = porMes[mesN_1] || 0;
       if (vN > 0) clientesN.add(cli);
       if (vN1 > 0) clientesN_1.add(cli);
-      if (vN > 0 && vN1 === 0) detalhe.novos.push({ cliente: cli, valorAtual: vN, valor: vN });
-      else if (vN === 0 && vN1 > 0) detalhe.churn.push({ cliente: cli, valorAnterior: vN1, valor: -vN1 });
+      const faixaAntes = _kpiV3FaixaDeValor(vN1);
+      const faixaDepois = _kpiV3FaixaDeValor(vN);
+      // Tempo de casa até mesN (inclusive)
+      const mesesAte = Object.keys(porMes).filter(m => m <= mesN && (porMes[m] || 0) > 0).length;
+      if (vN > 0 && vN1 === 0) detalhe.novos.push({ cliente: cli, valorAtual: vN, valor: vN, faixaDepois });
+      else if (vN === 0 && vN1 > 0) detalhe.churn.push({ cliente: cli, valorAnterior: vN1, valor: -vN1, faixaAntes, tempoCasa: mesesAte });
       else if (vN > 0 && vN1 > 0) {
-        if (vN > vN1) detalhe.expansao.push({ cliente: cli, valorAtual: vN, valorAnterior: vN1, valor: vN - vN1 });
-        else if (vN < vN1) detalhe.contracao.push({ cliente: cli, valorAtual: vN, valorAnterior: vN1, valor: vN - vN1 });
+        if (vN > vN1) detalhe.expansao.push({ cliente: cli, valorAtual: vN, valorAnterior: vN1, valor: vN - vN1, faixaAntes, faixaDepois });
+        else if (vN < vN1) detalhe.contracao.push({ cliente: cli, valorAtual: vN, valorAnterior: vN1, valor: vN - vN1, faixaAntes, faixaDepois });
       }
     });
     const somaNovos = detalhe.novos.reduce((s, x) => s + x.valor, 0);
     const somaExp = detalhe.expansao.reduce((s, x) => s + x.valor, 0);
-    const somaContr = detalhe.contracao.reduce((s, x) => s + x.valor, 0); // já negativo
-    const somaChurn = detalhe.churn.reduce((s, x) => s + x.valor, 0);     // já negativo
+    const somaContr = detalhe.contracao.reduce((s, x) => s + x.valor, 0);
+    const somaChurn = detalhe.churn.reduce((s, x) => s + x.valor, 0);
     return {
       novos: somaNovos, expansao: somaExp, contracao: somaContr, churn: somaChurn,
       netNew: somaNovos + somaExp + somaContr + somaChurn,
@@ -6804,8 +6934,13 @@ function _kpiV3Calcular(D, inputs) {
   };
 
   // Série de Net New decomposto por mês (para gráfico de barras empilhadas)
+  // ⚠️ Não gera Net New para janeiro/2026: a base de dez/2025 tem 31 clientes a mais
+  // que jan/2026 (146 vs 115). Isso faria janeiro parecer −R$ 64.391 sem que seja
+  // churn real — é apenas efeito de transição de ano (dezembro pode ter incluído
+  // clientes sem renovação para 2026).
   const netNewPorMes = {};
   Object.keys(mrrPorMes).forEach(mes => {
+    if (mes === '2026-01') return; // não compara com dez/2025
     const ant = _kpiV3MesAnterior(mes);
     if (mrrPorMes[ant] !== undefined || Object.keys(mrrClientePreview).some(c => (mrrClientePreview[c][ant] || 0) > 0)) {
       netNewPorMes[mes] = _decompNetNew(mes, ant);
