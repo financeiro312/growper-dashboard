@@ -5929,17 +5929,37 @@ function _kpiV3RenderDetalheCAC(mesKey) {
   const K = window._kpiV3State.K;
   if (!K || !K.cacPorMes || !K.cacPorMes[mesKey]) return `<div style="padding:20px;text-align:center;color:#94a3b8">Sem dados de ${_kpiV3FormatarMes(mesKey)}.</div>`;
   const d = K.cacPorMes[mesKey];
-  const nn = K.netNewPorMes && K.netNewPorMes[mesKey];
-  const novos = nn ? nn._detalhe.novos.slice().sort((a,b) => b.valor - a.valor) : [];
-  return `<div style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:10px;padding:14px 16px;margin-bottom:14px">
-      <div style="font-size:14px;color:#0f172a"><strong>${_kpiV3FormatarMes(mesKey)}</strong>: CAC = ${_kpiV3FmtRs(d.gasto)} ÷ ${d.novos} novos = <strong>${_kpiV3FmtRs(d.valor)}</strong></div>
+  const revenue = d.roi * d.investimento;
+  return `<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px 18px;margin-bottom:14px">
+      <div style="font-size:14px;color:#0f172a">
+        <strong>${_kpiV3FormatarMes(mesKey)} · Solaris</strong> — CAC = ${_kpiV3FmtRs(d.investimento)} ÷ ${d.vendas.toLocaleString('pt-BR')} vendas = <strong>${_kpiV3FmtRs(d.valor)}</strong>
+      </div>
     </div>
-    <div style="font-size:11.5px;color:#334155;font-weight:800;margin-bottom:6px">Clientes novos (${novos.length})</div>
-    ${_kpiV3TabelaLarga(novos, [
-      { label: 'Cliente', render: r => r.cliente, largura: '55%' },
-      { label: 'Faixa',   render: r => r.faixaDepois || '—', largura: '20%' },
-      { label: 'Mensalidade', align: 'right', bold: true, render: r => _kpiV3FmtRs(r.valor), largura: '25%' }
-    ])}`;
+    <div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:12px;margin-bottom:16px">
+      <div style="background:white;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px">
+        <div style="font-size:10.5px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:0.4px">Investimento em mídia</div>
+        <div style="font-size:20px;font-weight:800;color:#0f172a;margin-top:4px">${_kpiV3FmtRs(d.investimento)}</div>
+        <div style="font-size:11px;color:#94a3b8;margin-top:2px">Meta + TikTok gerenciado</div>
+      </div>
+      <div style="background:white;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px">
+        <div style="font-size:10.5px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:0.4px">Vendas (ex-repique)</div>
+        <div style="font-size:20px;font-weight:800;color:#0f172a;margin-top:4px">${d.vendas.toLocaleString('pt-BR')}</div>
+        <div style="font-size:11px;color:#94a3b8;margin-top:2px">+ ${d.vendasRepique.toLocaleString('pt-BR')} de repique (não conta)</div>
+      </div>
+      <div style="background:white;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px">
+        <div style="font-size:10.5px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:0.4px">Ticket médio das vendas</div>
+        <div style="font-size:20px;font-weight:800;color:#0f172a;margin-top:4px">${d.ticketMedio > 0 ? _kpiV3FmtRs(d.ticketMedio) : '—'}</div>
+        <div style="font-size:11px;color:#94a3b8;margin-top:2px">Apenas com receita registrada</div>
+      </div>
+      <div style="background:white;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px">
+        <div style="font-size:10.5px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:0.4px">ROI do mês</div>
+        <div style="font-size:20px;font-weight:800;color:${d.roi >= 1 ? '#059669' : (d.roi >= 0.3 ? '#d97706' : '#dc2626')};margin-top:4px">${(d.roi * 100).toFixed(0)}%</div>
+        <div style="font-size:11px;color:#94a3b8;margin-top:2px">Revenue ÷ investimento</div>
+      </div>
+    </div>
+    <div style="font-size:12px;color:#64748b;line-height:1.6;padding:12px 16px;background:#f8fafc;border-radius:8px">
+      <strong>Como ler:</strong> o CAC do mês subiu ou caiu por combinação de dois fatores — o CPL (custo do lead) e a taxa de conversão de lead em venda no funil do cliente. Aumento de investimento sem crescimento proporcional de vendas empurra o CAC pra cima. O salto de vendas em agosto (7.248 vs 4-5k dos meses anteriores) foi o que jogou o CAC pra R$ 517 mesmo com investimento estável.
+    </div>`;
 }
 window._kpiV3ClickMesCAC = function(mesKey) {
   const box = document.getElementById('_kpiV3DetalheBox');
@@ -6979,70 +6999,82 @@ function _kpiV3IndDefs(id, K, inputs, D) {
     };
   }
 
-  // === CAC — usa novos do Net New + gasto comercial (categoria + departamento) ============
+  // === CAC — fonte exclusiva: SOLARIS (CAC operacional da carteira) ============
   if (id === 'cac') {
     const cPM = K.cacPorMes || {};
     const serie = mesesAno.map(m => {
       const d = cPM[m];
-      return { label: mesesLabels(m), mesKey: m, valor: d ? d.valor : 0, temDado: !!d, novos: d ? d.novos : 0, gasto: d ? d.gasto : 0 };
+      return {
+        label: mesesLabels(m), mesKey: m,
+        valor: d ? d.valor : 0, temDado: !!d,
+        rotuloExtra: d ? Math.round(d.vendas).toLocaleString('pt-BR') + ' vendas' : null
+      };
     });
+    const atualUpd = K.cac.atual != null && Object.keys(cPM).length > 0
+      ? cPM[Object.keys(cPM).sort().pop()] : null;
     return {
-      icone: '🎯', grupo: 'Rentabilidade', grupoId: 'b4', titulo: 'CAC — Custo de Aquisição',
-      descricao: 'Quanto custa adquirir um cliente novo. Considera gasto comercial (categoria 2.02 + pessoal do departamento comercial/CS/Performance), dividido pelo número de clientes novos do mês.',
+      icone: '🎯', grupo: 'Rentabilidade', grupoId: 'b4', titulo: 'CAC — Custo de Aquisição (Operacional)',
+      descricao: 'Quanto de mídia gerenciada foi investido para gerar uma venda para os clientes da carteira. Fonte de autoridade: <strong>Solaris</strong>. Repique excluído do denominador (regra da casa).',
       valor: K.cac.atual != null ? _kpiV3FmtRs(K.cac.atual) : '—',
-      subvalor: `${K.cac.novos} clientes novos · gasto ${_kpiV3FmtRs(K.cac.gasto)}`,
-      semaforo: K.cac.sem, confiab: 'MÉDIA', metaTag: 'CAC < 3× ticket',
-      metaTexto: 'Referência: <strong>CAC abaixo de 3× o ticket médio</strong> (payback em 3 meses). Verde < 3×, amarelo 3-6×, vermelho > 6×. Ideal é que se recupere em até 6 meses.',
-      serie, serieTitulo: `CAC mensal — ${mesesAno[0].split('-')[0]}`, serieFmt: 'money',
+      subvalor: K.cac.atual != null ? `${K.cac.vendas.toLocaleString('pt-BR')} vendas · investimento ${_kpiV3FmtRs(K.cac.investimento)}` : 'Aguardando sincronização Solaris',
+      semaforo: K.cac.sem, confiab: 'ALTA · SOLARIS', metaTag: 'CAC operacional',
+      metaTexto: '<div style="padding:10px 14px;background:#eff6ff;border-left:4px solid #2563eb;border-radius:0 6px 6px 0;margin-bottom:10px;font-size:12.5px"><strong>Fonte:</strong> Solaris (Growper), via tabela cache <code>kpis_midia_mensal</code> no Supabase. O dashboard não conversa com o Solaris direto — os valores são materializados por uma rotina Claude→Supabase e recarregados aqui a cada sync.</div><strong>Definição:</strong> CAC operacional = investimento em mídia gerenciada ÷ vendas geradas para os clientes (ex-repique). É o KPI da operação — quanto custa em mídia paga gerar uma venda no funil dos clientes da Growper.<br><br><strong>Numerador:</strong> soma do gasto em Meta e TikTok gerenciado pela Growper.<br><strong>Denominador:</strong> vendas ex-repique (regra da casa exclui vendas de repique do denominador).<br><br><strong>Não confundir com:</strong> este NÃO é o CAC comercial da Growper como empresa (custo comercial ÷ novos contratos assinados). Aquele exigiria classificação do custo comercial por departamento no OMIE, ainda pendente.',
+      serie, serieTitulo: `CAC operacional — ${mesesAno[0].split('-')[0]}`, serieFmt: 'money',
       serieClickHandler: '_kpiV3ClickMesCAC', mesSelecionadoInicial: K.mesRef.key,
-      cacDetalhe: true, cacCor: '#7c3aed',
+      cacDetalhe: true, cacCor: '#2563eb',
       leitura: [
         { titulo: 'Como interpretar', texto: K.cac.atual != null
-          ? `O CAC deste mês é <strong>${_kpiV3FmtRs(K.cac.atual)}</strong>, contra ticket médio de ${_kpiV3FmtRs(K.ticket.atual)}. Isso significa payback em ${K.ticket.atual > 0 ? (K.cac.atual / K.ticket.atual).toFixed(1) : '—'} meses. ${K.cac.novos} clientes novos foram adquiridos com ${_kpiV3FmtRs(K.cac.gasto)} de gasto comercial.`
-          : 'Aguardando gasto comercial ou clientes novos do mês.' },
-        { titulo: 'O que compõe o gasto', texto: 'Marketing próprio (categoria 2.02) + pessoal dos departamentos comerciais identificados por <code>departamento_nome</code>: <strong>D001 Performance</strong>, <strong>D002 CS</strong>, e qualquer outro que contenha "Comercial". <strong>Excluídos</strong>: D010 Tributárias, D011 Não Operacionais, D012 Sócios, D014 Scalia. E NUNCA inclui 2.01.95 (repasse de mídia de cliente) — esse é custo do cliente, não da Growper.' },
-        { titulo: 'Quando agir', texto: 'CAC acima de 6× ticket é insustentável — revisar canais de aquisição e taxa de conversão. Comparar canais entre si (indicação vs mídia paga vs eventos) para direcionar orçamento onde o retorno é maior.' }
+          ? `O CAC operacional do mês foi <strong>${_kpiV3FmtRs(K.cac.atual)}</strong>: ${_kpiV3FmtRs(K.cac.investimento)} de mídia gerenciada para gerar ${K.cac.vendas.toLocaleString('pt-BR')} vendas para os clientes.${K.cac.ticket > 0 ? ` Ticket médio das vendas: ${_kpiV3FmtRs(K.cac.ticket)}. ROI (revenue ÷ investimento): ${(K.cac.roi * 100).toFixed(0)}%.` : ''}`
+          : 'Aguardando dados do Solaris para este mês.' },
+        { titulo: 'O que move este CAC', texto: 'Sobe quando o CPL sobe (mídia mais cara), quando a taxa de conversão de lead em venda cai, ou quando os clientes reduzem investimento sem que as vendas caiam na mesma velocidade. Cai no cenário oposto — e o salto de agosto (R$ 517) veio da subida forte de vendas (7.248) enquanto o investimento ficou estável.' },
+        { titulo: 'Repique excluído', texto: 'Regra da casa: vendas de repique (recompra) não entram no denominador. Elas são acompanhadas em separado. Somar repique ao denominador reduziria artificialmente o CAC.' },
+        { titulo: 'Frequência de atualização', texto: 'A tabela cache no Supabase precisa ser reabastecida pela rotina Claude→Solaris. Quando isso for automatizado, o campo "Última atualização" no rodapé do card mostra a data real da última carga.' }
       ],
       armadilhas: [
-        'Sem departamento comercial nomeado corretamente no OMIE, o CAC fica subestimado',
-        'Cliente novo tem que ter pelo menos 1 mês de histórico para ser confirmado — pode oscilar no fechamento',
-        'Ligações de 0800 e eventos pontuais podem inflar mês específico'
+        'Não confundir com CAC comercial da Growper (esse ainda não é calculável)',
+        'CAC baixo isolado não é vitória — se veio de queda de investimento (não de melhora de conversão), o volume total de vendas cai junto',
+        'Setembro tem dados parciais (mês em curso) — comparar só quando fechar'
       ]
     };
   }
 
-  // === LTV / CAC ============
+  // === LTV (isolado, sem razão CAC) ============
+  // O CAC do dashboard vem do Solaris e mede o CAC OPERACIONAL da carteira
+  // (mídia paga ÷ vendas dos clientes). O LTV mede o valor vitalício de um
+  // cliente da Growper (mensalidade ÷ churn × margem bruta). Como as duas
+  // grandezas se referem a coisas diferentes (uma é do funil do cliente,
+  // outra é do contrato Growper), a razão LTV/CAC não é calculável.
   if (id === 'ltvCac') {
-    // Série do LTV mensal (com base em ticket, churn e margem bruta do mês)
     const serie = mesesAno.map(m => {
       const cl = (K.churnLogoPorMes && K.churnLogoPorMes[m]) ? K.churnLogoPorMes[m].pct / 100 : null;
       const clientes = (K.clientesMes[m] && K.clientesMes[m].size) || 0;
       const mrrMes = K.mrrPorMes[m] || 0;
       const ticketMes = clientes > 0 ? mrrMes / clientes : 0;
-      const cd = (K.custoDiretoPorMes && K.custoDiretoPorMes[m]) ? K.custoDiretoPorMes[m].pct / 100 : null;
+      const cd = (K.custoDiretoPorMes && K.custoDiretoPorMes[m]) ? K.custoDiretoPorMes[m].pctTotal / 100 : null;
       const margemBruta = cd !== null ? Math.max(0.1, 1 - cd) : null;
       const ltv = (ticketMes > 0 && cl > 0 && margemBruta) ? ticketMes * (1 / cl) * margemBruta : null;
       return { label: mesesLabels(m), mesKey: m, valor: ltv != null ? ltv : 0, temDado: ltv != null, ticket: ticketMes, churn: cl, margemBruta };
     });
     return {
-      icone: '💰', grupo: 'Rentabilidade', grupoId: 'b4', titulo: 'LTV / CAC',
-      descricao: 'Razão entre valor vitalício do cliente (LTV) e custo de aquisição (CAC). Indicador central de eficiência comercial e economia unitária.',
-      valor: K.ltvCac.atual != null ? K.ltvCac.atual.toFixed(1) + 'x' : '—',
-      subvalor: `LTV ${K.ltvCac.ltv != null ? _kpiV3FmtRs(K.ltvCac.ltv) : '—'} · CAC ${K.ltvCac.cac != null ? _kpiV3FmtRs(K.ltvCac.cac) : '—'}`,
-      semaforo: K.ltvCac.sem, confiab: 'PROVISÓRIA (ATÉ DEZ/2026)', metaTag: 'Meta > 3x',
-      metaTexto: 'Referência: <strong>≥ 3x</strong>. Verde ≥ 3x, amarelo 1-3x, vermelho < 1x. Provisória até dezembro/2026 quando o histórico permitirá calcular LTV com janela completa.',
+      icone: '💰', grupo: 'Rentabilidade', grupoId: 'b4', titulo: 'LTV — Valor Vitalício do Cliente',
+      descricao: 'Quanto um cliente da Growper vale ao longo de sua vida na base. Fórmula: <strong>mensalidade média ÷ churn mensal × margem bruta</strong>.',
+      valor: K.ltvCac.ltv != null ? _kpiV3FmtRs(K.ltvCac.ltv) : '—',
+      subvalor: K.ltvCac.ltv != null ? `Ticket ${_kpiV3FmtRs(K.ltvCac.ticket)} · churn ${(K.ltvCac.churnMensal*100).toFixed(1)}% · margem ${(K.ltvCac.margemBruta*100).toFixed(0)}%` : '—',
+      semaforo: K.ltvCac.ltv != null ? (K.ltvCac.ltv >= 20000 ? 'green' : (K.ltvCac.ltv >= 10000 ? 'yellow' : 'red')) : 'gray',
+      confiab: 'PROVISÓRIA (ATÉ DEZ/2026)', metaTag: 'LTV isolado',
+      metaTexto: '<div style="padding:12px 16px;background:#fef3c7;border-left:4px solid #d97706;border-radius:0 6px 6px 0;margin-bottom:10px;font-size:12.5px;color:#7c2d12;line-height:1.6">⚠️ <strong>Razão LTV/CAC não é calculável neste dashboard.</strong> O CAC exibido vem do Solaris e mede o CAC OPERACIONAL da carteira (mídia ÷ vendas dos clientes). O LTV mede o valor de um contrato Growper. Grandezas diferentes — não se dividem. Este card exibe apenas o LTV isolado, que é confiável por si só.</div>Referência: LTV acima de <strong>R$ 20.000</strong> é robusto para uma agência do porte da Growper. Verde ≥ 20k, amarelo 10-20k, vermelho < 10k. Provisória até dezembro/2026 (quando o histórico permitirá calcular churn com janela completa).',
       serie, serieTitulo: `LTV mensal — ${mesesAno[0].split('-')[0]}`, serieFmt: 'money',
       serieClickHandler: '_kpiV3ClickMesLTV', mesSelecionadoInicial: K.mesRef.key,
       ltvDetalhe: true, ltvCor: '#059669',
       leitura: [
-        { titulo: 'LTV está calculável hoje', texto: K.ltvCac.ltv != null ? `LTV = ticket médio ÷ churn mensal × margem bruta = ${_kpiV3FmtRs(K.ltvCac.ticket)} ÷ ${(K.ltvCac.churnMensal*100).toFixed(1)}% × ${(K.ltvCac.margemBruta*100).toFixed(0)}% = <strong>${_kpiV3FmtRs(K.ltvCac.ltv)}</strong>. Este número é útil por si só, mesmo sem o CAC.` : 'Aguardando dois meses fechados de churn.' },
-        { titulo: 'CAC ainda em construção', texto: 'O CAC precisa de refinamento (isolamento do departamento comercial no OMIE). Enquanto isso, o LTV pode guiar decisões: se sobe, retenção melhora ou ticket sobe; se cai, uma das duas está piorando.' },
-        { titulo: 'Como usar', texto: 'A razão informa se estamos gastando pouco ou demais em aquisição. Abaixo de 1x é queima de caixa. Entre 1-3x, aquisição está cara demais para o retorno. Acima de 3x é o mínimo saudável.' }
+        { titulo: 'Como interpretar', texto: K.ltvCac.ltv != null ? `LTV = ${_kpiV3FmtRs(K.ltvCac.ticket)} ÷ ${(K.ltvCac.churnMensal*100).toFixed(1)}% × ${(K.ltvCac.margemBruta*100).toFixed(0)}% = <strong>${_kpiV3FmtRs(K.ltvCac.ltv)}</strong>. Isso significa que, mantidas as condições atuais de ticket, churn e margem, cada cliente entrega esse valor total à Growper ao longo de sua vida na base.` : 'Aguardando dois meses fechados de churn para calcular.' },
+        { titulo: 'Por que só LTV', texto: 'Antes o card mostrava LTV/CAC como razão. Agora o CAC vem do Solaris e mede outra coisa (o CAC operacional dos clientes). Dividir o LTV da Growper pelo CAC de mídia dos clientes daria um número sem interpretação. Se um dia o CAC comercial da Growper (custo comercial ÷ novos contratos) for calculável, a razão volta.' },
+        { titulo: 'Como usar', texto: 'LTV é um teto de investimento em aquisição: se você tem R$ 25k de LTV, gastar até 1/3 disso pra adquirir um cliente é considerado saudável no setor. É um número para orientar decisão, não uma meta operacional mensal.' }
       ],
       armadilhas: [
-        'Provisória: sem 12 meses de histórico, o LTV pode estar sub ou sobre-dimensionado',
-        'Churn médio de 4% mensal implica LTV finito (25 meses) — mudanças de churn têm efeito grande no número',
-        'Margem bruta é aproximada por (1 − custo direto sobre MRR) — cálculo detalhado exigiria contabilidade específica'
+        'Fórmula assume churn constante — se o churn subir, o LTV real cai proporcionalmente',
+        'Margem bruta é aproximada por (1 − custo direto sobre MRR); cálculo detalhado exigiria contabilidade específica',
+        'Provisória: sem 12 meses de histórico, ambos churn e margem podem mudar significativamente'
       ]
     };
   }
@@ -7276,6 +7308,36 @@ async function _kpiV3CarregarDados() {
     } catch(e) {}
   }
   window._kpiV3DebugTitulos = titulos.length;
+
+  // ============ KPIs DE MÍDIA (Solaris) — CAC, CPL, ROI, ticket etc. ============
+  // Fonte de autoridade é o Solaris (Growper). Como o dashboard não fala com o
+  // Solaris direto (não há endpoint público), os valores são materializados na
+  // tabela `kpis_midia_mensal` do Supabase por uma rotina Claude→Supabase.
+  let midiaMensal = {};
+  try {
+    let supa = (window._authState && window._authState.supabase) || (window._syncV4 && window._syncV4.cliente) || null;
+    if (!supa && window.supabase && window.supabase.createClient) {
+      supa = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+    }
+    if (supa) {
+      const r = await supa.from('kpis_midia_mensal')
+        .select('mes,fonte,cac,investimento,vendas,vendas_repique,ticket_medio,cpl,taxa_preenchimento,roi,atualizado_em')
+        .order('mes', { ascending: true })
+        .limit(120);
+      if (!r.error && r.data) r.data.forEach(row => { midiaMensal[row.mes] = row; });
+    }
+  } catch(e) {}
+  if (Object.keys(midiaMensal).length === 0) {
+    try {
+      const url = SUPA_URL + "/rest/v1/kpis_midia_mensal?select=*&order=mes&limit=120";
+      const resp = await fetch(url, { headers: { apikey: SUPA_KEY, Authorization: 'Bearer ' + SUPA_KEY } });
+      if (resp.ok) {
+        const raw = await resp.json();
+        raw.forEach(row => { midiaMensal[row.mes] = row; });
+      }
+    } catch(e) {}
+  }
+  window._kpiV3DebugMidia = Object.keys(midiaMensal).length;
 
   window._kpiV3Dados = { receita, receita_comp, despesa, despesa_comp, titulos, _at: Date.now() };
 }
@@ -7773,51 +7835,36 @@ function _kpiV3Calcular(D, inputs) {
     takeRate.subvalor = 'MRR: ' + _kpiV3FmtRs(mrrAtual) + ' · Mídia: ' + _kpiV3FmtRs(inputs.verbaMidiaGerenciada);
   }
 
-  // CAC — usa contagem correta via decomposição do Net New (novos = clientes 1ª vez no mês)
-  const novosMes = netNewDecomp.entraram;
-  // Isolamento do custo comercial:
-  //   - Categoria 2.02 (Comercial e Marketing) — sempre inclui
-  //   - Departamentos comerciais via campo `departamento` (D001 Performance, D002 CS, D007+ Comercial)
-  //   - Nunca inclui 2.01.95 (repasse de mídia)
-  const gastoComercial = despesa_comp.filter(d => {
-    if (d.mes !== mesRefKey) return false;
-    const c = (d.categoria_texto || '').toLowerCase();
-    const dep = (d.departamento || '').toLowerCase();
-    if (c.includes('gasto tráfego pago clientes') || c.includes('trafego pago clientes')) return false;
-    // Categoria 2.02 (marketing/comercial)
-    if (c.includes('marketing') || c.includes('comercial') || c.includes('propaganda') || c.includes('publicidade') || c.includes('vendas')) return true;
-    // Departamento comercial (D001 Performance, D002 CS, D007+ Comercial, ...)
-    // Excluir: D010 Tributárias, D011 Não Operacionais, D012 Sócios, D014 Scalia
-    if (!dep) return false;
-    if (dep.includes('tributári') || dep.includes('não operacional') || dep.includes('sócios') || dep.includes('scalia')) return false;
-    if (dep.includes('performance') || dep.includes('comercial') || dep.includes('customer success') || dep.includes(' cs ') || dep.endsWith(' cs')) return true;
-    return false;
-  }).reduce((s, d) => s + Number(d.valor_pago || 0), 0);
-  const cacAtual = novosMes > 0 ? gastoComercial / novosMes : null;
+  // ============ CAC — fonte de autoridade: SOLARIS ============
+  // O CAC vem exclusivamente do Solaris (tabela kpis_midia_mensal, materializada
+  // por rotina Claude→Supabase). É o CAC OPERACIONAL da carteira dos clientes da
+  // Growper: investimento em mídia gerenciada ÷ vendas geradas para os clientes,
+  // excluindo repique (regra da casa). NÃO é o CAC comercial da Growper como
+  // empresa (esse exigiria custo comercial da Growper ÷ novos clientes contratados,
+  // e o OMIE não classifica esse custo por departamento).
+  const mCurAtual = midiaMensal[mesRefKey] || null;
+  const cacAtual = mCurAtual ? Number(mCurAtual.cac || 0) : null;
+  const investAtual = mCurAtual ? Number(mCurAtual.investimento || 0) : 0;
+  const vendasAtual = mCurAtual ? Number(mCurAtual.vendas || 0) : 0;
   const cac = {
-    atual: cacAtual, novos: novosMes, gasto: gastoComercial,
-    sem: cacAtual === null ? 'gray' : (cacAtual < 3 * ticketAtual ? 'green' : (cacAtual < 6 * ticketAtual ? 'yellow' : 'red'))
+    atual: cacAtual, investimento: investAtual, vendas: vendasAtual,
+    ticket: mCurAtual ? Number(mCurAtual.ticket_medio || 0) : 0,
+    roi: mCurAtual ? Number(mCurAtual.roi || 0) : 0,
+    fonte: 'solaris',
+    // Semáforo por payback: aqui o "ticket" é ticket médio de VENDA do cliente
+    // (não mensalidade), então usar teto absoluto de referência da operação:
+    sem: cacAtual === null ? 'gray' : (cacAtual < 700 ? 'green' : (cacAtual < 900 ? 'yellow' : 'red'))
   };
-  // Série mensal do CAC — mesma lógica do gasto comercial, para cada mês
-  function _gastoComercialMes(mes) {
-    return despesa_comp.filter(d => {
-      if (d.mes !== mes) return false;
-      const c = (d.categoria_texto || '').toLowerCase();
-      const dep = (d.departamento || '').toLowerCase();
-      if (c.includes('gasto tráfego pago clientes') || c.includes('trafego pago clientes')) return false;
-      if (c.includes('marketing') || c.includes('comercial') || c.includes('propaganda') || c.includes('publicidade') || c.includes('vendas')) return true;
-      if (!dep) return false;
-      if (dep.includes('tributári') || dep.includes('não operacional') || dep.includes('sócios') || dep.includes('scalia')) return false;
-      if (dep.includes('performance') || dep.includes('comercial') || dep.includes('customer success') || dep.includes(' cs ') || dep.endsWith(' cs')) return true;
-      return false;
-    }).reduce((s, d) => s + Number(d.valor_pago || 0), 0);
-  }
   const cacPorMes = {};
-  Object.keys(mrrPorMes).forEach(mes => {
-    if (!netNewPorMes[mes]) return;
-    const novos = netNewPorMes[mes].entraram || 0;
-    const gasto = _gastoComercialMes(mes);
-    if (novos > 0) cacPorMes[mes] = { valor: gasto / novos, novos, gasto };
+  Object.entries(midiaMensal).forEach(([mes, row]) => {
+    cacPorMes[mes] = {
+      valor: Number(row.cac || 0),
+      investimento: Number(row.investimento || 0),
+      vendas: Number(row.vendas || 0),
+      vendasRepique: Number(row.vendas_repique || 0),
+      ticketMedio: Number(row.ticket_medio || 0),
+      roi: Number(row.roi || 0)
+    };
   });
 
   // LTV: ticket ÷ churn de logos mensal · margem bruta (aprox. 1 − custo direto)
@@ -7836,14 +7883,17 @@ function _kpiV3Calcular(D, inputs) {
   }
   const custoDiretoMesRef = despesa_comp.filter(d => d.mes === mesRefKey && _isRemuneracaoOperacionalPJ(d.categoria_texto)).reduce((s, d) => s + Number(d.valor_pago || 0), 0);
   const custoEntregaMesRef = despesa_comp.filter(d => d.mes === mesRefKey && _isRemuneracaoOperacionalPJ(d.categoria_texto) && _isDeptoEntrega(d.departamento)).reduce((s, d) => s + Number(d.valor_pago || 0), 0);
+  // ============ LTV (isolado, sem razão com CAC) ============
+  // O card LTV/CAC virou "LTV" só — o CAC agora vem do Solaris e mede o CAC
+  // operacional da carteira, então a razão LTV/CAC não é calculável (grandezas
+  // diferentes). Mantido `ltvCac` no state pra compatibilidade dos handlers.
   const custoDiretoPctAprox = mrrAtual > 0 ? custoDiretoMesRef / mrrAtual : null;
   const margemBrutaAprox = custoDiretoPctAprox !== null ? (1 - custoDiretoPctAprox) : 0.65;
   const ltvAprox = (ticketAtual > 0 && churnMensal > 0) ? ticketAtual * (1 / churnMensal) * margemBrutaAprox : null;
-  const ltvCacAtual = (ltvAprox && cacAtual > 0) ? ltvAprox / cacAtual : null;
   const ltvCac = {
-    atual: ltvCacAtual, ltv: ltvAprox, cac: cacAtual, ticket: ticketAtual,
+    atual: null, ltv: ltvAprox, cac: null, ticket: ticketAtual,
     churnMensal, margemBruta: margemBrutaAprox,
-    sem: ltvCacAtual === null ? 'gray' : (ltvCacAtual >= 3 ? 'green' : (ltvCacAtual >= 1 ? 'yellow' : 'red'))
+    sem: ltvAprox === null ? 'gray' : (ltvAprox >= 20000 ? 'green' : (ltvAprox >= 10000 ? 'yellow' : 'red'))
   };
 
   // Custo Direto sobre Receita — duas séries por competência
