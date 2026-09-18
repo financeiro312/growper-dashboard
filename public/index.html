@@ -7339,7 +7339,7 @@ async function _kpiV3CarregarDados() {
   }
   window._kpiV3DebugMidia = Object.keys(midiaMensal).length;
 
-  window._kpiV3Dados = { receita, receita_comp, despesa, despesa_comp, titulos, _at: Date.now() };
+  window._kpiV3Dados = { receita, receita_comp, despesa, despesa_comp, titulos, midiaMensal, _at: Date.now() };
 }
 
 function _kpiV3Calcular(D, inputs) {
@@ -7842,7 +7842,7 @@ function _kpiV3Calcular(D, inputs) {
   // excluindo repique (regra da casa). NÃO é o CAC comercial da Growper como
   // empresa (esse exigiria custo comercial da Growper ÷ novos clientes contratados,
   // e o OMIE não classifica esse custo por departamento).
-  const mCurAtual = midiaMensal[mesRefKey] || null;
+  const mCurAtual = (D.midiaMensal || {})[mesRefKey] || null;
   const cacAtual = mCurAtual ? Number(mCurAtual.cac || 0) : null;
   const investAtual = mCurAtual ? Number(mCurAtual.investimento || 0) : 0;
   const vendasAtual = mCurAtual ? Number(mCurAtual.vendas || 0) : 0;
@@ -7856,7 +7856,7 @@ function _kpiV3Calcular(D, inputs) {
     sem: cacAtual === null ? 'gray' : (cacAtual < 700 ? 'green' : (cacAtual < 900 ? 'yellow' : 'red'))
   };
   const cacPorMes = {};
-  Object.entries(midiaMensal).forEach(([mes, row]) => {
+  Object.entries(D.midiaMensal || {}).forEach(([mes, row]) => {
     cacPorMes[mes] = {
       valor: Number(row.cac || 0),
       investimento: Number(row.investimento || 0),
