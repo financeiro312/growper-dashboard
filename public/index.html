@@ -6462,17 +6462,19 @@ function _kpiV3IndDefs(id, K, inputs, D) {
 
   // === Inadimplência — sem janela de 90d, com carência ============
   if (id === 'inadimp') {
+    const hojeStr = new Date().toLocaleDateString('pt-BR');
     return {
       icone: '💸', grupo: 'Risco e Caixa', grupoId: 'b3', titulo: 'Inadimplência',
-      descricao: 'Percentual e valor de títulos vencidos e ainda não pagos. Fonte: títulos abertos com vencimento anterior a hoje, com 5 dias de carência para não confundir com conciliação em andamento.',
+      descricao: 'Percentual e valor de títulos vencidos e ainda não pagos. Foto do saldo em aberto hoje. Fonte: títulos abertos (status "Não", cancelado = false) com vencimento anterior a hoje, com 5 dias de carência para não confundir com conciliação em andamento.',
       valor: K.inadimp.atual != null ? K.inadimp.atual.toFixed(1) + '%' : '—',
       subvalor: `${_kpiV3FmtRs(K.inadimp.valorAberto)} vencido · ${_kpiV3FmtRs(K.inadimp.valorConciliacao)} em conciliação`,
+      mesRefLabel: 'HOJE · ' + hojeStr,
       semaforo: K.inadimp.sem, confiab: 'ALTA', metaTag: 'Meta < 3% do MRR',
-      metaTexto: 'A referência esperada é <strong>abaixo de 3% do MRR</strong>. Verde ≤ 3%, amarelo entre 3-5%, vermelho acima de 5%. A carência de 5 dias evita que a conciliação em andamento seja lida como inadimplência real.',
+      metaTexto: 'A referência esperada é <strong>abaixo de 3% do MRR</strong>. Verde ≤ 3%, amarelo entre 3-5%, vermelho acima de 5%. A carência de 5 dias evita que a conciliação em andamento seja lida como inadimplência real. Títulos da competência corrente ficam sempre em "conciliação".',
       inadimpDetalhe: true, inadimpCor: '#dc2626',
       leitura: [
         { titulo: 'Como interpretar este número', texto: K.inadimp.atual != null
-          ? `Há hoje <strong>${_kpiV3FmtRs(K.inadimp.valorAberto)}</strong> em ${K.inadimp.qtdInadimplente} títulos vencidos além dos 5 dias de carência — <strong>${K.inadimp.atual.toFixed(1)}%</strong> do MRR do mês de referência. Além disso, ${_kpiV3FmtRs(K.inadimp.valorConciliacao)} em ${K.inadimp.qtdConciliacao} títulos venceram nos últimos 5 dias e estão em janela de conciliação.`
+          ? `Há hoje <strong>${_kpiV3FmtRs(K.inadimp.valorAberto)}</strong> em ${K.inadimp.qtdInadimplente} títulos vencidos além dos 5 dias de carência — <strong>${K.inadimp.atual.toFixed(1)}%</strong> do MRR do mês de referência. Além disso, ${_kpiV3FmtRs(K.inadimp.valorConciliacao)} em ${K.inadimp.qtdConciliacao} títulos estão em janela de conciliação (vencidos há ≤ 5 dias ou competência corrente ainda sem baixa).`
           : 'Sem títulos em aberto.' },
         { titulo: 'Sinal antecedente de churn', texto: 'Historicamente, cliente com título vencido geralmente cancela em 1-2 meses. Cruzar esta lista com o card <strong>Churn Antecedente</strong> para agir antes da perda.' },
         { titulo: 'Quando agir', texto: 'Todo título com mais de 30 dias vencido é candidato a cobrança formal. Acima de 90 dias, avaliar baixa contábil e classificar como perda. Os títulos aqui listados devem ser revisados semanalmente.' }
@@ -6491,11 +6493,13 @@ function _kpiV3IndDefs(id, K, inputs, D) {
     const totVencido = a._totalVencido || 0;
     const totAberto = a._totalAberto || 0;
     const pct90 = totAberto > 0 ? a.a90_mais / totAberto * 100 : 0;
+    const hojeStr = new Date().toLocaleDateString('pt-BR');
     return {
       icone: '📅', grupo: 'Risco e Caixa', grupoId: 'b3', titulo: 'Aging de Recebíveis',
       descricao: 'Distribuição dos títulos em aberto por tempo desde o vencimento. É uma FOTO do saldo hoje — independente de competência.',
       valor: _kpiV3FmtRs(totAberto),
       subvalor: `${_kpiV3FmtRs(totVencido)} vencido · 90+ = ${pct90.toFixed(1)}%`,
+      mesRefLabel: 'HOJE · ' + hojeStr,
       semaforo: pct90 > 10 ? 'red' : (pct90 > 5 ? 'yellow' : 'green'),
       confiab: 'ALTA', metaTag: '90+ dias < 10%',
       metaTexto: 'A referência esperada é <strong>menos de 10% do total em aberto na faixa 90+ dias</strong>. Verde < 10%, amarelo 10-30%, vermelho acima de 30%. Faixa 90+ concentra dívida com baixa probabilidade de recebimento — candidata a baixa contábil.',
@@ -6665,23 +6669,24 @@ function _kpiV3IndDefs(id, K, inputs, D) {
     });
     return {
       icone: '⚙️', grupo: 'Rentabilidade', grupoId: 'b4', titulo: 'Custo Direto sobre Receita',
-      descricao: 'Percentual da receita consumido diretamente pela operação — custos que escalam com o número de clientes atendidos.',
+      descricao: 'Percentual do MRR consumido pela Remuneração Operacional PJ — o custo de manter os prestadores que atendem a carteira. Escala com o número de clientes.',
       valor: K.custoDireto.atual != null ? K.custoDireto.atual.toFixed(1) + '%' : '—',
-      subvalor: `Gasto direto: ${_kpiV3FmtRs(K.custoDireto.valor)}`,
+      subvalor: `Remuneração PJ: ${_kpiV3FmtRs(K.custoDireto.valor)} ÷ MRR ${_kpiV3FmtRs(K.mrr.atual || 0)}`,
       semaforo: K.custoDireto.sem, confiab: 'ALTA', metaTag: 'Meta < 30%',
-      metaTexto: 'Referência: <strong>≤ 30%</strong>. Verde ≤ 30%, amarelo 30-40%, vermelho acima de 40%. Categorias somadas: 2.01 (Custo Direto) + 2.03.01 (Remuneração Operacional PJ). Excluído: 2.01.95 (repasse de mídia de cliente).',
-      serie, serieTitulo: `Custo Direto sobre Receita — ${mesesAno[0].split('-')[0]}`, serieFmt: 'pct',
+      metaTexto: 'Referência: <strong>≤ 30% do MRR</strong>. Verde ≤ 30%, amarelo 30-40%, vermelho acima de 40%. <br><br><strong>Numerador:</strong> apenas categoria <code>2.03.01 Remuneração Operacional PJ</code> — os prestadores que atendem clientes. <br><strong>Denominador:</strong> MRR (categoria 1.01.01), não receita total — o custo de entrega escala com a carteira de mensalidade, não com receitas pontuais. <br><br>Categoria 2.01 <strong>não entra</strong> porque contém <code>2.01.95 Gasto com Tráfego Pago Clientes</code>, que é repasse de mídia — não é custo da Growper.',
+      serie, serieTitulo: `Custo Direto sobre MRR — ${mesesAno[0].split('-')[0]}`, serieFmt: 'pct',
       leitura: [
         { titulo: 'Como interpretar', texto: K.custoDireto.atual != null
-          ? `O custo direto consome <strong>${K.custoDireto.atual.toFixed(1)}%</strong> da receita. Meta é ≤ 30%; ${K.custoDireto.atual > 40 ? '<span style="color:#dc2626;font-weight:800">acima do limite de 40%</span>' : (K.custoDireto.atual > 30 ? 'entre 30 e 40% — atenção' : 'dentro da meta')}.`
+          ? `A Remuneração Operacional PJ consumiu <strong>${K.custoDireto.atual.toFixed(1)}%</strong> do MRR do mês (${_kpiV3FmtRs(K.custoDireto.valor)} ÷ ${_kpiV3FmtRs(K.mrr.atual || 0)}). Meta é ≤ 30%; ${K.custoDireto.atual > 40 ? '<span style="color:#dc2626;font-weight:800">acima do limite de 40%</span>' : (K.custoDireto.atual > 30 ? 'entre 30 e 40% — atenção' : 'dentro da meta')}.`
           : 'Aguardando dados.' },
-        { titulo: 'Composição', texto: 'Categoria 2.01 (custos operacionais diretos: influenciadores, editores, produção, aluguel de equipamento operacional) somada com 2.03.01 (Remuneração Operacional PJ — os prestadores que atendem clientes). São as alavancas principais de custo variável.' },
-        { titulo: 'Quando agir', texto: 'Custo direto acima de 40% por 2 meses seguidos: revisar produtividade da operação (clientes atendidos por prestador) e negociação com fornecedores diretos.' }
+        { titulo: 'Por que só 2.03.01', texto: 'A categoria 2.01 (Custo Direto genérico) inclui itens que não são custo real da Growper — em particular <code>2.01.95 Gasto com Tráfego Pago Clientes</code>, que é dinheiro do cliente passando pela conta da agência para pagar mídia. Somar isso ao custo direto infla o indicador e induz decisão errada.' },
+        { titulo: 'Por que dividir pelo MRR', texto: 'Custo de entrega é proporcional à carteira de mensalidade — quanto mais cliente na base, mais prestador para atender. Dividir por receita total incluiria taxa de implementação, bonificações de plataforma e outras receitas pontuais que não geram carga operacional recorrente.' },
+        { titulo: 'Quando agir', texto: 'Acima de 40% por 2 meses seguidos: revisar produtividade da operação (clientes atendidos por prestador) e negociação com prestadores. Tendência crescente pode indicar contratações antecipadas — investimento com efeito futuro no indicador.' }
       ],
       armadilhas: [
-        'Não inclui repasse de mídia de cliente (2.01.95) — esse é dinheiro que passa pela empresa mas não é custo',
-        'Custo direto por cliente é o número mais útil operacionalmente — dividir por número de clientes ativos',
-        'Sazonalidade: contratações em massa (novos prestadores) inflam mês específico'
+        'Não inclui 2.01.95 (repasse de mídia) — esse é dinheiro que passa pela empresa mas não é custo',
+        'Não inclui outros itens de 2.01 (produção pontual, editores freelance) — se relevantes, exibir como componente adicional',
+        'Custo direto por cliente é o número mais útil operacionalmente — dividir pelo total de clientes ativos'
       ]
     };
   }
@@ -6834,10 +6839,13 @@ async function _kpiV3CarregarDados() {
       supa = window.supabase.createClient(URL, KEY);
     }
     if (supa) {
+      // Só títulos em aberto (status = 'Não'), limite alto para não perder linhas
       const r = await supa.from('titulos')
         .select('id_titulo,tipo,status,cancelado,data_registro,data_vencimento,valor_documento,valor_pago,cliente_nome')
         .eq('tipo', '1. Contas a Receber')
-        .eq('cancelado', false);
+        .eq('cancelado', false)
+        .eq('status', 'Não')
+        .limit(10000);
       if (!r.error) titulos = r.data || [];
     }
   } catch(e) { titulos = []; }
@@ -7090,14 +7098,15 @@ function _kpiV3Calcular(D, inputs) {
   const aging = { a0_30: 0, a31_60: 0, a61_90: 0, a90_mais: 0, aVencer: 0 };
   const agingDetalhe = { aVencer: [], a0_30: [], a31_60: [], a61_90: [], a90_mais: [] };
   D.titulos.forEach(t => {
-    if (t.status === 'Sim') return; // pago
+    // A query já filtrou status='Não' + cancelado=false, mas mantemos guards defensivos
+    if (t.status === 'Sim') return;
     if (t.cancelado) return;
     const venc = new Date(t.data_vencimento);
     if (isNaN(venc)) return;
     const val = Number(t.valor_documento || 0);
     if (val <= 0) return;
     const diasVencido = Math.floor((hoje0 - venc) / (1000 * 60 * 60 * 24));
-    const linha = { cliente: t.cliente_nome || '—', valor: val, vencimento: t.data_vencimento, dias: diasVencido };
+    const linha = { cliente: t.cliente_nome || '—', valor: val, vencimento: t.data_vencimento, dias: diasVencido, competencia: t.data_registro ? String(t.data_registro).slice(0, 7) : null };
     if (diasVencido < 0) { aging.aVencer += val; agingDetalhe.aVencer.push(linha); }
     else if (diasVencido <= 30) { aging.a0_30 += val; agingDetalhe.a0_30.push(linha); }
     else if (diasVencido <= 60) { aging.a31_60 += val; agingDetalhe.a31_60.push(linha); }
@@ -7254,15 +7263,15 @@ function _kpiV3Calcular(D, inputs) {
   // LTV: ticket ÷ churn de logos mensal · margem bruta (aprox. 1 − custo direto)
   //   → mesmo sem CAC, LTV é calculável e útil
   const churnMensal = churnLogoAtual !== null ? churnLogoAtual / 100 : null;
-  // Custo direto do MÊS DE REFERÊNCIA (não 3m — padronizar janelas)
-  function _isCustoDireto(cat) {
-    const c = String(cat || '');
-    if (c.includes('Gasto Tráfego Pago Clientes') || c.includes('Trafego Pago Clientes')) return false;
-    return c.includes('Remuneração Operacional') || c.includes('Editores') || c.includes('Custo Direto') || c.includes('Influenciad') || c.includes('Produção') || /^2\.01/.test(c);
+  // Custo direto = Remuneração Operacional PJ (2.03.01) — categoria estrita,
+  // NÃO inclui 2.01 (que tem 2.01.95 repasse de mídia) nem outros custos operacionais.
+  // Denominador = MRR (categoria 1.01.01), não receita total.
+  function _isRemuneracaoOperacionalPJ(cat) {
+    return /2\.03\.01/.test(String(cat || ''));
   }
-  const custoDiretoMesRef = despesa_comp.filter(d => d.mes === mesRefKey && _isCustoDireto(d.categoria_texto)).reduce((s, d) => s + Number(d.valor_pago || 0), 0);
-  const custoDiretoPctAprox = receitaMesRef > 0 ? custoDiretoMesRef / receitaMesRef : null;
-  const margemBrutaAprox = custoDiretoPctAprox !== null ? (1 - custoDiretoPctAprox) : 0.59;
+  const custoDiretoMesRef = despesa_comp.filter(d => d.mes === mesRefKey && _isRemuneracaoOperacionalPJ(d.categoria_texto)).reduce((s, d) => s + Number(d.valor_pago || 0), 0);
+  const custoDiretoPctAprox = mrrAtual > 0 ? custoDiretoMesRef / mrrAtual : null;
+  const margemBrutaAprox = custoDiretoPctAprox !== null ? (1 - custoDiretoPctAprox) : 0.65;
   const ltvAprox = (ticketAtual > 0 && churnMensal > 0) ? ticketAtual * (1 / churnMensal) * margemBrutaAprox : null;
   const ltvCacAtual = (ltvAprox && cacAtual > 0) ? ltvAprox / cacAtual : null;
   const ltvCac = {
@@ -7271,13 +7280,13 @@ function _kpiV3Calcular(D, inputs) {
     sem: ltvCacAtual === null ? 'gray' : (ltvCacAtual >= 3 ? 'green' : (ltvCacAtual >= 1 ? 'yellow' : 'red'))
   };
 
-  // Custo Direto sobre Receita — 1 mês, por competência (padronizado com Margem)
-  const custoDiretoPct = receitaMesRef > 0 ? (custoDiretoMesRef / receitaMesRef * 100) : null;
+  // Custo Direto sobre Receita — Remuneração Operacional PJ ÷ MRR
+  const custoDiretoPct = mrrAtual > 0 ? (custoDiretoMesRef / mrrAtual * 100) : null;
   const custoDiretoPorMes = {};
   Object.keys(mrrPorMes).forEach(mes => {
-    const r = _somaReceitaMes(mes);
-    const cd = despesa_comp.filter(d => d.mes === mes && _isCustoDireto(d.categoria_texto)).reduce((s, d) => s + Number(d.valor_pago || 0), 0);
-    if (r > 0) custoDiretoPorMes[mes] = { valor: cd, pct: cd / r * 100 };
+    const mrrMes = mrrPorMes[mes] || 0;
+    const cd = despesa_comp.filter(d => d.mes === mes && _isRemuneracaoOperacionalPJ(d.categoria_texto)).reduce((s, d) => s + Number(d.valor_pago || 0), 0);
+    if (mrrMes > 0) custoDiretoPorMes[mes] = { valor: cd, pct: cd / mrrMes * 100 };
   });
   const custoDireto = {
     atual: custoDiretoPct, valor: custoDiretoMesRef,
