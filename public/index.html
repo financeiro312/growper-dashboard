@@ -7165,15 +7165,17 @@ async function _kpiV3CarregarDados() {
       supa = window.supabase.createClient(SUPA_URL, SUPA_KEY);
     }
     if (supa) {
-      // Filtra: contas a receber + só mensalidades + títulos abertos
+      // Filtra: contas a receber + só mensalidades + títulos abertos (status='Não').
+      // A tabela `titulos` não tem coluna data_pagto — status='Não' + cancelado=false
+      // já delimita os títulos em aberto corretamente. NÃO usar valor_pago=0 como
+      // critério: esse campo fica zerado mesmo em títulos já pagos.
       const r = await supa.from('titulos')
-        .select('id_titulo,tipo,status,cancelado,categoria_nome,data_registro,data_vencimento,valor_documento,valor_pago,cliente_nome')
+        .select('id_titulo,tipo,status,cancelado,categoria_nome,data_registro,data_vencimento,valor_documento,cliente_nome')
         .eq('tipo', '1. Contas a Receber')
         .eq('cancelado', false)
         .eq('status', 'Não')
         .like('categoria_nome', '1.01.01%')
         .not('data_registro', 'is', null)
-        .is('data_pagto', null)
         .limit(10000);
       if (!r.error) titulos = r.data || [];
     }
@@ -7181,13 +7183,12 @@ async function _kpiV3CarregarDados() {
   // Fallback via fetch direto se o cliente Supabase JS não estiver disponível
   if (titulos.length === 0) {
     try {
-      const url = SUPA_URL + "/rest/v1/titulos?select=id_titulo,tipo,status,cancelado,categoria_nome,data_registro,data_vencimento,valor_documento,valor_pago,cliente_nome"
+      const url = SUPA_URL + "/rest/v1/titulos?select=id_titulo,tipo,status,cancelado,categoria_nome,data_registro,data_vencimento,valor_documento,cliente_nome"
         + "&tipo=eq.1.%20Contas%20a%20Receber"
         + "&cancelado=eq.false"
         + "&status=eq.N%C3%A3o"
         + "&categoria_nome=like.1.01.01*"
         + "&data_registro=not.is.null"
-        + "&data_pagto=is.null"
         + "&limit=10000";
       const resp = await fetch(url, { headers: { apikey: SUPA_KEY, Authorization: 'Bearer ' + SUPA_KEY } });
       if (resp.ok) titulos = await resp.json();
