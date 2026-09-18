@@ -5266,7 +5266,7 @@ function _kpiV3RenderIndicador(container, id, K, inputs, D) {
       <div id="${def.serieClickHandler ? '_kpiV3ChartMRR' : '_kpiV3Chart_' + id}">${
         def.serieMultipla
           ? _kpiV3ChartMultiLinha(def.serieMultipla, def.serieFmt || 'money', def.serieClickHandler ? { onClick: def.serieClickHandler, mesSelecionado: def.mesSelecionadoInicial, meta: def.serieMeta } : { meta: def.serieMeta })
-          : _kpiV3ChartLinha(def.serie, cor, def.serieFmt || 'money', def.serieClickHandler ? { onClick: def.serieClickHandler, mesSelecionado: def.mesSelecionadoInicial } : {})
+          : _kpiV3ChartLinha(def.serie, cor, def.serieFmt || 'money', Object.assign({ meta: def.serieMeta }, def.serieClickHandler ? { onClick: def.serieClickHandler, mesSelecionado: def.mesSelecionadoInicial } : {}))
       }</div>
     </div>` : ''}
     
@@ -6046,7 +6046,7 @@ function _kpiV3ChartMultiLinha(series, formato, opts) {
   return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block">${legenda}${yGrid}${meta}${linhas}${secundarios}${marcadores}</svg>`;
 }
 
-// Detalhamento do Custo Direto ao clicar no mês (por time e por pessoa)
+// Detalhamento do Custo Direto ao clicar no mês (tabela unificada com expansão)
 function _kpiV3RenderDetalheCustoDir(mesKey) {
   const K = window._kpiV3State.K;
   if (!K || !K.custoDiretoPorMes || !K.custoDiretoPorMes[mesKey]) return `<div style="padding:20px;text-align:center;color:#94a3b8">Sem dados de ${_kpiV3FormatarMes(mesKey)}.</div>`;
@@ -6054,34 +6054,68 @@ function _kpiV3RenderDetalheCustoDir(mesKey) {
   const mrr = K.mrrPorMes[mesKey] || 0;
   const porDep = K.custoDiretoPorDeptoMes[mesKey] || {};
   const porPes = K.custoDiretoPorPessoaMes[mesKey] || {};
-  const linhasDep = Object.entries(porDep).map(([depto, val]) => ({ depto, val, pctPJ: cd.valorTotal > 0 ? val / cd.valorTotal * 100 : 0, pctMRR: mrr > 0 ? val / mrr * 100 : 0 })).sort((a,b) => b.val - a.val);
-  const linhasPes = Object.entries(porPes).map(([chave, val]) => {
+  // Agrupar pessoas por departamento
+  const pessoasPorDep = {};
+  Object.entries(porPes).forEach(([chave, val]) => {
     const [pessoa, depto] = chave.split('||');
-    return { pessoa, depto, val, pctMRR: mrr > 0 ? val / mrr * 100 : 0 };
-  }).sort((a,b) => b.val - a.val);
+    if (!pessoasPorDep[depto]) pessoasPorDep[depto] = [];
+    pessoasPorDep[depto].push({ pessoa, val });
+  });
+  Object.values(pessoasPorDep).forEach(arr => arr.sort((a,b) => b.val - a.val));
+  const linhasDep = Object.entries(porDep).map(([depto, val]) => ({
+    depto, val,
+    pctPJ: cd.valorTotal > 0 ? val / cd.valorTotal * 100 : 0,
+    pctMRR: mrr > 0 ? val / mrr * 100 : 0,
+    pessoas: pessoasPorDep[depto] || []
+  })).sort((a,b) => b.val - a.val);
 
   return `<div style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:#0f172a">
-      <strong>${_kpiV3FormatarMes(mesKey)}</strong>: Remuneração Operacional PJ = <strong>${_kpiV3FmtRs(cd.valorTotal)}</strong> (${cd.pctTotal.toFixed(1)}% do MRR ${_kpiV3FmtRs(mrr)}) · Entrega D001+D002+D003 = <strong>${_kpiV3FmtRs(cd.valor)}</strong> (${cd.pct.toFixed(1)}%)
+      <strong>${_kpiV3FormatarMes(mesKey)}</strong>: Remuneração Operacional PJ = <strong>${_kpiV3FmtRs(cd.valorTotal)}</strong> · <strong>${cd.pctTotal.toFixed(1)}%</strong> do MRR (${_kpiV3FmtRs(mrr)})
     </div>
 
-    <div style="font-size:11.5px;color:#334155;font-weight:800;margin-bottom:6px">Por time (${linhasDep.length})</div>
-    ${_kpiV3TabelaLarga(linhasDep, [
-      { label: 'Departamento', render: r => r.depto, largura: '45%' },
-      { label: 'Valor',    align: 'right', bold: true, render: r => _kpiV3FmtRs(r.val), largura: '20%' },
-      { label: '% do PJ',  align: 'right', render: r => r.pctPJ.toFixed(1) + '%', largura: '17%' },
-      { label: '% do MRR', align: 'right', bold: true, render: r => r.pctMRR.toFixed(1) + '%', largura: '18%' }
-    ])}
-
-    <div style="font-size:11.5px;color:#334155;font-weight:800;margin:14px 0 6px;display:flex;justify-content:space-between;align-items:center">
-      <span>Por pessoa (${linhasPes.length})</span>
-      <input type="text" placeholder="Buscar colaborador..." oninput="_kpiV3FiltrarLinhasCustoDir(this.value)" style="font-family:Poppins;font-size:12px;padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;width:240px">
+    <div style="font-size:11.5px;color:#334155;font-weight:800;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">
+      <span>Composição por departamento (${linhasDep.length} times · ${Object.keys(porPes).length} pessoas)</span>
+      <input type="text" placeholder="Buscar colaborador ou time..." oninput="_kpiV3FiltrarCustoDir(this.value)" style="font-family:Poppins;font-size:12px;padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;width:260px">
     </div>
-    <div id="_kpiV3TabelaPessoas">${_kpiV3TabelaLarga(linhasPes, [
-      { label: 'Colaborador', render: r => r.pessoa, largura: '38%' },
-      { label: 'Departamento', render: r => r.depto, largura: '32%' },
-      { label: 'Valor', align: 'right', bold: true, render: r => _kpiV3FmtRs(r.val), largura: '15%' },
-      { label: '% do MRR', align: 'right', render: r => r.pctMRR.toFixed(2) + '%', largura: '15%' }
-    ])}</div>`;
+
+    <div id="_kpiV3TabelaCustoDir" style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">
+      <table style="width:100%;border-collapse:collapse;font-size:12.5px;table-layout:fixed">
+        <thead style="background:#fafafa">
+          <tr>
+            <th style="padding:10px 14px;text-align:left;font-weight:800;color:#334155;font-size:11px;text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid #e2e8f0;width:50%">Departamento</th>
+            <th style="padding:10px 14px;text-align:right;font-weight:800;color:#334155;font-size:11px;text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid #e2e8f0;width:20%">Valor</th>
+            <th style="padding:10px 14px;text-align:right;font-weight:800;color:#334155;font-size:11px;text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid #e2e8f0;width:15%">% do PJ</th>
+            <th style="padding:10px 14px;text-align:right;font-weight:800;color:#334155;font-size:11px;text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid #e2e8f0;width:15%">% do MRR</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${linhasDep.map((d, idx) => `
+            <tr class="_kpiV3DepRow" data-idx="${idx}" data-depto="${d.depto.toLowerCase()}" style="border-bottom:1px solid #f1f5f9;cursor:pointer" onclick="_kpiV3ToggleDep(${idx})">
+              <td style="padding:10px 14px;color:#0f172a;font-weight:700">
+                <span id="_kpiV3DepArrow${idx}" style="display:inline-block;width:14px;color:#64748b;font-family:monospace">▸</span>
+                ${d.depto}
+                <span style="color:#94a3b8;font-weight:500;font-size:11.5px;margin-left:6px">(${d.pessoas.length} pessoa${d.pessoas.length === 1 ? '' : 's'})</span>
+              </td>
+              <td style="padding:10px 14px;text-align:right;font-weight:800;color:#059669">${_kpiV3FmtRs(d.val)}</td>
+              <td style="padding:10px 14px;text-align:right;color:#334155">${d.pctPJ.toFixed(1)}%</td>
+              <td style="padding:10px 14px;text-align:right;color:#334155;font-weight:700">${d.pctMRR.toFixed(1)}%</td>
+            </tr>
+            <tr class="_kpiV3DepPessoas" id="_kpiV3DepPessoas${idx}" style="display:none;background:#fafafa">
+              <td colspan="4" style="padding:0">
+                <table style="width:100%;border-collapse:collapse;font-size:12px">
+                  ${d.pessoas.map(p => `<tr class="_kpiV3PesRow" data-pessoa="${p.pessoa.toLowerCase()}" data-dep-idx="${idx}">
+                    <td style="padding:6px 14px 6px 42px;color:#475569;width:50%">${p.pessoa}</td>
+                    <td style="padding:6px 14px;text-align:right;color:#059669;font-weight:600;width:20%">${_kpiV3FmtRs(p.val)}</td>
+                    <td style="padding:6px 14px;text-align:right;color:#94a3b8;width:15%">${cd.valorTotal > 0 ? (p.val/cd.valorTotal*100).toFixed(1) : '0'}%</td>
+                    <td style="padding:6px 14px;text-align:right;color:#94a3b8;width:15%">${mrr > 0 ? (p.val/mrr*100).toFixed(2) : '0'}%</td>
+                  </tr>`).join('')}
+                </table>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>`;
 }
 
 window._kpiV3ClickMesCustoDir = function(mesKey) {
@@ -6090,14 +6124,49 @@ window._kpiV3ClickMesCustoDir = function(mesKey) {
   if (box) box.innerHTML = _kpiV3RenderDetalheCustoDir(mesKey);
 };
 
-// Filtro simples de busca por colaborador
-window._kpiV3FiltrarLinhasCustoDir = function(q) {
-  const tabela = document.getElementById('_kpiV3TabelaPessoas');
+// Expandir/recolher um departamento
+window._kpiV3ToggleDep = function(idx) {
+  const row = document.getElementById('_kpiV3DepPessoas' + idx);
+  const arrow = document.getElementById('_kpiV3DepArrow' + idx);
+  if (!row || !arrow) return;
+  const aberto = row.style.display !== 'none';
+  row.style.display = aberto ? 'none' : '';
+  arrow.textContent = aberto ? '▸' : '▾';
+};
+
+// Busca unificada — filtra por depto E por pessoa, expandindo o depto de matches em pessoas
+window._kpiV3FiltrarCustoDir = function(q) {
+  const tabela = document.getElementById('_kpiV3TabelaCustoDir');
   if (!tabela) return;
-  const lower = (q || '').toLowerCase();
-  Array.from(tabela.querySelectorAll('tbody tr')).forEach(tr => {
-    const txt = tr.textContent.toLowerCase();
-    tr.style.display = txt.includes(lower) ? '' : 'none';
+  const lower = (q || '').trim().toLowerCase();
+  const deptos = Array.from(tabela.querySelectorAll('._kpiV3DepRow'));
+  const pessoas = Array.from(tabela.querySelectorAll('._kpiV3PesRow'));
+  if (!lower) {
+    // Reset: mostra tudo, recolhe todo mundo
+    deptos.forEach(r => r.style.display = '');
+    tabela.querySelectorAll('._kpiV3DepPessoas').forEach(r => r.style.display = 'none');
+    tabela.querySelectorAll('[id^=_kpiV3DepArrow]').forEach(a => a.textContent = '▸');
+    pessoas.forEach(r => r.style.display = '');
+    return;
+  }
+  // Descobre em que deptos há match (por nome de depto ou por nome de pessoa)
+  const matchDep = new Set();
+  deptos.forEach(r => {
+    if (r.dataset.depto.includes(lower)) matchDep.add(r.dataset.idx);
+  });
+  pessoas.forEach(r => {
+    const hit = r.dataset.pessoa.includes(lower);
+    r.style.display = hit ? '' : 'none';
+    if (hit) matchDep.add(r.dataset.depIdx);
+  });
+  // Mostra só deptos com match; expande cada um deles
+  deptos.forEach(r => {
+    const on = matchDep.has(r.dataset.idx);
+    r.style.display = on ? '' : 'none';
+    const bloco = document.getElementById('_kpiV3DepPessoas' + r.dataset.idx);
+    const arrow = document.getElementById('_kpiV3DepArrow' + r.dataset.idx);
+    if (bloco) bloco.style.display = on ? '' : 'none';
+    if (arrow) arrow.textContent = on ? '▾' : '▸';
   });
 };
 
@@ -6346,16 +6415,27 @@ function _kpiV3ChartLinha(serie, cor, formato, opts) {
     const handler = clickable ? `onclick="${opts.onClick}('${p.mesKey}')" ` : '';
     const hitR = clickable ? 14 : 5;
     const selecionado = p.mesKey === opts.mesSelecionado;
+    // Rótulo extra acima da bolinha (ex.: MRR no Custo Direto)
+    const extra = p.rotuloExtra ? `<text x="${x}" y="${y - 14}" text-anchor="middle" fill="#cbd5e1" font-size="9.5" font-family="Poppins" font-weight="600">${p.rotuloExtra}</text>` : '';
     return `<circle ${handler}cx="${x}" cy="${y}" r="${hitR}" fill="transparent" style="cursor:${cursor}"/>
             <circle ${handler}cx="${x}" cy="${y}" r="5" fill="${selecionado?corLinha:'white'}" stroke="${corLinha}" stroke-width="3" style="cursor:${cursor};pointer-events:none"/>
+            ${extra}
             <text x="${x}" y="${h - 24}" text-anchor="middle" fill="${selecionado?corLinha:'#64748b'}" font-size="10.5" font-family="Poppins" font-weight="${selecionado?'800':'700'}">${p.label}</text>
             <text x="${x}" y="${h - 8}" text-anchor="middle" fill="${p.valor < 0 ? '#dc2626' : '#334155'}" font-size="10.5" font-family="Poppins" font-weight="${p.valor < 0 ? '700' : '600'}">${fmtRotulo(p.valor)}</text>`;
   }).join('');
+
+  // Linha de meta (tracejada vermelha)
+  const linhaMeta = opts.meta != null ? (() => {
+    const y = mT + inH - ((opts.meta - min) / range) * inH;
+    return `<line x1="${mL}" y1="${y}" x2="${w-mR}" y2="${y}" stroke="#dc2626" stroke-width="1.5" stroke-dasharray="6 4"/>
+            <text x="${w-mR-4}" y="${y-6}" text-anchor="end" fill="#dc2626" font-size="10" font-family="Poppins" font-weight="800">Meta ${fmtRotulo(opts.meta)}</text>`;
+  })() : '';
 
   return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block">
     ${yGrid}
     ${areas}
     ${linhas}
+    ${linhaMeta}
     ${marcadores}
   </svg>`;
 }
@@ -6970,40 +7050,39 @@ function _kpiV3IndDefs(id, K, inputs, D) {
   // === Custo Direto sobre Receita ============
   if (id === 'custoDir') {
     const cPM = K.custoDiretoPorMes || {};
-    const serieEntrega = mesesAno.map(m => {
+    // Série ÚNICA: PJ total (todos os departamentos). A separação entre entrega e
+    // estrutura fica na tabela de detalhamento por departamento.
+    const serie = mesesAno.map(m => {
       const d = cPM[m];
-      return { label: mesesLabels(m), mesKey: m, valor: d ? d.pct : 0, temDado: !!d };
+      const mrrMes = (K.mrrPorMes && K.mrrPorMes[m]) || 0;
+      return {
+        label: mesesLabels(m), mesKey: m,
+        valor: d ? d.pctTotal : 0, temDado: !!d,
+        rotuloExtra: mrrMes > 0 ? 'MRR ' + _kpiV3FmtRs(mrrMes) : null
+      };
     });
-    const serieTotal = mesesAno.map(m => {
-      const d = cPM[m];
-      return { label: mesesLabels(m), mesKey: m, valor: d ? d.pctTotal : 0, temDado: !!d };
-    });
-    const seriesMulti = [
-      { label: 'Entrega — D001+D002+D003', cor: '#059669', pontos: serieEntrega },
-      { label: 'Total PJ (todos os deptos)', cor: '#94a3b8', tracejada: true, pontos: serieTotal }
-    ];
     return {
       icone: '⚙️', grupo: 'Rentabilidade', grupoId: 'b4', titulo: 'Custo Direto sobre Receita',
-      descricao: 'Percentual do MRR consumido pela Remuneração Operacional PJ. Duas séries: <strong>Entrega</strong> (Performance + CS + Criação) e <strong>Total PJ</strong> (todos os departamentos).',
-      valor: K.custoDireto.atual != null ? K.custoDireto.atual.toFixed(1) + '%' : '—',
-      subvalor: `Entrega: ${_kpiV3FmtRs(K.custoDireto.valor)} · Total PJ: ${_kpiV3FmtRs(K.custoDireto.valorTotal)} (${K.custoDireto.pctTotal != null ? K.custoDireto.pctTotal.toFixed(1) + '%' : '—'})`,
-      semaforo: K.custoDireto.sem, confiab: 'ALTA · COMPETÊNCIA', metaTag: 'Entrega ≤ 30%',
-      metaTexto: '<div style="padding:10px 14px;background:#f0fdf4;border-left:4px solid #059669;border-radius:0 6px 6px 0;margin-bottom:10px;font-size:12.5px"><strong>Regime: competência</strong> (data de registro no OMIE), nos dois lados do cálculo. MRR = mensalidades de clientes · Custo = remuneração de prestadores PJ.</div>A meta de <strong>≤ 30%</strong> se aplica à linha <strong>Entrega</strong> (D001 Performance + D002 CS + D003 Criação) — o custo de manter a operação que atende clientes. A linha <strong>Total PJ</strong> mostra o peso da folha PJ inteira sobre o MRR, é acompanhamento e não tem meta rígida. <br><br><strong>Numerador:</strong> categoria <code>2.03.01</code>, agrupada pelo mês de <code>data_registro</code>, somando <code>valor_documento</code>. <br><strong>Denominador:</strong> categoria <code>1.01.01</code> (MRR), mesmo tratamento. <br><br><strong>Proibido:</strong> usar <code>data_pagto</code> ou <code>valor_pago</code> em qualquer lado. <strong>Nunca inclui</strong> categoria 2.01 nem 2.01.95 (repasse de mídia).',
-      serieMultipla: seriesMulti, serieTitulo: `Custo Direto sobre MRR — ${mesesAno[0].split('-')[0]}`, serieFmt: 'pct',
+      descricao: 'Percentual do MRR consumido pela Remuneração Operacional PJ — todos os departamentos. É o custo real da folha PJ sobre a receita recorrente.',
+      valor: K.custoDireto.pctTotal != null ? K.custoDireto.pctTotal.toFixed(1) + '%' : '—',
+      subvalor: `Remuneração PJ: ${_kpiV3FmtRs(K.custoDireto.valorTotal)} ÷ MRR ${_kpiV3FmtRs(K.mrr.atual || 0)}`,
+      semaforo: K.custoDireto.pctTotal != null ? (K.custoDireto.pctTotal <= 30 ? 'green' : (K.custoDireto.pctTotal <= 40 ? 'yellow' : 'red')) : 'gray',
+      confiab: 'ALTA · COMPETÊNCIA', metaTag: 'Meta ≤ 30%',
+      metaTexto: '<div style="padding:10px 14px;background:#f0fdf4;border-left:4px solid #059669;border-radius:0 6px 6px 0;margin-bottom:10px;font-size:12.5px"><strong>Regime: competência</strong> (data de registro no OMIE), nos dois lados do cálculo. MRR = mensalidades de clientes · Custo = remuneração de prestadores PJ.</div>Meta: <strong>≤ 30% do MRR</strong>. Verde ≤ 30%, amarelo 30-40%, vermelho > 40%.<br><br><strong>Numerador:</strong> categoria <code>2.03.01</code>, agrupada pelo mês de <code>data_registro</code>, somando <code>valor_documento</code>.<br><strong>Denominador:</strong> categoria <code>1.01.01</code> (MRR), mesmo tratamento.<br><br><strong>Proibido:</strong> usar <code>data_pagto</code> ou <code>valor_pago</code> em qualquer lado. <strong>Nunca inclui</strong> categoria 2.01 nem 2.01.95 (repasse de mídia).',
+      serie, serieTitulo: `Custo Direto sobre MRR — ${mesesAno[0].split('-')[0]}`, serieFmt: 'pct',
       serieClickHandler: '_kpiV3ClickMesCustoDir', mesSelecionadoInicial: K.mesRef.key, serieMeta: 30,
       custoDirDetalhe: true, custoDirCor: '#059669',
       leitura: [
-        { titulo: 'Como interpretar', texto: K.custoDireto.atual != null
-          ? `<strong>Entrega:</strong> ${K.custoDireto.atual.toFixed(1)}% (${_kpiV3FmtRs(K.custoDireto.valor)}). <strong>Total PJ:</strong> ${K.custoDireto.pctTotal.toFixed(1)}% (${_kpiV3FmtRs(K.custoDireto.valorTotal)}). Meta é aplicada apenas à Entrega — ${K.custoDireto.atual > 30 ? 'que está <span style="color:#dc2626;font-weight:800">acima do teto de 30%</span>' : 'que está dentro do teto de 30%'}.`
+        { titulo: 'Como interpretar', texto: K.custoDireto.pctTotal != null
+          ? `A folha PJ consumiu <strong>${K.custoDireto.pctTotal.toFixed(1)}%</strong> do MRR no mês (${_kpiV3FmtRs(K.custoDireto.valorTotal)} ÷ ${_kpiV3FmtRs(K.mrr.atual || 0)}). ${K.custoDireto.pctTotal > 40 ? '<span style="color:#dc2626;font-weight:800">Acima do teto de 40%.</span>' : (K.custoDireto.pctTotal > 30 ? 'Entre 30 e 40% — atenção.' : 'Dentro da meta de 30%.')}`
           : 'Aguardando dados.' },
-        { titulo: 'Por que separar Entrega de Total', texto: 'A ENTREGA (D001+D002+D003) é o que escala com a carteira — quanto mais cliente, mais gente dessas áreas. Ela deve ficar sob controle relativo. O TOTAL inclui Tecnologia, Financeiro, People etc., que são estruturais e crescem com escala do negócio, não com carteira.' },
-        { titulo: 'Composição — clique num mês', texto: 'No painel abaixo, ao clicar em um mês, aparece a quebra por time (departamento) e por pessoa (colaborador PJ), com valor e % do MRR. A soma sempre bate com o total do mês.' },
-        { titulo: 'Quando agir', texto: 'Entrega acima de 40% por 2 meses seguidos: revisar produtividade da operação (clientes atendidos por prestador) e negociação com prestadores. Total PJ crescendo mais rápido que MRR pode indicar contratações antecipadas.' }
+        { titulo: 'Entrega vs estrutura', texto: 'A separação entre times de entrega (D001 Performance + D002 CS + D003 Criação) e áreas de estrutura está no detalhamento abaixo — clique num mês para ver a quebra por departamento e por pessoa.' },
+        { titulo: 'Quando agir', texto: 'Acima de 40% por 2 meses seguidos: revisar produtividade da operação (clientes atendidos por prestador) e negociação com prestadores. Tendência crescente pode indicar contratações antecipadas.' }
       ],
       armadilhas: [
         'Não inclui 2.01.95 (repasse de mídia) — esse é dinheiro que passa pela empresa mas não é custo',
-        'Não inclui outros itens de 2.01 (produção pontual, editores freelance) — se relevantes, avaliar como componente adicional',
-        'Custo direto por cliente é o número mais útil operacionalmente — dividir pelo total de clientes ativos'
+        'Regime é competência — se algum mês aparecer muito acima da média (ex.: março perto de 59%), é sinal de que o regime foi trocado para caixa',
+        'Custo por cliente é o número mais útil operacionalmente — dividir pelo total de clientes ativos'
       ]
     };
   }
@@ -7827,11 +7906,17 @@ function _kpiV3UltimosMeses(mesRefKey, n) {
 }
 
 function _kpiV3MesesAno(mesRefKey) {
-  // Retorna todos os 12 meses do ano do mesRef — Jan a Dez.
-  // Meses sem lançamento aparecem no gráfico com sinal "sem registro" (× cinza).
-  const [y] = mesRefKey.split('-').map(Number);
+  // Retorna do início do ano até o mês CORRENTE (nunca reservar espaço
+  // para meses futuros — eles entram na série sozinhos conforme forem lançados).
+  const [y, m] = mesRefKey.split('-').map(Number);
+  const hoje = new Date();
+  const hojeAno = hoje.getFullYear();
+  const hojeMes = hoje.getMonth() + 1;
+  // Se estamos olhando ano corrente: corta no mês de hoje.
+  // Se estamos olhando ano anterior: mostra o ano inteiro.
+  const mesFim = (y === hojeAno) ? hojeMes : 12;
   const arr = [];
-  for (let i = 1; i <= 12; i++) arr.push(y + '-' + String(i).padStart(2, '0'));
+  for (let i = 1; i <= mesFim; i++) arr.push(y + '-' + String(i).padStart(2, '0'));
   return arr;
 }
 
